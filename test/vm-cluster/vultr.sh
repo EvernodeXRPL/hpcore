@@ -81,6 +81,11 @@ function getstartscripts() {
     apiget "startup-scripts"
 }
 
+# Generates vm name using the standard pattern. (parmas: groupname, nodenumber)
+function vmname() {
+    echo $1$(printf "%03d" $2) # Pad node number with 3 zeros.
+}
+
 # Creates a vm. (params: groupname, vmname, regionid)
 function createvm() {
     local _vminfo=$(apipost "instances" '{"tag":"'$1'", "label":"'$2'", "region":"'$3'", "os_id":'$osid', "plan":"'$planid'", "hostname":"'$2'", "script_id":"'$startscriptid'", "sshkey_id":'$sshkeyids', "backups":"disabled"}')
@@ -111,7 +116,8 @@ function getgroupvmids() {
     [ -z "$1" ] && >&2 echo "getgroupvmids: Group name not specified." && exit 1
     local _list=$(apigetquery "instances" "tag=$1")
     [ -z "$_list" ] && exit 1
-    local _ids=$(echo $_list | jq -r ".instances | .[] | .id")
+    # Get ids sorted by the vm label.
+    local _ids=$(echo $_list | jq -r ".instances | sort_by(.label) | .[] | .id")
     echo $_ids
 }
 
@@ -130,17 +136,53 @@ function deletevmgroup() {
     wait
     echo "Done."
 }
+
+# Creates a group of vms. (params: groupname, count, startnumber)
 function createvmgroup() {
     echo "Creating "$2" vms in group '"$1"'..."
-    local num=""
-    for (( i=1; i<=$2; i++ ))
+    local -i start=$3
+    [ $start == 0 ] && start=1
+    local -i end=$start+$2
+    for (( i=$start; i<$end; i++ ))
     do
-        num=$(printf "%03d" $i) # Pad left with 3 zeros.
-        createvm "$1" "$1$num" "atl" &
+        createvm "$1" $(vmname $1 $i) "atl" &
     done
     wait
     echo "Done."
 }
 
-# createvmgroup "testb" 3
+# Grows a vm group. (params: groupname, expandbycount)
+function expandvmgroup() {
+    # Get current no. of vms in the group.
+    local _ids=$(getgroupvmids "$1")
+    [ -z "$_ids" ] && exit 1
+    local _arr
+    readarray -d " " -t _arr <<<"$_ids" # break parts by space character.
+    local -i _oldcount=${#_arr[@]}
+    local -i _newcount=$_oldcount+$2
+    [ $_oldcount -ge $_newcount ] && exit 1
+    echo "Expanding '"$1"' group from "$_oldcount" to "$_newcount" nodes..."
+    let -i startnum=$_oldcount+1
+    createvmgroup $1 $2 $startnum
+}
+
+# Shrinks a vm group. (params: groupname, shrinkbycount)
+function shrinkvmgroup() {
+    # Get current set of vms in the group. (this returns ids sorted by vm label)
+    local _ids=$(getgroupvmids "$1")
+    [ -z "$_ids" ] && exit 1
+    local _arr
+    readarray -d " " -t _arr <<<"$_ids" # break parts by space character.
+    local -i _oldcount=${#_arr[@]}
+    local -i _newcount=$_oldcount-$2
+    echo "Shrinking '"$1"' group from "$_oldcount" to "$_newcount" nodes..."
+    for (( i=$_newcount; i<$_oldcount; i++ ))
+    do
+        deletevm ${_arr[$i]} &
+    done
+    wait
+    echo "Done."
+}
+
+shrinkvmgroup "testa" 2
 # deletevmgroup "testb"
