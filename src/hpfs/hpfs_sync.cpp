@@ -425,8 +425,10 @@ namespace hpfs
 
                         on_sync_target_acheived(target_vpath, target_hash);
                     }
-
-                    LOG_DEBUG << "Hpfs " << name << " sync: Current:" << updated_hash << " | target:" << target_hash << " " << target_vpath;
+                    else
+                    {
+                        LOG_DEBUG << "Hpfs " << name << " sync: Current:" << updated_hash << " | target:" << target_hash << " " << target_vpath;
+                    }
                 }
                 else
                 {
