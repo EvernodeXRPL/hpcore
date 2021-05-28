@@ -3,10 +3,10 @@
 mode=$1
 nodeid=$2
 sshuser=$3
-hostaddr=$5
-basedir=$6
-contdir=$7 # Contract directory
-hpfiles=$8 # HP files dir
+hostaddr=$4
+basedir=$5
+contdir=$6 # Contract directory
+hpfiles=$7 # HP files dir
 
 echo $nodeid. $hostaddr
 
