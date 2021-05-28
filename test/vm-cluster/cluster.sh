@@ -25,6 +25,9 @@
 # lcl - Displays the lcls of all nodes.
 # pubkey - Displays the pubkey on specified node or entire cluster.
 
+shopt -s expand_aliases
+alias sshskp='ssh -o StrictHostKeychecking=no'
+
 mode=$1
 hpcore=$(realpath ../..)
 
@@ -51,7 +54,7 @@ fi
 configfile=config.json
 if [ ! -f $configfile ]; then
     # Create default config file.
-    echo '{"selected":"contract","contracts":[{"name":"contract","sshuser":"root","sshpass":"","hosts":[],"config":{}}]}' | jq . > $configfile
+    echo '{"selected":"contract","contracts":[{"name":"contract","sshuser":"root","hosts":[],"config":{}}]}' | jq . > $configfile
 fi
 
 if [ $mode = "select" ]; then
@@ -86,7 +89,6 @@ fi
 
 # Read ssh user and password and set contract directory based on username.
 sshuser=$(echo $continfo | jq -r '.sshuser')
-sshpass=$(echo $continfo | jq -r '.sshpass')
 if [ "$sshuser" = "" ]; then
     echo "sshuser not specified."
     exit 1
@@ -98,7 +100,7 @@ fi
 contdir=$basedir/$selectedcont
 hpfiles="hpfiles/"$selectedcont
 
-# Call vultr rest api GET. (params: endpoint, vultrapikey)
+# Call Vultr rest api GET. (params: endpoint, apikey)
 function vultrget() {
     local _result=$(curl --silent "https://api.vultr.com/v2/$1" -X GET -H "Authorization: Bearer $2" -H "Content-Type: application/json" -w "\n%{http_code}")
     local _parts
@@ -160,12 +162,12 @@ if [ $mode = "start" ]; then
         for (( i=0; i<$hostcount; i++ ))
         do
             hostaddr=${hostaddrs[i]}
-            sshpass -p $sshpass ssh $sshuser@$hostaddr $command &
+            sshskp $sshuser@$hostaddr $command &
         done
         wait
     else
         hostaddr=${hostaddrs[$nodeid]}
-        sshpass -p $sshpass ssh $sshuser@$hostaddr $command
+        sshskp $sshuser@$hostaddr $command
     fi
     exit 0
 fi
@@ -176,12 +178,12 @@ if [ $mode = "stop" ]; then
         for (( i=0; i<$hostcount; i++ ))
         do
             hostaddr=${hostaddrs[i]}
-            sshpass -p $sshpass ssh $sshuser@$hostaddr $command &
+            sshskp $sshuser@$hostaddr $command &
         done
         wait
     else
         hostaddr=${hostaddrs[$nodeid]}
-        sshpass -p $sshpass ssh $sshuser@$hostaddr $command
+        sshskp $sshuser@$hostaddr $command
     fi
     exit 0
 fi
@@ -193,12 +195,12 @@ if [ $mode = "check" ]; then
         do
             hostaddr=${hostaddrs[i]}
             let n=$i+1
-            echo "node"$n":" $(sshpass -p $sshpass ssh $sshuser@$hostaddr $command) &
+            echo "node"$n":" $(sshskp $sshuser@$hostaddr $command) &
         done
         wait
     else
         hostaddr=${hostaddrs[$nodeid]}
-        sshpass -p $sshpass ssh $sshuser@$hostaddr $command
+        sshskp $sshuser@$hostaddr $command
     fi
     exit 0
 fi
@@ -209,7 +211,7 @@ if [ $mode = "log" ]; then
         exit 1
     fi
     hostaddr=${hostaddrs[$nodeid]}
-    sshpass -p $sshpass ssh -t $sshuser@$hostaddr screen -r -S hp_$(basename $contdir)
+    sshskp -t $sshuser@$hostaddr screen -r -S hp_$(basename $contdir)
     exit 0
 fi
 
@@ -220,12 +222,12 @@ if [ $mode = "kill" ]; then
         do
             hostaddr=${hostaddrs[i]}
             let n=$i+1
-            echo "node"$n":" $(sshpass -p $sshpass ssh $sshuser@$hostaddr $command) &
+            echo "node"$n":" $(sshskp $sshuser@$hostaddr $command) &
         done
         wait
     else
         hostaddr=${hostaddrs[$nodeid]}
-        sshpass -p $sshpass ssh $sshuser@$hostaddr $command
+        sshskp $sshuser@$hostaddr $command
     fi
     exit 0
 fi
@@ -236,7 +238,7 @@ if [ $mode = "reboot" ]; then
         exit 1
     fi
     hostaddr=${hostaddrs[$nodeid]}
-    sshpass -p $sshpass ssh $sshuser@$hostaddr 'sudo reboot'
+    sshskp $sshuser@$hostaddr 'sudo reboot'
     exit 0
 fi
 
@@ -250,7 +252,7 @@ if [ $mode = "ssh" ]; then
             do
                 hostaddr=${hostaddrs[i]}
                 let n=$i+1
-                echo "node"$n":" $(sshpass -p $sshpass ssh $sshuser@$hostaddr $command) &
+                echo "node"$n":" $(sshskp $sshuser@$hostaddr $command) &
             done
             wait
             exit 0
@@ -260,7 +262,7 @@ if [ $mode = "ssh" ]; then
         fi
     else
         hostaddr=${hostaddrs[$nodeid]}
-        sshpass -p $sshpass ssh -t $sshuser@$hostaddr "cd $contdir ; bash"
+        sshskp -t $sshuser@$hostaddr "cd $contdir ; bash"
         exit 0
     fi
 fi
@@ -274,7 +276,7 @@ if [ $mode = "ssl" ]; then
             do
                 hostaddr=${hostaddrs[i]}
                 let n=$i+1
-                echo "node"$n":" $(sshpass -p $sshpass ssh $sshuser@$hostaddr $command) &
+                echo "node"$n":" $(sshskp $sshuser@$hostaddr $command) &
             done
             wait
         else
@@ -286,7 +288,7 @@ if [ $mode = "ssl" ]; then
         if [ -n "$3" ]; then
             command="$contdir/ssl.sh $3"
             hostaddr=${hostaddrs[$nodeid]}
-            sshpass -p $sshpass ssh $sshuser@$hostaddr $command
+            sshskp $sshuser@$hostaddr $command
         else
             echo "Please specify ssl account notification email."
             exit 1
@@ -301,7 +303,7 @@ if [ $mode = "lcl" ]; then
     do
         hostaddr=${hostaddrs[i]}
         let n=$i+1
-        echo "node"$n":" $(sshpass -p $sshpass ssh $sshuser@$hostaddr $command) &
+        echo "node"$n":" $(sshskp $sshuser@$hostaddr $command) &
     done
     wait
     exit 0
@@ -314,12 +316,12 @@ if [ $mode = "pubkey" ]; then
         do
             hostaddr=${hostaddrs[i]}
             let n=$i+1
-            echo "node"$n":" $(sshpass -p $sshpass ssh $sshuser@$hostaddr $command) &
+            echo "node"$n":" $(sshskp $sshuser@$hostaddr $command) &
         done
         wait
     else
         hostaddr=${hostaddrs[$nodeid]}
-        sshpass -p $sshpass ssh $sshuser@$hostaddr $command
+        sshskp $sshuser@$hostaddr $command
     fi
     exit 0
 fi
@@ -355,14 +357,14 @@ if [ $nodeid = -1 ]; then
         hostaddr=${hostaddrs[i]}
         let n=$i+1
         # Setup node. (This will download hp.cfg in 'new', 'reconfig', 'updateconfig' modes)
-        /bin/bash ./setup-node.sh $mode $n $sshuser $sshpass $hostaddr $basedir $contdir $hpfiles &
+        /bin/bash ./setup-node.sh $mode $n $sshuser $hostaddr $basedir $contdir $hpfiles &
     done
     wait
 else
     hostaddr=${hostaddrs[$nodeid]}
     let n=$nodeid+1
     # Setup node. (This will download hp.cfg in 'new', 'reconfig', 'updateconfig' modes)
-    /bin/bash ./setup-node.sh $mode $n $sshuser $sshpass $hostaddr $basedir $contdir $hpfiles
+    /bin/bash ./setup-node.sh $mode $n $sshuser $hostaddr $basedir $contdir $hpfiles
 fi
 
 rm -r hpfiles > /dev/null 2>&1
@@ -474,12 +476,12 @@ if [ $nodeid = -1 ]; then
         hostaddr=${hostaddrs[i]}
         let n=$i+1
 
-        sshpass -p $sshpass scp ./cfg/node$n-merged.cfg $sshuser@$hostaddr:$contdir/cfg/hp.cfg &
+        scp ./cfg/node$n-merged.cfg $sshuser@$hostaddr:$contdir/cfg/hp.cfg &
     done
     wait
 else
     let n=$nodeid+1
-    sshpass -p $sshpass scp ./cfg/node$n-merged.cfg $sshuser@$hostaddr:$contdir/cfg/hp.cfg
+    scp ./cfg/node$n-merged.cfg $sshuser@$hostaddr:$contdir/cfg/hp.cfg
 fi
 
 rm -r ./cfg
