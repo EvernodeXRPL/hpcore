@@ -154,7 +154,7 @@ namespace consensus
 
     int check_sync_status(const size_t unl_count, vote_counter &votes, const p2p::sequence_hash &lcl_id);
 
-    void revise_candidate_proposals();
+    void revise_candidate_proposals(const bool in_sync);
 
     int prepare_consensed_users(consensed_user_map &consensed_users, const p2p::proposal &cons_prop);
 

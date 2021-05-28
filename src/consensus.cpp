@@ -104,7 +104,7 @@ namespace consensus
 
         // Throughout consensus, we continously update and prune the candidate proposals for newly
         // arived ones and expired ones.
-        revise_candidate_proposals();
+        revise_candidate_proposals(ctx.sync_status == 0);
 
         // Get current lcl, state, patch, primary shard and raw shard info.
         p2p::sequence_hash lcl_id = ledger::ctx.get_lcl_id();
@@ -139,7 +139,25 @@ namespace consensus
 
             const size_t unl_count = unl::count();
             vote_counter votes;
-            ctx.sync_status = check_sync_status(unl_count, votes, lcl_id);
+
+            // Check whether we are in sync with other nodes using proposals.
+            {
+                const int new_sync_status = check_sync_status(unl_count, votes, lcl_id);
+                if (ctx.sync_status != 0 && new_sync_status == 0)
+                {
+                    // If we are just becoming 'in-sync' after being out-of-sync, check the sync status again after the proper
+                    // pruning of candidate proposals. This is because we relax the proposal pruning rules when we are not in sync,
+                    // and we need to make the final sync status check after proper pruning rules are applied.
+
+                    LOG_DEBUG << "Rechecking sync status after becoming in-sync.";
+                    revise_candidate_proposals(true);
+                    ctx.sync_status = check_sync_status(unl_count, votes, lcl_id);
+                }
+                else
+                {
+                    ctx.sync_status = new_sync_status;
+                }
+            }
 
             if (ctx.sync_status == -2) // Unreliable votes.
             {
@@ -320,8 +338,9 @@ namespace consensus
     /**
      * Moves proposals collected from the network into candidate proposals and
      * cleans up any outdated proposals from the candidate set.
+     * @param in_sync Whether the node is currently on sync or not. We relax the pruning criteria if we are not in sync.
      */
-    void revise_candidate_proposals()
+    void revise_candidate_proposals(const bool in_sync)
     {
         // Move over the incoming proposal collection into a local list. This is to have a private working
         // set for candidate parsing and avoid threading conflicts with network incoming proposals.
@@ -371,7 +390,7 @@ namespace consensus
 
                 // If we are in sync, only consider this round's proposals which are from current or previous stage.
                 // Otherwise consider all proposals as long as they are from the same round.
-                const bool stage_valid = ctx.sync_status == 0 ? (ctx.stage >= cp.stage && (ctx.stage - cp.stage) <= 1) : true;
+                const bool stage_valid = in_sync ? (ctx.stage >= cp.stage && (ctx.stage - cp.stage) <= 1) : true;
                 const bool keep_candidate = (ctx.round_start_time == cp.time) && stage_valid;
                 LOG_DEBUG << (keep_candidate ? "Prop--->" : "Erased")
                           << " [s" << std::to_string(cp.stage)
