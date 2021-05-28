@@ -91,9 +91,14 @@ namespace hpfs
             if (!prev_responses_processed)
                 util::sleep(IDLE_WAIT);
 
+            prev_responses_processed = false;
+
             // Check whether we have any new/changed targets.
             if (check_incoming_targets() == -1)
+            {
+                LOG_INFO << "Hpfs " << name << " sync: Sopping worker due to error in target check.";
                 break;
+            }
 
             // Move the received hpfs responses to the local response list.
             swap_collected_responses();
@@ -420,8 +425,10 @@ namespace hpfs
 
                         on_sync_target_acheived(target_vpath, target_hash);
                     }
-
-                    LOG_DEBUG << "Hpfs " << name << " sync: Current:" << updated_hash << " | target:" << target_hash << " " << target_vpath;
+                    else
+                    {
+                        LOG_DEBUG << "Hpfs " << name << " sync: Current:" << updated_hash << " | target:" << target_hash << " " << target_vpath;
+                    }
                 }
                 else
                 {
@@ -765,7 +772,7 @@ namespace hpfs
                 }
             }
 
-            LOG_ERROR << errno << "," << ENOENT << ": Error in stat when applying file/dir mode. " << physical_path;
+            LOG_ERROR << errno << ": Error in stat when applying file/dir mode. " << physical_path;
             return -1;
         }
 
