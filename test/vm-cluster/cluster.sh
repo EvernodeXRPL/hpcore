@@ -476,12 +476,12 @@ if [ $nodeid = -1 ]; then
         hostaddr=${hostaddrs[i]}
         let n=$i+1
 
-        scp ./cfg/node$n-merged.cfg $sshuser@$hostaddr:$contdir/cfg/hp.cfg &
+        scp -q ./cfg/node$n-merged.cfg $sshuser@$hostaddr:$contdir/cfg/hp.cfg &
     done
     wait
 else
     let n=$nodeid+1
-    scp ./cfg/node$n-merged.cfg $sshuser@$hostaddr:$contdir/cfg/hp.cfg
+    scp -q ./cfg/node$n-merged.cfg $sshuser@$hostaddr:$contdir/cfg/hp.cfg
 fi
 
 rm -r ./cfg
