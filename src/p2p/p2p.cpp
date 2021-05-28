@@ -122,7 +122,8 @@ namespace p2p
                 {
                     std::scoped_lock lock(ctx.server->req_known_remotes_mutex);
                     ctx.server->req_known_remotes.erase(std::remove_if(ctx.server->req_known_remotes.begin(), ctx.server->req_known_remotes.end(),
-                                                                       [&](const p2p::peer_properties &peer) {
+                                                                       [&](const p2p::peer_properties &peer)
+                                                                       {
                                                                            return peer.ip_port.port == session.known_ipport->port;
                                                                        }));
                     ctx.server->known_remote_count = ctx.server->req_known_remotes.size();
@@ -422,7 +423,8 @@ namespace p2p
     {
         std::scoped_lock<std::mutex> lock(ctx.server->req_known_remotes_mutex);
 
-        const auto itr = std::find_if(ctx.server->req_known_remotes.begin(), ctx.server->req_known_remotes.end(), [&](peer_properties &p) { return p.ip_port == ip_port; });
+        const auto itr = std::find_if(ctx.server->req_known_remotes.begin(), ctx.server->req_known_remotes.end(), [&](peer_properties &p)
+                                      { return p.ip_port == ip_port; });
         if (itr != ctx.server->req_known_remotes.end())
         {
             LOG_DEBUG << "Updating peer available capacity: Host address: " << itr->ip_port.host_address << ":" << itr->ip_port.port << ", Capacity: " << std::to_string(available_capacity);
@@ -463,7 +465,8 @@ namespace p2p
                 continue;
             }
 
-            const auto itr = std::find_if(ctx.server->req_known_remotes.begin(), ctx.server->req_known_remotes.end(), [&](peer_properties &p) { return p.ip_port == peer.ip_port; });
+            const auto itr = std::find_if(ctx.server->req_known_remotes.begin(), ctx.server->req_known_remotes.end(), [&](peer_properties &p)
+                                          { return p.ip_port == peer.ip_port; });
 
             // If the new peer is not in the peer list then add to the req_known_remotes
             // Otherwise if new peer is recently updated (timestamp >) replace with the current one.
@@ -497,21 +500,18 @@ namespace p2p
      */
     void sort_known_remotes()
     {
-        std::sort(ctx.server->req_known_remotes.begin(), ctx.server->req_known_remotes.end(),
-                  [](const peer_properties &p1, const peer_properties &p2) {
-                      return get_peer_weight(p1) < 0 || get_peer_weight(p1) > get_peer_weight(p2);
-                  });
-    }
-
-    /**
-     * Calculate the weight value for the peer.
-     * @param peer Properties of the peer.
-     * @returns -1 if available capacity is unlimited otherwise weight value.
-     */
-    int32_t get_peer_weight(const peer_properties &peer)
-    {
         const uint64_t time_now = util::get_epoch_milliseconds();
-        return peer.available_capacity >= 0 ? peer.available_capacity * 1000 * 60 / ceil(time_now - peer.timestamp) : -1;
+        for (peer_properties &peer : ctx.server->req_known_remotes)
+        {
+            const uint64_t time_diff = (time_now > peer.timestamp) ? (time_now - peer.timestamp) : 1;
+            peer.weight = peer.available_capacity >= 0 ? (peer.available_capacity * 1000 * 60) / time_diff : -1;
+        }
+
+        std::sort(ctx.server->req_known_remotes.begin(), ctx.server->req_known_remotes.end(),
+                  [](const peer_properties &p1, const peer_properties &p2)
+                  {
+                      return (p1.weight > p2.weight);
+                  });
     }
 
     /**

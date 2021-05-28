@@ -29,6 +29,7 @@ namespace p2p
         conf::peer_ip_port ip_port;
         int16_t available_capacity = -1;
         uint64_t timestamp = 0;
+        int64_t weight = 0;
     };
 
     struct sequence_hash
@@ -267,8 +268,6 @@ namespace p2p
     void update_known_peer_available_capacity(const conf::peer_ip_port &ip_port, const int16_t available_capacity, const uint64_t &timestamp);
 
     void merge_peer_list(const std::vector<peer_properties> &peers);
-
-    int32_t get_peer_weight(const peer_properties &peer);
 
     void sort_known_remotes();
 
