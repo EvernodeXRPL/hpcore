@@ -123,7 +123,7 @@ function getgroupvmfield() {
 # Deletes a group of vms. (params: groupname)
 function deletevmgroup() {
     echo "Deleting all vms in group '"$1"'..."
-    local _ids=$(getgroupvmids "$1")
+    local _ids=$(getgroupvmfield "$1" "id")
     [ -z "$_ids" ] && exit 1
     local _arr
     readarray -d " " -t _arr < <(printf '%s' "$_ids") # break parts by space character.
