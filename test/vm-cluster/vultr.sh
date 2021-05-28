@@ -17,16 +17,11 @@ then
 fi
 
 configfile=config.json
-if [ ! -f $configfile ]; then
-    echo "config.json not found."
-    exit 1
-fi
+[ ! -f $configfile ] && >&2 echo "config.json not found." && exit 1
 
 apikey=$(jq -r ".vultr.api_key" $configfile)
-if [ -z $apikey ]; then
-    echo "Vultr api key not found."
-    exit 1
-fi
+[ -z $apikey ] && >&2 echo "Vultr api key not found." && exit 1
+
 startscriptid=$(jq -c -r ".vultr.startup_script_id" $configfile)
 sshkeyids=$(jq -c -r ".vultr.ssh_key_ids" $configfile)
 
@@ -41,7 +36,7 @@ function apicall() {
     fi
     
     local _parts
-    readarray -t _parts <<<"$_result" # break parts by new line.
+    readarray -t _parts < <(printf '%s' "$_result") # break parts by new line.
     if [[ ${_parts[1]} == 2* ]]; then # Check for 2xx status code.
         [ ! -z "${_parts[0]}" ] && echo ${_parts[0]} # Return api output if there is any.
     else
@@ -114,14 +109,15 @@ function deletevm() {
     apidelete "instances" $1
 }
 
-# Returns space-delimited list of vm ids in specified group. (params: groupname)
-function getgroupvmids() {
-    [ -z "$1" ] && >&2 echo "getgroupvmids: Group name not specified." && exit 1
+# Returns space-delimited list of vm field values sorted by vm label in specified group. (params: groupname, fieldname)
+function getgroupvmfield() {
+    [ -z "$1" ] && >&2 echo "getgroupvmfield: Group name not specified." && exit 1
+    [ -z "$2" ] && >&2 echo "getgroupvmfield: Field name not specified." && exit 1
     local _list=$(apigetquery "instances" "tag=$1")
     [ -z "$_list" ] && exit 1
-    # Get ids sorted by the vm label.
-    local _ids=$(echo $_list | jq -r ".instances | sort_by(.label) | .[] | .id")
-    echo $_ids
+    # Get field values sorted by the vm label.
+    local _vals=$(echo $_list | jq -r ".instances | sort_by(.label) | .[] | .$2")
+    echo $_vals
 }
 
 # Deletes a group of vms. (params: groupname)
@@ -130,7 +126,7 @@ function deletevmgroup() {
     local _ids=$(getgroupvmids "$1")
     [ -z "$_ids" ] && exit 1
     local _arr
-    readarray -d " " -t _arr <<<"$_ids" # break parts by space character.
+    readarray -d " " -t _arr < <(printf '%s' "$_ids") # break parts by space character.
     echo ${#_arr[@]}" vms found to delete..."
     for id in "${_arr[@]}"
     do
@@ -158,11 +154,11 @@ function createvmgroup() {
 
 # Grows a vm group. (params: groupname, expandbycount)
 function expandvmgroup() {
-    # Get current no. of vms in the group.
-    local _ids=$(getgroupvmids "$1")
+    # Get current no. of vms in the group. (this returns ids sorted by vm label)
+    local _ids=$(getgroupvmfield "$1" "id")
     [ -z "$_ids" ] && exit 1
     local _arr
-    readarray -d " " -t _arr <<<"$_ids" # break parts by space character.
+    readarray -d " " -t _arr < <(printf '%s' "$_ids") # break parts by space character.
     local -i _oldcount=${#_arr[@]}
     local -i _newcount=$_oldcount+$2
     [ $_oldcount -ge $_newcount ] && exit 1
@@ -174,10 +170,10 @@ function expandvmgroup() {
 # Shrinks a vm group. (params: groupname, shrinkbycount)
 function shrinkvmgroup() {
     # Get current set of vms in the group. (this returns ids sorted by vm label)
-    local _ids=$(getgroupvmids "$1")
+    local _ids=$(getgroupvmfield "$1" "id")
     [ -z "$_ids" ] && exit 1
     local _arr
-    readarray -d " " -t _arr <<<"$_ids" # break parts by space character.
+    readarray -d " " -t _arr < <(printf '%s' "$_ids") # break parts by space character.
     local -i _oldcount=${#_arr[@]}
     local -i _newcount=$_oldcount-$2
     echo "Shrinking '"$1"' group from "$_oldcount" to "$_newcount" nodes..."

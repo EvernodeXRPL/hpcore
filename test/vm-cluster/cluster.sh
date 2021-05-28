@@ -98,8 +98,31 @@ fi
 contdir=$basedir/$selectedcont
 hpfiles="hpfiles/"$selectedcont
 
+# Call vultr rest api GET. (params: endpoint, vultrapikey)
+function vultrget() {
+    local _result=$(curl --silent "https://api.vultr.com/v2/$1" -X GET -H "Authorization: Bearer $2" -H "Content-Type: application/json" -w "\n%{http_code}")
+    local _parts
+    readarray -t _parts < <(printf '%s' "$_result") # break parts by new line.
+    if [[ ${_parts[1]} == 2* ]]; then # Check for 2xx status code.
+        [ ! -z "${_parts[0]}" ] && echo ${_parts[0]} # Return api output if there is any.
+    else
+        >&2 echo "Error on vultrget code:${_parts[1]} body:${_parts[0]}" && exit 1
+    fi
+}
+
 # Read the hosts list.
-readarray -t hostaddrs <<< $(echo $continfo | jq -r '.hosts[]')
+readarray -t hostaddrs < <(printf '%s' "$(echo $continfo | jq -r '.hosts[]')")
+# Check whether the first host is "vultr:<group_name>". If so read ips from vultr.
+readarray -d ":" -t _host1parts < <(printf '%s' "${hostaddrs[0]}")
+if [[ ${_host1parts[0]} == "vultr" ]]; then
+    _vultrapikey=$(jq -r ".vultr.api_key" $configfile)
+    [ -z $_vultrapikey ] && >&2 echo "Vultr api key not found." && exit 1
+    _vultrvms=$(vultrget "instances?tag=${_host1parts[1]}" "$_vultrapikey")
+    [ -z "$_vultrvms" ] && exit 1
+    _vultrips=$(echo $(echo $_vultrvms | jq -r ".instances | sort_by(.label) | .[] | .main_ip"))
+    readarray -d " " -t hostaddrs < <(printf '%s' "$_vultrips") # Populate hostaddrs with ips retrieved from vultr.
+    echo "Retrieved ${#hostaddrs[@]} host addresses from vultr."
+fi
 hostcount=${#hostaddrs[@]}
 
 # Read the contract config which should be applied to hp.cfg.
