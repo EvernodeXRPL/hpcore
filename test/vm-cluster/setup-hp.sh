@@ -73,7 +73,7 @@ if [ $mode = "new" ] || [ $mode = "reconfig" ]; then
    sudo chmod +x $contdir/start.sh
    
    # Create stop.sh script (sending SIGINT to hpcore)
-   echo "pids=\$($contdir/getpid.sh hpcore) && [ ! -z \$pids ] && kill -2 \$pids" > $contdir/stop.sh
+   echo "pids=\$($contdir/getpid.sh hpcore) && [ ! -z "\$pids" ] && kill -2 \$pids" > $contdir/stop.sh
    sudo chmod +x $contdir/stop.sh
 
    # Create check.sh script (print pids belonging to this contract dir)
@@ -81,7 +81,7 @@ if [ $mode = "new" ] || [ $mode = "reconfig" ]; then
    sudo chmod +x $contdir/check.sh
 
    # Create kill.sh script
-   echo "pids=\$($contdir/getpid.sh hpcore hpfs hpws) && [ ! -z \$pids ] && sudo kill \$pids" > $contdir/kill.sh
+   echo "pids=\$($contdir/getpid.sh hpcore hpfs hpws) && [ ! -z "\$pids" ] && sudo kill \$pids" > $contdir/kill.sh
    sudo chmod +x $contdir/kill.sh
 
    # Create lcl.sh script
