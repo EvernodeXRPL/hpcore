@@ -3,6 +3,8 @@
 
 planid="vc2-1c-1gb" # $5/month
 osid=387 # Ubuntu 20.04
+# Order of Vultr regions to distribute servers across the globe.
+regions=("nrt" "syd" "fra" "yto" "icn" "cdg" "atl" "sgp" "lhr" "ord" "ams" "nrt" "dfw" "syd" "fra" "lax" "icn" "syd" "cdg" "mia" "sgp" "syd" "lhr" "ewr" "nrt" "syd" "fra" "sea" "icn" "syd" "cdg" "sjc")
 
 # jq command is used for json manipulation.
 if ! command -v jq &> /dev/null
@@ -88,6 +90,7 @@ function vmname() {
 
 # Creates a vm. (params: groupname, vmname, regionid)
 function createvm() {
+    echo "Creating vm '$2' in $3..."
     local _vminfo=$(apipost "instances" '{"tag":"'$1'", "label":"'$2'", "region":"'$3'", "os_id":'$osid', "plan":"'$planid'", "hostname":"'$2'", "script_id":"'$startscriptid'", "sshkey_id":'$sshkeyids', "backups":"disabled"}')
     [ -z "$_vminfo" ] && exit 1
     local _vmid=$(echo $_vminfo | jq -r ".instance.id")
@@ -143,9 +146,11 @@ function createvmgroup() {
     local -i start=$3
     [ $start == 0 ] && start=1
     local -i end=$start+$2
+    local -i rcount=${#regions[@]} # region count.
     for (( i=$start; i<$end; i++ ))
     do
-        createvm "$1" $(vmname $1 $i) "atl" &
+        local -i r=$((($i - 1) % $rcount))
+        createvm "$1" $(vmname $1 $i) "${regions[$r]}" &
     done
     wait
     echo "Done."
@@ -184,5 +189,5 @@ function shrinkvmgroup() {
     echo "Done."
 }
 
-shrinkvmgroup "testa" 2
-# deletevmgroup "testb"
+# createvmgroup "testA" 3
+# deletevmgroup "testA"
