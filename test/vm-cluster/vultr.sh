@@ -1,6 +1,13 @@
 #!/bin/bash
 # Vultr API script
 
+# Usage examples:
+# ./vultr.sh create mycluster 3
+# ./vultr.sh info mycluster
+# ./vultr.sh delete mycluster
+# ./vultr.sh expand mycluster 2
+# ./vultr.sh shrink mycluster 2
+
 planid="vc2-1c-1gb" # $5/month
 osid=387 # Ubuntu 20.04
 # Order of Vultr regions to distribute servers across the globe.
@@ -185,5 +192,52 @@ function shrinkvmgroup() {
     echo "Done."
 }
 
-# createvmgroup "testA" 3
-# deletevmgroup "testA"
+# DIsplays information about existing cluster. (params: groupname)
+function displayinfo() {
+    local _ips=$(getgroupvmfield "$1" "main_ip")
+    local _arr
+    readarray -d " " -t _arr < <(printf '%s' "$_ips") # break parts by space character.
+    echo "Total "${#_arr[@]}" vms found in '"$1"'"
+    for (( i=0; i<${#_arr[@]}; i++ ))
+    do
+        let n=$i+1
+        echo $n. ${_arr[$i]}
+    done
+}
+
+mode=$1
+name=$2
+num=$3
+
+if [ "$mode" = "create" ] || [ "$mode" = "info" ] || [ "$mode" = "delete" ] || [ "$mode" = "expand" ] || [ "$mode" = "shrink" ]; then
+    echo "mode: $mode"
+else
+    echo "Invalid command."
+    echo " Expected: create <name> <count> | info <name> | delete <name> | expand <name> <by> | shrink <name> <by>"
+    exit 1
+fi
+
+if [ $mode = "create" ]; then
+    createvmgroup $name $num
+    exit 0
+fi
+
+if [ $mode = "info" ]; then
+    displayinfo $name
+    exit 0
+fi
+
+if [ $mode = "delete" ]; then
+    deletevmgroup $name
+    exit 0
+fi
+
+if [ $mode = "expand" ]; then
+    expandvmgroup $name $num
+    exit 0
+fi
+
+if [ $mode = "shrink" ]; then
+    shrinkvmgroup $name $num
+    exit 0
+fi
