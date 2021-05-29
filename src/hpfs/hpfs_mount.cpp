@@ -205,6 +205,7 @@ namespace hpfs
 
         if (rw_consumers == 0)
         {
+            LOG_DEBUG << "Stopping rw session at " << rw_dir;
             const std::string session_file = mount_dir + RW_SESSION;
             if (unlink(session_file.c_str()) == -1)
             {
