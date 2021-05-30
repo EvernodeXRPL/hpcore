@@ -13,12 +13,12 @@ namespace msg::usrmsg
     {
     }
 
-    void usrmsg_parser::create_status_response(std::vector<uint8_t> &msg, const uint64_t lcl_seq_no, std::string_view lcl_hash) const
+    void usrmsg_parser::create_status_response(std::vector<uint8_t> &msg) const
     {
         if (protocol == util::PROTOCOL::JSON)
-            jusrmsg::create_status_response(msg, lcl_seq_no, lcl_hash);
+            jusrmsg::create_status_response(msg);
         else
-            busrmsg::create_status_response(msg, lcl_seq_no, lcl_hash);
+            busrmsg::create_status_response(msg);
     }
 
     void usrmsg_parser::create_contract_input_status(std::vector<uint8_t> &msg, std::string_view status, std::string_view reason,

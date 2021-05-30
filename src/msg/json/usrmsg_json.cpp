@@ -138,7 +138,7 @@ namespace msg::usrmsg::json
      *              "ledger_hash": "<lcl hash hex>"
      *            }
      */
-    void create_status_response(std::vector<uint8_t> &msg, const uint64_t lcl_seq_no, std::string_view lcl_hash)
+    void create_status_response(std::vector<uint8_t> &msg)
     {
         const uint16_t msg_length = 406 + (69 * conf::cfg.contract.unl.size());
 
@@ -154,11 +154,11 @@ namespace msg::usrmsg::json
         msg += SEP_COMMA;
         msg += msg::usrmsg::FLD_LEDGER_SEQ_NO;
         msg += SEP_COLON_NOQUOTE;
-        msg += std::to_string(lcl_seq_no);
+        //msg += std::to_string(lcl_seq_no);
         msg += SEP_COMMA_NOQUOTE;
         msg += msg::usrmsg::FLD_LEDGER_HASH;
         msg += SEP_COLON;
-        msg += util::to_hex(lcl_hash);
+        //msg += util::to_hex(lcl_hash);
         msg += SEP_COMMA;
         msg += msg::usrmsg::FLD_ROUND_TIME;
         msg += SEP_COLON_NOQUOTE;

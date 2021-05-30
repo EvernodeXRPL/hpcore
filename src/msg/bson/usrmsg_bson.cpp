@@ -20,7 +20,7 @@ namespace msg::usrmsg::bson
      *              "ledger_hash": <binary lcl hash>
      *            }
      */
-    void create_status_response(std::vector<uint8_t> &msg, const uint64_t lcl_seq_no, std::string_view lcl_hash)
+    void create_status_response(std::vector<uint8_t> &msg)
     {
         jsoncons::bson::bson_bytes_encoder encoder(msg);
         encoder.begin_object();
@@ -29,9 +29,9 @@ namespace msg::usrmsg::bson
         encoder.key(msg::usrmsg::FLD_HP_VERSION);
         encoder.string_value(version::HP_VERSION);
         encoder.key(msg::usrmsg::FLD_LEDGER_SEQ_NO);
-        encoder.int64_value(lcl_seq_no);
+        //encoder.int64_value(lcl_seq_no);
         encoder.key(msg::usrmsg::FLD_LEDGER_HASH);
-        encoder.byte_string_value(lcl_hash);
+        //encoder.byte_string_value(lcl_hash);
         encoder.key(msg::usrmsg::FLD_ROUND_TIME);
         encoder.uint64_value(conf::cfg.contract.roundtime);
         encoder.key(msg::usrmsg::FLD_CONTARCT_EXECUTION_ENABLED);
