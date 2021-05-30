@@ -15,6 +15,7 @@
 #include "ledger/ledger.hpp"
 #include "consensus.hpp"
 #include "sc/hpfs_log_sync.hpp"
+#include "status.hpp"
 
 namespace p2pmsg = msg::fbuf::p2pmsg;
 
@@ -142,7 +143,8 @@ namespace consensus
 
             // Check whether we are in sync with other nodes using proposals.
             {
-                const int new_sync_status = check_sync_status(unl_count, votes, lcl_id);
+                int new_sync_status = check_sync_status(unl_count, votes, lcl_id);
+
                 if (ctx.sync_status != 0 && new_sync_status == 0)
                 {
                     // If we are just becoming 'in-sync' after being out-of-sync, check the sync status again after the proper
@@ -151,12 +153,14 @@ namespace consensus
 
                     LOG_DEBUG << "Rechecking sync status after becoming in-sync.";
                     revise_candidate_proposals(true);
-                    ctx.sync_status = check_sync_status(unl_count, votes, lcl_id);
+                    new_sync_status = check_sync_status(unl_count, votes, lcl_id);
                 }
-                else
-                {
-                    ctx.sync_status = new_sync_status;
-                }
+
+                // Update the status if the sync status changed.
+                if ((ctx.sync_status != 0 && new_sync_status == 0) || (ctx.sync_status == 0 && new_sync_status != 0))
+                    status::sync_status_changed(new_sync_status == 0);
+
+                ctx.sync_status = new_sync_status;
             }
 
             if (ctx.sync_status == -2) // Unreliable votes.

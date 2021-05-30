@@ -5,7 +5,7 @@
 #include "../conf.hpp"
 #include "../util/version.hpp"
 #include "../util/util.hpp"
-#include "../msg/fbuf/common_helpers.hpp"
+#include "../status.hpp"
 #include "ledger_common.hpp"
 #include "ledger_serve.hpp"
 
@@ -141,7 +141,8 @@ namespace ledger
         const int shard_res = prepare_shard(&db, shard_seq_no, new_lcl_id.seq_no, PRIMARY_SHARD_SIZE, PRIMARY_DIR, PRIMARY_DB, true);
 
         // Insert primary ledger record.
-        if (shard_res >= 0 && insert_ledger_record(db, lcl_id, shard_seq_no, proposal, new_lcl_id) != -1)
+        ledger_record ledger;
+        if (shard_res >= 0 && insert_ledger_record(db, lcl_id, shard_seq_no, proposal, new_lcl_id, ledger) != -1)
         {
             sqlite::close_db(&db);
             ctx.set_lcl_id(new_lcl_id);
@@ -167,6 +168,9 @@ namespace ledger
             // Remove old shards if new one got created.
             if (shard_res == 1)
                 remove_old_shards(new_lcl_id.seq_no, PRIMARY_SHARD_SIZE, conf::cfg.node.history_config.max_primary_shards, PRIMARY_DIR);
+
+            // Update the node's status.
+            status::ledger_created(new_lcl_id, ledger);
 
             return 0;
         }
@@ -214,21 +218,22 @@ namespace ledger
      * @param shard_seq_no Current primary shard seq no.
      * @param proposal The consensus proposal.
      * @param new_lcl_id Newly created ledger id.
+     * @param ledger Newly created ledger record.
      * @return 0 on success. -1 on failure.
      */
     int insert_ledger_record(sqlite3 *db, const p2p::sequence_hash &current_lcl_id, const uint64_t shard_seq_no,
-                             const p2p::proposal &proposal, p2p::sequence_hash &new_lcl_id)
+                             const p2p::proposal &proposal, p2p::sequence_hash &new_lcl_id, ledger_record &ledger)
     {
         // Combined binary hash of consensus user binary pub keys.
         const std::string user_hash = crypto::get_list_hash(proposal.users);
 
         // Combined binary hash of consensus input hashes.
         std::vector<std::string_view> inp_hashes;
+
+        // We need to consider the last 32 bytes of each ordered hash to get input hash without the nonce prefix.
         for (const std::string &o_hash : proposal.input_ordered_hashes)
-        {
-            // We need to consider the last 32 bytes of each ordered hash to get input hash without the nonce prefix.
             inp_hashes.push_back(util::get_string_suffix(o_hash, BLAKE3_OUT_LEN));
-        }
+
         const std::string input_hash = crypto::get_list_hash(inp_hashes);
 
         uint8_t seq_no_bytes[8], time_bytes[8];
@@ -254,7 +259,7 @@ namespace ledger
         new_lcl_id.hash = crypto::get_hash(prev_ledger_hash, data_hash);
 
         // Construct ledger struct with binary hashes.
-        const ledger_record ledger{
+        ledger = ledger_record{
             current_lcl_id.seq_no + 1,
             proposal.time,
             std::string(new_lcl_id.hash.to_string_view()),
@@ -681,6 +686,8 @@ namespace ledger
         lcl_id.seq_no = last_ledger.seq_no;
         lcl_id.hash = last_ledger.ledger_hash;
         ctx.set_lcl_id(lcl_id);
+
+        status::init(lcl_id, last_ledger);
 
         return 0;
     }

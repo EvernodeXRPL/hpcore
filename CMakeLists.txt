@@ -68,6 +68,7 @@ add_executable(hpcore
     src/ledger/ledger_sync.cpp
     src/ledger/ledger_serve.cpp
     src/ledger/ledger.cpp
+    src/status.cpp
     src/consensus.cpp
     src/main.cpp
 )
