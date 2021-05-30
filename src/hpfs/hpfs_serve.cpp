@@ -1,5 +1,6 @@
 #include "../pchheader.hpp"
 #include "../util/h32.hpp"
+#include "../util/sequence_hash.hpp"
 #include "../util/util.hpp"
 #include "../p2p/p2p.hpp"
 #include "../msg/fbuf/p2pmsg_conversion.hpp"
@@ -69,8 +70,8 @@ namespace hpfs
 
             prev_requests_processed = !hpfs_requests.empty();
             const uint64_t time_start = util::get_epoch_milliseconds();
-            const p2p::sequence_hash lcl_id = ledger::ctx.get_lcl_id();
-            const p2p::sequence_hash last_primary_shard_id = ledger::ctx.get_last_primary_shard_id();
+            const util::sequence_hash lcl_id = ledger::ctx.get_lcl_id();
+            const util::sequence_hash last_primary_shard_id = ledger::ctx.get_last_primary_shard_id();
             const uint32_t request_batch_timeout = hpfs::get_request_resubmit_timeout() * 0.9;
 
             if (hpfs_requests.empty())

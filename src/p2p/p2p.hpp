@@ -4,6 +4,7 @@
 #include "../pchheader.hpp"
 #include "../usr/user_input.hpp"
 #include "../util/h32.hpp"
+#include "../util/sequence_hash.hpp"
 #include "../conf.hpp"
 #include "../hpfs/hpfs_mount.hpp"
 #include "../msg/fbuf/p2pmsg_generated.h"
@@ -32,38 +33,6 @@ namespace p2p
         int64_t weight = 0;
     };
 
-    struct sequence_hash
-    {
-        uint64_t seq_no = 0;
-        util::h32 hash = util::h32_empty;
-
-        bool operator!=(const sequence_hash &seq_hash) const
-        {
-            return seq_no != seq_hash.seq_no || hash != seq_hash.hash;
-        }
-
-        bool operator==(const sequence_hash &seq_hash) const
-        {
-            return seq_no == seq_hash.seq_no && hash == seq_hash.hash;
-        }
-
-        bool operator<(const sequence_hash &seq_hash) const
-        {
-            return (seq_no == seq_hash.seq_no) ? hash < seq_hash.hash : seq_no < seq_hash.seq_no;
-        }
-
-        const std::string to_string()
-        {
-            return std::to_string(seq_no) + "-" + util::to_hex(hash.to_string_view());
-        }
-
-        const bool empty() const
-        {
-            return seq_no == 0 && hash == util::h32_empty;
-        }
-    };
-    // This is a helper method for sequence_hash structure which enables printing it straight away.
-    std::ostream &operator<<(std::ostream &output, const sequence_hash &seq_hash);
 
     struct proposal
     {
@@ -75,8 +44,8 @@ namespace p2p
         uint8_t stage = 0;           // The round-stage that this proposal belongs to.
         uint32_t time_config = 0;    // Time config of the proposer.
         std::string nonce;           // Random nonce that is used to reduce lcl predictability.
-        sequence_hash last_primary_shard_id;
-        sequence_hash last_raw_shard_id;
+        util::sequence_hash last_primary_shard_id;
+        util::sequence_hash last_raw_shard_id;
         util::h32 state_hash; // Contract state hash.
         util::h32 patch_hash; // Patch file hash.
         std::set<std::string> users;
@@ -120,7 +89,7 @@ namespace p2p
     struct npl_message
     {
         std::string pubkey;        // Peer binary pubkey.
-        p2p::sequence_hash lcl_id; // lcl of the peer.
+        util::sequence_hash lcl_id; // lcl of the peer.
         std::string data;
     };
 
@@ -128,13 +97,13 @@ namespace p2p
     struct hpfs_log_request
     {
         uint64_t target_seq_no;
-        sequence_hash min_record_id;
+        util::sequence_hash min_record_id;
     };
 
     // Represents hpfs log sync response.
     struct hpfs_log_response
     {
-        sequence_hash min_record_id;
+        util::sequence_hash min_record_id;
         std::vector<uint8_t> log_record_bytes;
     };
 

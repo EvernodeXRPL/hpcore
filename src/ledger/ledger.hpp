@@ -13,11 +13,11 @@ namespace ledger
     {
     private:
         std::shared_mutex lcl_mutex;
-        p2p::sequence_hash lcl_id;
+        util::sequence_hash lcl_id;
         std::shared_mutex last_primary_shard_mutex;
-        p2p::sequence_hash last_primary_shard_id;
+        util::sequence_hash last_primary_shard_id;
         std::shared_mutex last_raw_shard_mutex;
-        p2p::sequence_hash last_raw_shard_id;
+        util::sequence_hash last_raw_shard_id;
 
     public:
         // These flags will be marked as true after doing the shards cleanup and requesting
@@ -25,37 +25,37 @@ namespace ledger
         std::atomic<bool> primary_shards_persisted = false;
         std::atomic<bool> raw_shards_persisted = false;
 
-        const p2p::sequence_hash get_lcl_id()
+        const util::sequence_hash get_lcl_id()
         {
             std::shared_lock lock(lcl_mutex);
             return lcl_id;
         }
 
-        void set_lcl_id(const p2p::sequence_hash &sequence_hash_id)
+        void set_lcl_id(const util::sequence_hash &sequence_hash_id)
         {
             std::unique_lock lock(lcl_mutex);
             lcl_id = sequence_hash_id;
         }
 
-        const p2p::sequence_hash get_last_primary_shard_id()
+        const util::sequence_hash get_last_primary_shard_id()
         {
             std::shared_lock lock(last_primary_shard_mutex);
             return last_primary_shard_id;
         }
 
-        void set_last_primary_shard_id(const p2p::sequence_hash &sequence_hash_id)
+        void set_last_primary_shard_id(const util::sequence_hash &sequence_hash_id)
         {
             std::unique_lock lock(last_primary_shard_mutex);
             last_primary_shard_id = sequence_hash_id;
         }
 
-        const p2p::sequence_hash get_last_raw_shard_id()
+        const util::sequence_hash get_last_raw_shard_id()
         {
             std::shared_lock lock(last_raw_shard_mutex);
             return last_raw_shard_id;
         }
 
-        void set_last_raw_shard_id(const p2p::sequence_hash &sequence_hash_id)
+        void set_last_raw_shard_id(const util::sequence_hash &sequence_hash_id)
         {
             std::unique_lock lock(last_raw_shard_mutex);
             last_raw_shard_id = sequence_hash_id;
@@ -72,15 +72,15 @@ namespace ledger
 
     int update_ledger(const p2p::proposal &proposal, const consensus::consensed_user_map &consensed_users);
 
-    int update_primary_ledger(const p2p::proposal &proposal, const consensus::consensed_user_map &consensed_users, p2p::sequence_hash &new_lcl_id);
+    int update_primary_ledger(const p2p::proposal &proposal, const consensus::consensed_user_map &consensed_users, util::sequence_hash &new_lcl_id);
 
-    int update_ledger_raw_data(const p2p::proposal &proposal, const consensus::consensed_user_map &consensed_users, const p2p::sequence_hash &lcl_id);
+    int update_ledger_raw_data(const p2p::proposal &proposal, const consensus::consensed_user_map &consensed_users, const util::sequence_hash &lcl_id);
 
-    int insert_ledger_record(sqlite3 *db, const p2p::sequence_hash &current_lcl_id, const uint64_t shard_seq_no,
-                             const p2p::proposal &proposal, p2p::sequence_hash &new_lcl_id, ledger_record &ledger);
+    int insert_ledger_record(sqlite3 *db, const util::sequence_hash &current_lcl_id, const uint64_t shard_seq_no,
+                             const p2p::proposal &proposal, util::sequence_hash &new_lcl_id, ledger_record &ledger);
 
     int insert_raw_data_records(sqlite3 *db, const uint64_t shard_seq_no, const p2p::proposal &proposal,
-                                const consensus::consensed_user_map &consensed_users, const p2p::sequence_hash &lcl_id);
+                                const consensus::consensed_user_map &consensed_users, const util::sequence_hash &lcl_id);
 
     int create_raw_data_blob_file(const std::string &shard_path, const char *file_name, size_t &file_size);
 
@@ -91,9 +91,9 @@ namespace ledger
 
     void persist_shard_history(const uint64_t shard_seq_no, std::string_view shard_parent_dir);
 
-    int get_last_ledger_and_update_context(std::string_view session_name, const p2p::sequence_hash &last_primary_shard_id, const bool genesis_fallback);
+    int get_last_ledger_and_update_context(std::string_view session_name, const util::sequence_hash &last_primary_shard_id, const bool genesis_fallback);
 
-    int get_last_shard_info(std::string_view session_name, p2p::sequence_hash &last_shard_id, const std::string &shard_parent_dir);
+    int get_last_shard_info(std::string_view session_name, util::sequence_hash &last_shard_id, const std::string &shard_parent_dir);
 
     int persist_max_shard_seq_no(const std::string &shard_parent_dir, const uint64_t last_shard_seq_no);
 

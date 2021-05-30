@@ -79,7 +79,7 @@ namespace ledger
         }
 
         // Remove old shards that exceeds max shard range.
-        const p2p::sequence_hash lcl_id = ctx.get_lcl_id();
+        const util::sequence_hash lcl_id = ctx.get_lcl_id();
         remove_old_shards(lcl_id.seq_no, PRIMARY_SHARD_SIZE, conf::cfg.node.history_config.max_primary_shards, PRIMARY_DIR);
         remove_old_shards(lcl_id.seq_no, RAW_SHARD_SIZE, conf::cfg.node.history_config.max_raw_shards, RAW_DIR);
 
@@ -111,7 +111,7 @@ namespace ledger
         if (ledger_fs.acquire_rw_session() == -1)
             return -1;
 
-        p2p::sequence_hash lcl_id;
+        util::sequence_hash lcl_id;
         if (update_primary_ledger(proposal, consensed_users, lcl_id) == -1 ||
             update_ledger_raw_data(proposal, consensed_users, lcl_id) == -1)
         {
@@ -129,9 +129,9 @@ namespace ledger
      * @param new_lcl_id The new ledger seq no. and hash.
      * @return 0 on success. -1 on failure.
      */
-    int update_primary_ledger(const p2p::proposal &proposal, const consensus::consensed_user_map &consensed_users, p2p::sequence_hash &new_lcl_id)
+    int update_primary_ledger(const p2p::proposal &proposal, const consensus::consensed_user_map &consensed_users, util::sequence_hash &new_lcl_id)
     {
-        const p2p::sequence_hash lcl_id = ctx.get_lcl_id();
+        const util::sequence_hash lcl_id = ctx.get_lcl_id();
         new_lcl_id.seq_no = lcl_id.seq_no + 1;
 
         sqlite3 *db = NULL;
@@ -156,7 +156,7 @@ namespace ledger
             }
 
             // Update the last shard hash and shard seqence number tracker when a new ledger is created.
-            ctx.set_last_primary_shard_id(p2p::sequence_hash{shard_seq_no, last_primary_shard_hash});
+            ctx.set_last_primary_shard_id(util::sequence_hash{shard_seq_no, last_primary_shard_hash});
 
             // Update the hpfs log index file only in full history mode.
             if (conf::cfg.node.history == conf::HISTORY::FULL && sc::contract_fs.update_hpfs_log_index(new_lcl_id.seq_no) == -1)
@@ -179,7 +179,7 @@ namespace ledger
         return -1;
     }
 
-    int update_ledger_raw_data(const p2p::proposal &proposal, const consensus::consensed_user_map &consensed_users, const p2p::sequence_hash &lcl_id)
+    int update_ledger_raw_data(const p2p::proposal &proposal, const consensus::consensed_user_map &consensed_users, const util::sequence_hash &lcl_id)
     {
         if ((conf::cfg.node.history != conf::HISTORY::FULL && conf::cfg.node.history_config.max_raw_shards == 0))
             return 0;
@@ -198,7 +198,7 @@ namespace ledger
             // Update in-memory context raw shard hash after inserting new record.
             util::h32 last_raw_shard_hash;
             if (ledger_fs.get_hash(last_raw_shard_hash, hpfs::RW_SESSION_NAME, std::string(RAW_DIR).append("/").append(std::to_string(shard_seq_no))) != -1)
-                ctx.set_last_raw_shard_id(p2p::sequence_hash{shard_seq_no, last_raw_shard_hash});
+                ctx.set_last_raw_shard_id(util::sequence_hash{shard_seq_no, last_raw_shard_hash});
 
             // Remove old shards if new one got created.
             if (shard_res == 1)
@@ -221,8 +221,8 @@ namespace ledger
      * @param ledger Newly created ledger record.
      * @return 0 on success. -1 on failure.
      */
-    int insert_ledger_record(sqlite3 *db, const p2p::sequence_hash &current_lcl_id, const uint64_t shard_seq_no,
-                             const p2p::proposal &proposal, p2p::sequence_hash &new_lcl_id, ledger_record &ledger)
+    int insert_ledger_record(sqlite3 *db, const util::sequence_hash &current_lcl_id, const uint64_t shard_seq_no,
+                             const p2p::proposal &proposal, util::sequence_hash &new_lcl_id, ledger_record &ledger)
     {
         // Combined binary hash of consensus user binary pub keys.
         const std::string user_hash = crypto::get_list_hash(proposal.users);
@@ -290,7 +290,7 @@ namespace ledger
      * @return 0 on success. -1 on failure.
      */
     int insert_raw_data_records(sqlite3 *db, const uint64_t shard_seq_no, const p2p::proposal &proposal,
-                                const consensus::consensed_user_map &consensed_users, const p2p::sequence_hash &lcl_id)
+                                const consensus::consensed_user_map &consensed_users, const util::sequence_hash &lcl_id)
     {
         // We keep sqlite records about users, inputs and outputs. To store raw input and output content, we use the corresponding blob file
         // within the shard. Each shard has a sqlite db, raw inputs blob file and raw outputs blob file.
@@ -646,7 +646,7 @@ namespace ledger
      * @param genesis_fallback Whether to automaticaly fallback to genesis ledger on ledger db read error.
      * @return Returns 0 on success -1 on error.
      */
-    int get_last_ledger_and_update_context(std::string_view session_name, const p2p::sequence_hash &last_primary_shard_id, const bool genesis_fallback)
+    int get_last_ledger_and_update_context(std::string_view session_name, const util::sequence_hash &last_primary_shard_id, const bool genesis_fallback)
     {
         sqlite3 *db = NULL;
         const std::string shard_path = ledger_fs.physical_path(session_name, ledger::PRIMARY_DIR) + "/" + std::to_string(last_primary_shard_id.seq_no);
@@ -654,7 +654,7 @@ namespace ledger
         if (last_primary_shard_id.empty())
         {
             // This is the genesis ledger.
-            ctx.set_lcl_id(p2p::sequence_hash{0, util::h32_empty});
+            ctx.set_lcl_id(util::sequence_hash{0, util::h32_empty});
             return 0;
         }
 
@@ -682,7 +682,7 @@ namespace ledger
         sqlite::close_db(&db);
 
         // Update new lcl information.
-        p2p::sequence_hash lcl_id;
+        util::sequence_hash lcl_id;
         lcl_id.seq_no = last_ledger.seq_no;
         lcl_id.hash = last_ledger.ledger_hash;
         ctx.set_lcl_id(lcl_id);
@@ -699,7 +699,7 @@ namespace ledger
      * @param shard_parent_dir Parent director vpath of the shards.
      * @return 0 on success. -1 on error.
     */
-    int get_last_shard_info(std::string_view session_name, p2p::sequence_hash &last_shard_id, const std::string &shard_parent_dir)
+    int get_last_shard_info(std::string_view session_name, util::sequence_hash &last_shard_id, const std::string &shard_parent_dir)
     {
         const std::string last_shard_seq_no_vpath = shard_parent_dir + SHARD_SEQ_NO_FILENAME;
         const std::string last_shard_seq_no_path = ledger_fs.physical_path(session_name, last_shard_seq_no_vpath);

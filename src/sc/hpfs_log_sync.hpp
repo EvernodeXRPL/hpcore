@@ -16,7 +16,7 @@ namespace sc::hpfs_log_sync
         uint64_t target_log_seq_no;
         util::h32 target_root_hash;
         std::mutex target_log_seq_no_mutex;
-        p2p::sequence_hash min_log_record;
+        util::sequence_hash min_log_record;
         uint64_t target_requested_on = 0;
         uint16_t request_submissions = 0;
 

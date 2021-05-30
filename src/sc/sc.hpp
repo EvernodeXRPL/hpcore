@@ -4,6 +4,7 @@
 #include "../pchheader.hpp"
 #include "../usr/usr.hpp"
 #include "../util/h32.hpp"
+#include "../util/sequence_hash.hpp"
 #include "../util/util.hpp"
 #include "../util/buffer_store.hpp"
 #include "../p2p/p2p.hpp"
@@ -88,7 +89,7 @@ namespace sc
         uint64_t time = 0;
 
         // Current HotPocket lcl (seq no. and ledger hash hex)
-        p2p::sequence_hash lcl_id;
+        util::sequence_hash lcl_id;
 
         // State hash after execution will be copied to this (not applicable to read only mode).
         util::h32 post_execution_state_hash = util::h32_empty;

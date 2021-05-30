@@ -3,6 +3,7 @@
 #include "../msg/usrmsg_parser.hpp"
 #include "../msg/usrmsg_common.hpp"
 #include "../util/util.hpp"
+#include "../util/sequence_hash.hpp"
 #include "../conf.hpp"
 #include "../crypto.hpp"
 #include "../hplog.hpp"
@@ -174,7 +175,7 @@ namespace usr
                     uint64_t max_ledger_seq_no;
                     if (parser.extract_input_container(input_data, nonce, max_ledger_seq_no, input_container) != -1)
                     {
-                        const p2p::sequence_hash lcl_id = ledger::ctx.get_lcl_id();
+                        const util::sequence_hash lcl_id = ledger::ctx.get_lcl_id();
                         // Ignore the input if the max ledger seq number specified is beyond the max offeset.
                         if (conf::cfg.contract.max_input_ledger_offset != 0 && max_ledger_seq_no > lcl_id.seq_no + conf::cfg.contract.max_input_ledger_offset)
                         {

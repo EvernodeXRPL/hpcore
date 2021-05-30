@@ -31,6 +31,7 @@ add_executable(hpcore
     src/util/buffer_store.cpp
     src/util/merkle_hash_tree.cpp
     src/util/h32.cpp
+    src/util/sequence_hash.cpp
     src/unl.cpp
     src/crypto.cpp
     src/conf.cpp
