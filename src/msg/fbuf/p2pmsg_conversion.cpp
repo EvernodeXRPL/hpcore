@@ -40,7 +40,8 @@ namespace msg::fbuf::p2pmsg
         const auto p2p_msg = p2pmsg::GetP2PMsg(message.data());
 
         // Check message timestamp (ignore this for large messages).
-        if (session->challenge_status == comm::CHALLENGE_STATUS::CHALLENGE_VERIFIED && message.size() <= MAX_SIZE_FOR_TIME_CHECK)
+        // Don't perform this check for self messages (session==NULL) or sessions which are still in challenge verification stage.
+        if (session && session->challenge_status == comm::CHALLENGE_STATUS::CHALLENGE_VERIFIED && message.size() <= MAX_SIZE_FOR_TIME_CHECK)
         {
             const uint64_t time_now = util::get_epoch_milliseconds();
             if (p2p_msg->created_on() < (time_now - (conf::cfg.contract.roundtime * 4)))
