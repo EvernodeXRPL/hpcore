@@ -82,6 +82,8 @@ if [ $mode = "new" ] || [ $mode = "reconfig" ]; then
 
    # Create kill.sh script
    echo "pids=\$($contdir/getpid.sh hpcore hpfs hpws) && [ ! -z \"\$pids\" ] && sudo kill \$pids" > $contdir/kill.sh
+   echo "fusermount -u $contdir/contract_fs/mnt > /dev/null 2>&1" >> $contdir/kill.sh
+   echo "fusermount -u $contdir/ledger_fs/mnt > /dev/null 2>&1" >> $contdir/kill.sh
    sudo chmod +x $contdir/kill.sh
 
    # Create lcl.sh script
