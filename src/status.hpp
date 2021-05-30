@@ -17,6 +17,10 @@ namespace status
 
     void unl_changed(const std::set<std::string> &new_unl);
 
+    const util::sequence_hash get_lcl_id();
+
+    const std::set<std::string> get_unl();
+
 } // namespace status
 
 #endif

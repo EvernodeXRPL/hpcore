@@ -1,5 +1,6 @@
 #include "../../pchheader.hpp"
 #include "../../util/version.hpp"
+#include "../../util/sequence_hash.hpp"
 #include "../../util/util.hpp"
 #include "../../util/merkle_hash_tree.hpp"
 #include "../../unl.hpp"
@@ -7,6 +8,7 @@
 #include "../../hplog.hpp"
 #include "../../conf.hpp"
 #include "../../ledger/ledger_query.hpp"
+#include "../../status.hpp"
 #include "../usrmsg_common.hpp"
 #include "usrmsg_json.hpp"
 
@@ -140,7 +142,10 @@ namespace msg::usrmsg::json
      */
     void create_status_response(std::vector<uint8_t> &msg)
     {
-        const uint16_t msg_length = 406 + (69 * conf::cfg.contract.unl.size());
+        const util::sequence_hash lcl_id = status::get_lcl_id();
+        const std::set<std::string> unl = status::get_unl();
+
+        const uint16_t msg_length = 406 + (69 * unl.size());
 
         msg.reserve(msg_length);
         msg += "{\"";
@@ -154,11 +159,11 @@ namespace msg::usrmsg::json
         msg += SEP_COMMA;
         msg += msg::usrmsg::FLD_LEDGER_SEQ_NO;
         msg += SEP_COLON_NOQUOTE;
-        //msg += std::to_string(lcl_seq_no);
+        msg += std::to_string(lcl_id.seq_no);
         msg += SEP_COMMA_NOQUOTE;
         msg += msg::usrmsg::FLD_LEDGER_HASH;
         msg += SEP_COLON;
-        //msg += util::to_hex(lcl_hash);
+        msg += util::to_hex(lcl_id.hash.to_string_view());
         msg += SEP_COMMA;
         msg += msg::usrmsg::FLD_ROUND_TIME;
         msg += SEP_COLON_NOQUOTE;
@@ -180,11 +185,11 @@ namespace msg::usrmsg::json
         msg += SEP_COLON_NOQUOTE;
         msg += OPEN_SQR_BRACKET;
 
-        for (auto node = conf::cfg.contract.unl.begin(); node != conf::cfg.contract.unl.end(); node++)
+        for (auto pubkey = unl.begin(); pubkey != unl.end(); pubkey++)
         {
-            msg += DOUBLE_QUOTE + util::to_hex(*node) + DOUBLE_QUOTE;
+            msg += DOUBLE_QUOTE + util::to_hex(*pubkey) + DOUBLE_QUOTE;
 
-            if (std::next(node) != conf::cfg.contract.unl.end())
+            if (std::next(pubkey) != unl.end())
                 msg += ",";
         }
 

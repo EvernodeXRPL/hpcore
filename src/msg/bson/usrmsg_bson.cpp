@@ -3,8 +3,10 @@
 #include "../../pchheader.hpp"
 #include "../../util/version.hpp"
 #include "../../util/util.hpp"
+#include "../../util/sequence_hash.hpp"
 #include "../../hplog.hpp"
 #include "../../ledger/ledger_query.hpp"
+#include "../../status.hpp"
 #include "../usrmsg_common.hpp"
 #include "usrmsg_bson.hpp"
 
@@ -22,6 +24,9 @@ namespace msg::usrmsg::bson
      */
     void create_status_response(std::vector<uint8_t> &msg)
     {
+        const util::sequence_hash lcl_id = status::get_lcl_id();
+        const std::set<std::string> unl = status::get_unl();
+
         jsoncons::bson::bson_bytes_encoder encoder(msg);
         encoder.begin_object();
         encoder.key(msg::usrmsg::FLD_TYPE);
@@ -29,9 +34,9 @@ namespace msg::usrmsg::bson
         encoder.key(msg::usrmsg::FLD_HP_VERSION);
         encoder.string_value(version::HP_VERSION);
         encoder.key(msg::usrmsg::FLD_LEDGER_SEQ_NO);
-        //encoder.int64_value(lcl_seq_no);
+        encoder.int64_value(lcl_id.seq_no);
         encoder.key(msg::usrmsg::FLD_LEDGER_HASH);
-        //encoder.byte_string_value(lcl_hash);
+        encoder.byte_string_value(lcl_id.hash.to_string_view());
         encoder.key(msg::usrmsg::FLD_ROUND_TIME);
         encoder.uint64_value(conf::cfg.contract.roundtime);
         encoder.key(msg::usrmsg::FLD_CONTARCT_EXECUTION_ENABLED);
@@ -43,8 +48,8 @@ namespace msg::usrmsg::bson
 
         encoder.key(msg::usrmsg::FLD_CURRENT_UNL);
         encoder.begin_array();
-        for (std::string_view unl : conf::cfg.contract.unl)
-            encoder.byte_string_value(unl);
+        for (std::string_view pubkey : unl)
+            encoder.byte_string_value(pubkey);
         encoder.end_array();
         encoder.key(msg::usrmsg::FLD_PEERS);
 

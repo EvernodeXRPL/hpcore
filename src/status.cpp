@@ -44,4 +44,16 @@ namespace status
         unl = new_unl;
     }
 
+    const util::sequence_hash get_lcl_id()
+    {
+        std::shared_lock lock(status_mutex);
+        return lcl_id;
+    }
+
+    const std::set<std::string> get_unl()
+    {
+        std::shared_lock lock(status_mutex);
+        return unl;
+    }
+
 } // namespace status
