@@ -12,7 +12,7 @@ echo $nodeid. $hostaddr
 
 if [ $mode = "new" ] || [ $mode = "updatebin" ]; then
     echo "Uploading hp files to $basedir..."
-    scp -o StrictHostKeyChecking=no -rp hpfiles $sshuser@$hostaddr:$basedir/
+    scp -q -o StrictHostKeyChecking=no -rp hpfiles $sshuser@$hostaddr:$basedir/
     echo "Upload finished."
 fi
 
@@ -23,5 +23,5 @@ if [ $mode = "new" ] || [ $mode = "reconfig" ]; then
 fi
 
 if [ $mode = "new" ] || [ $mode = "reconfig" ] || [ $mode = "updateconfig" ]; then
-    scp -o StrictHostKeyChecking=no $sshuser@$hostaddr:$contdir/cfg/hp.cfg ./cfg/node$nodeid.cfg
+    scp -q -o StrictHostKeyChecking=no $sshuser@$hostaddr:$contdir/cfg/hp.cfg ./cfg/node$nodeid.cfg
 fi

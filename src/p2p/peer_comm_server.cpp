@@ -23,13 +23,11 @@ namespace p2p
 
     void peer_comm_server::start_custom_jobs()
     {
-        // known_peers_thread = std::thread(&peer_comm_server::peer_monitor_loop, this);
         peer_managing_thread = std::thread(&peer_comm_server::peer_managing_loop, this);
     }
 
     void peer_comm_server::stop_custom_jobs()
     {
-        // known_peers_thread.join();
         peer_managing_thread.join();
     }
 
@@ -38,43 +36,25 @@ namespace p2p
         return self::process_next_message();
     }
 
-    void peer_comm_server::custom_connections()
-    {
-        if (custom_connection_invocations == 20 || custom_connection_invocations == -1)
-        {
-            maintain_known_connections();
-            custom_connection_invocations = 0;
-        }
-
-        custom_connection_invocations++;
-    }
-
-    // void peer_comm_server::peer_monitor_loop()
-    // {
-    //     util::mask_signal();
-
-    //     LOG_INFO << "Started peer monitor.";
-
-    //     while (!is_shutting_down)
-    //     {
-    //         util::sleep(2000);
-    //         maintain_known_connections();
-    //     }
-
-    //     LOG_INFO << "Stopped peer monitor.";
-    // }
-
     void peer_comm_server::peer_managing_loop()
     {
         util::mask_signal();
 
         LOG_INFO << "Started peer managing thread.";
 
-        int peer_managing_counter = 0;
+        uint16_t peer_managing_counter = 0;
+        uint16_t known_connections_counter = 0;
 
         while (!is_shutting_down)
         {
             peer_managing_counter++;
+            known_connections_counter++;
+
+            if (known_connections_counter % 20 == 0)
+            {
+                maintain_known_connections();
+                known_connections_counter = 0;
+            }
 
             // Send available peer capacity if peer max connections is configured.
             if (conf::cfg.mesh.max_connections != 0)
@@ -202,9 +182,8 @@ namespace p2p
         {
             // Get the count of peers which are unl nodes.
             // One is added to session list size only if we are a unl node, to reflect the self connection.
-            const int connected_peer_count = std::count_if(sessions.begin(), sessions.end(), [](const p2p::peer_comm_session &session) {
-                                                 return session.is_unl;
-                                             }) +
+            const int connected_peer_count = std::count_if(sessions.begin(), sessions.end(), [](const p2p::peer_comm_session &session)
+                                                           { return session.is_unl; }) +
                                              (conf::cfg.node.is_unl ? 1 : 0);
             const bool current_state = connected_peer_count < (unl::count() * WEAKLY_CONNECTED_THRESHOLD);
             if (is_weakly_connected != current_state)

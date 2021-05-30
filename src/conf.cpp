@@ -180,7 +180,7 @@ namespace conf
             cfg.user.port = 8080;
             cfg.user.idle_timeout = 0;
 
-            cfg.hpfs.log.log_level = "err";
+            cfg.hpfs.log.log_level = "wrn";
 
             cfg.log.max_file_count = 50;
             cfg.log.max_mbytes_per_file = 10;

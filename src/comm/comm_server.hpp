@@ -42,10 +42,6 @@ namespace comm
             return 0;
         }
 
-        virtual void custom_connections()
-        {
-        }
-
     private:
         const std::string name;
         const uint16_t listen_port;
@@ -63,9 +59,6 @@ namespace comm
 
                 // Accept any new incoming connection if available.
                 check_for_new_connection();
-
-                // Any connection logic in inherited classes.
-                custom_connections();
 
                 std::scoped_lock<std::mutex> lock(sessions_mutex);
 
