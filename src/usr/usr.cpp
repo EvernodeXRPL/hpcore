@@ -528,24 +528,4 @@ namespace usr
         }
     }
 
-    /**
-     * Send unl list to all the connected users.
-     * @param unl_list Set of unl pubkeys.
-    */
-    void announce_unl_list(const std::set<std::string> &unl_list)
-    {
-        std::scoped_lock<std::mutex> lock(ctx.users_mutex);
-
-        for (const auto &user : ctx.users)
-        {
-            const usr::connected_user &connected_user = user.second;
-            msg::usrmsg::usrmsg_parser parser(connected_user.protocol);
-
-            std::vector<uint8_t> msg;
-            parser.create_unl_list_container(msg, unl_list);
-
-            connected_user.session.send(msg);
-        }
-    }
-
 } // namespace usr

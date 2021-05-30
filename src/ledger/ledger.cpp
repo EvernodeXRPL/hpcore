@@ -687,7 +687,7 @@ namespace ledger
         lcl_id.hash = last_ledger.ledger_hash;
         ctx.set_lcl_id(lcl_id);
 
-        status::init(lcl_id, last_ledger);
+        status::init_ledger(lcl_id, last_ledger);
 
         return 0;
     }
