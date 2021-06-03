@@ -200,22 +200,16 @@ namespace msg::usrmsg::json
         msg += OPEN_SQR_BRACKET;
 
         {
-            std::scoped_lock<std::mutex> lock(p2p::ctx.peer_connections_mutex);
-
-            const size_t max_peers_count = MIN(MAX_KNOWN_PEERS_INFO, p2p::ctx.peer_connections.size());
+            const std::set<conf::peer_ip_port> peers = status::get_peers();
+            const size_t max_peers_count = MIN(MAX_KNOWN_PEERS_INFO, peers.size());
             size_t count = 1;
 
-            // Currently all peers, up to a max of 10 are sent regardless of state.
-            for (auto peer = p2p::ctx.peer_connections.begin(); peer != p2p::ctx.peer_connections.end() && count <= max_peers_count; peer++)
+            for (auto peer = peers.begin(); peer != peers.end() && count <= max_peers_count; peer++)
             {
-                const p2p::peer_comm_session *sess = peer->second;
-                if (sess->known_ipport)
-                {
-                    if (count > 1)
-                        msg += ",";
-                    msg += DOUBLE_QUOTE + sess->known_ipport->to_string() + DOUBLE_QUOTE;
-                    count++;
-                }
+                if (count > 1)
+                    msg += ",";
+                msg += DOUBLE_QUOTE + peer->to_string() + DOUBLE_QUOTE;
+                count++;
             }
         }
 
