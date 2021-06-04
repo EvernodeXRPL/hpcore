@@ -40,7 +40,7 @@ namespace msg::fbuf::p2pmsg
 
     const p2p::hpfs_log_response create_hpfs_log_response_from_msg(const p2p::peer_message_info &mi);
 
-    p2p::sequence_hash flatbuf_seqhash_to_seqhash(const msg::fbuf::p2pmsg::SequenceHash *fbseqhash);
+    util::sequence_hash flatbuf_seqhash_to_seqhash(const msg::fbuf::p2pmsg::SequenceHash *fbseqhash);
 
     const std::set<std::string> flatbuf_bytearrayvector_to_stringlist(const flatbuffers::Vector<flatbuffers::Offset<ByteArray>> *fbvec);
 
@@ -56,7 +56,7 @@ namespace msg::fbuf::p2pmsg
 
     const std::string generate_proposal_signature(const p2p::proposal &p);
 
-    const std::string generate_npl_signature(std::string_view data, const p2p::sequence_hash &lcl_id);
+    const std::string generate_npl_signature(std::string_view data, const util::sequence_hash &lcl_id);
 
     void create_p2p_msg(flatbuffers::FlatBufferBuilder &builder, const msg::fbuf::p2pmsg::P2PMsgContent content_type, const flatbuffers::Offset<void> content);
 
@@ -68,7 +68,7 @@ namespace msg::fbuf::p2pmsg
 
     void create_msg_from_proposal(flatbuffers::FlatBufferBuilder &builder, const p2p::proposal &p);
 
-    void create_msg_from_npl_output(flatbuffers::FlatBufferBuilder &builder, std::string_view data, const p2p::sequence_hash &lcl_id);
+    void create_msg_from_npl_output(flatbuffers::FlatBufferBuilder &builder, std::string_view data, const util::sequence_hash &lcl_id);
 
     void create_msg_from_hpfs_request(flatbuffers::FlatBufferBuilder &builder, const p2p::hpfs_request &hr);
 
@@ -109,7 +109,7 @@ namespace msg::fbuf::p2pmsg
     peer_propertiesvector_to_flatbuf_peer_propertieslist(flatbuffers::FlatBufferBuilder &builder, const std::vector<p2p::peer_properties> &peers, const std::optional<conf::peer_ip_port> &skipping_ip_port);
 
     const flatbuffers::Offset<msg::fbuf::p2pmsg::SequenceHash>
-    seqhash_to_flatbuf_seqhash(flatbuffers::FlatBufferBuilder &builder, const p2p::sequence_hash &seqhash);
+    seqhash_to_flatbuf_seqhash(flatbuffers::FlatBufferBuilder &builder, const util::sequence_hash &seqhash);
 
     const flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<ByteArray>>>
     stringlist_to_flatbuf_bytearrayvector(flatbuffers::FlatBufferBuilder &builder, const std::set<std::string> &set);

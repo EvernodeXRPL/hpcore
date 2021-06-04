@@ -1,4 +1,5 @@
 #include "hpfs_log_sync.hpp"
+#include "../util/sequence_hash.hpp"
 #include "../conf.hpp"
 #include "../crypto.hpp"
 #include "../ledger/ledger.hpp"
@@ -23,7 +24,7 @@ namespace sc::hpfs_log_sync
     bool init_success = false;
 
     // Represent sequence number and the root hash of the genesis ledger.
-    p2p::sequence_hash genesis_seq_hash;
+    util::sequence_hash genesis_seq_hash;
 
     /**
      * Initialize log record syncer.
@@ -269,7 +270,7 @@ namespace sc::hpfs_log_sync
     */
     int get_verified_min_record()
     {
-        p2p::sequence_hash last_from_index;
+        util::sequence_hash last_from_index;
         if (sc::contract_fs.get_last_seq_no_from_index(last_from_index.seq_no) == -1 ||
             sc::contract_fs.get_hash_from_index_by_seq_no(last_from_index.hash, last_from_index.seq_no) == -1)
         {
@@ -277,7 +278,7 @@ namespace sc::hpfs_log_sync
             return -1;
         }
 
-        p2p::sequence_hash last_from_ledger = ledger::ctx.get_lcl_id();
+        util::sequence_hash last_from_ledger = ledger::ctx.get_lcl_id();
         if (last_from_index.seq_no == ledger::genesis.seq_no || last_from_ledger.seq_no == ledger::genesis.seq_no)
         {
             // Request full ledger.

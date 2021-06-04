@@ -46,8 +46,8 @@ namespace comm
         const std::string name;
         const uint16_t listen_port;
         std::optional<hpws::server> hpws_server;
-        std::thread watchdog_thread;                  // Connection watcher thread.
-        std::thread inbound_message_processor_thread; // Incoming message processor thread.
+        std::thread watchdog_thread;          // Connection watcher thread.
+        std::thread message_processor_thread; // Message processor thread.
 
         void connection_watchdog()
         {
@@ -151,7 +151,7 @@ namespace comm
             // If the hpws client object was not added to a session so far, in will get dstructed and the channel will close.
         }
 
-        void inbound_message_processor_loop()
+        void message_processor_loop()
         {
             util::mask_signal();
 
@@ -251,7 +251,7 @@ namespace comm
                 return -1;
 
             watchdog_thread = std::thread(&comm_server<T>::connection_watchdog, this);
-            inbound_message_processor_thread = std::thread(&comm_server<T>::inbound_message_processor_loop, this);
+            message_processor_thread = std::thread(&comm_server<T>::message_processor_loop, this);
             start_custom_jobs();
 
             return 0;
@@ -266,7 +266,7 @@ namespace comm
             watchdog_thread.join();
             hpws_server.reset();
 
-            inbound_message_processor_thread.join();
+            message_processor_thread.join();
         }
     };
 

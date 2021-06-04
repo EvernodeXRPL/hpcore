@@ -1,10 +1,11 @@
 #include "../../conf.hpp"
-#include "../../p2p/p2p.hpp"
 #include "../../pchheader.hpp"
 #include "../../util/version.hpp"
 #include "../../util/util.hpp"
+#include "../../util/sequence_hash.hpp"
 #include "../../hplog.hpp"
 #include "../../ledger/ledger_query.hpp"
+#include "../../status.hpp"
 #include "../usrmsg_common.hpp"
 #include "usrmsg_bson.hpp"
 
@@ -20,8 +21,11 @@ namespace msg::usrmsg::bson
      *              "ledger_hash": <binary lcl hash>
      *            }
      */
-    void create_status_response(std::vector<uint8_t> &msg, const uint64_t lcl_seq_no, std::string_view lcl_hash)
+    void create_status_response(std::vector<uint8_t> &msg)
     {
+        const util::sequence_hash lcl_id = status::get_lcl_id();
+        const std::set<std::string> unl = status::get_unl();
+
         jsoncons::bson::bson_bytes_encoder encoder(msg);
         encoder.begin_object();
         encoder.key(msg::usrmsg::FLD_TYPE);
@@ -29,9 +33,9 @@ namespace msg::usrmsg::bson
         encoder.key(msg::usrmsg::FLD_HP_VERSION);
         encoder.string_value(version::HP_VERSION);
         encoder.key(msg::usrmsg::FLD_LEDGER_SEQ_NO);
-        encoder.int64_value(lcl_seq_no);
+        encoder.int64_value(lcl_id.seq_no);
         encoder.key(msg::usrmsg::FLD_LEDGER_HASH);
-        encoder.byte_string_value(lcl_hash);
+        encoder.byte_string_value(lcl_id.hash.to_string_view());
         encoder.key(msg::usrmsg::FLD_ROUND_TIME);
         encoder.uint64_value(conf::cfg.contract.roundtime);
         encoder.key(msg::usrmsg::FLD_CONTARCT_EXECUTION_ENABLED);
@@ -43,27 +47,21 @@ namespace msg::usrmsg::bson
 
         encoder.key(msg::usrmsg::FLD_CURRENT_UNL);
         encoder.begin_array();
-        for (std::string_view unl : conf::cfg.contract.unl)
-            encoder.byte_string_value(unl);
+        for (std::string_view pubkey : unl)
+            encoder.byte_string_value(pubkey);
         encoder.end_array();
         encoder.key(msg::usrmsg::FLD_PEERS);
 
         {
-            std::scoped_lock<std::mutex> lock(p2p::ctx.peer_connections_mutex);
-
-            const size_t max_peers_count = MIN(MAX_KNOWN_PEERS_INFO, p2p::ctx.peer_connections.size());
+            const std::set<conf::peer_ip_port> peers = status::get_peers();
+            const size_t max_peers_count = MIN(MAX_KNOWN_PEERS_INFO, peers.size());
             size_t count = 1;
 
             encoder.begin_array();
-            // Currently all peers, up to a max of 10 are sent regardless of state.
-            for (auto peer = p2p::ctx.peer_connections.begin(); peer != p2p::ctx.peer_connections.end() && count <= max_peers_count; peer++)
+            for (auto peer = peers.begin(); peer != peers.end() && count <= max_peers_count; peer++)
             {
-                const p2p::peer_comm_session *sess = peer->second;
-                if (sess->known_ipport)
-                {
-                    encoder.string_value(sess->known_ipport->to_string());
-                    count++;
-                }
+                encoder.string_value(peer->to_string());
+                count++;
             }
             encoder.end_array();
         }

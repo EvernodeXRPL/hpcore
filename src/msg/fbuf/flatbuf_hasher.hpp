@@ -64,7 +64,7 @@ namespace msg::fbuf::p2pmsg
             add(h.to_string_view());
         }
 
-        void add(const p2p::sequence_hash &h)
+        void add(const util::sequence_hash &h)
         {
             add(h.seq_no);
             add(h.hash);

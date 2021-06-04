@@ -101,7 +101,7 @@ namespace usr
 
     bool verify_appbill_check(std::string_view pubkey, const size_t input_len);
 
-    void announce_unl_list(const std::set<std::string> &unl_list);
+    void dispatch_change_events();
 
 } // namespace usr
 

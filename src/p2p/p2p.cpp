@@ -2,6 +2,7 @@
 #include "../conf.hpp"
 #include "../crypto.hpp"
 #include "../util/util.hpp"
+#include "../util/sequence_hash.hpp"
 #include "../hplog.hpp"
 #include "../msg/fbuf/common_helpers.hpp"
 #include "../msg/fbuf/p2pmsg_conversion.hpp"
@@ -546,15 +547,6 @@ namespace p2p
         {
             session->is_unl = unl::exists(session->pubkey);
         }
-    }
-
-    /**
-     * This is a helper method for sequence_hash structure which enables printing it straight away.
-    */
-    std::ostream &operator<<(std::ostream &output, const sequence_hash &seq_hash)
-    {
-        output << seq_hash.seq_no << "-" << seq_hash.hash;
-        return output;
     }
 
 } // namespace p2p
