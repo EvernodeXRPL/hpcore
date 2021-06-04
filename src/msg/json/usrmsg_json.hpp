@@ -10,6 +10,8 @@ namespace msg::usrmsg::json
 
     void create_user_challenge(std::vector<uint8_t> &msg, std::string &challenge);
 
+    void create_lcl_response(std::vector<uint8_t> &msg);
+
     void create_server_challenge_response(std::vector<uint8_t> &msg, const std::string &original_challenge);
 
     void create_status_response(std::vector<uint8_t> &msg);

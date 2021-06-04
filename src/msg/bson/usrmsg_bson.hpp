@@ -10,6 +10,8 @@ namespace msg::usrmsg::bson
 
     void create_status_response(std::vector<uint8_t> &msg);
 
+    void create_lcl_response(std::vector<uint8_t> &msg);
+
     void create_contract_input_status(std::vector<uint8_t> &msg, std::string_view status, std::string_view reason,
                                       std::string_view input_hash, const uint64_t ledger_seq_no, const util::h32 &ledger_hash);
 

@@ -17,8 +17,15 @@ namespace msg::usrmsg::bson
      *            Message format:
      *            {
      *              "type": "stat_response",
+     *              "hp_version": "<version>",
      *              "ledger_seq_no": <lcl sequence no>,
-     *              "ledger_hash": <binary lcl hash>
+     *              "ledger_hash": <binary lcl hash>,
+     *              "roundtime": <roundtime milliseconds>,
+     *              "contract_execution_enabled": true | false,
+     *              "read_requests_enabled": true | false,
+     *              "is_full_history_node": true | false,
+     *              "current_unl": [ <ed prefixed pubkey>, ... ],
+     *              "peers": [ "ip:port", ... ]
      *            }
      */
     void create_status_response(std::vector<uint8_t> &msg)
@@ -66,6 +73,32 @@ namespace msg::usrmsg::bson
             encoder.end_array();
         }
 
+        encoder.end_object();
+        encoder.flush();
+    }
+
+    /**
+     * Constructs a lcl response message.
+     * @param msg Buffer to construct the generated bson message into.
+     *            Message format:
+     *            {
+     *              "type": "lcl_response",
+     *              "ledger_seq_no": <lcl sequence no>,
+     *              "ledger_hash": <binary lcl hash>
+     *            }
+     */
+    void create_lcl_response(std::vector<uint8_t> &msg)
+    {
+        const util::sequence_hash lcl_id = status::get_lcl_id();
+
+        jsoncons::bson::bson_bytes_encoder encoder(msg);
+        encoder.begin_object();
+        encoder.key(msg::usrmsg::FLD_TYPE);
+        encoder.string_value(msg::usrmsg::MSGTYPE_LCL_RESPONSE);
+        encoder.key(msg::usrmsg::FLD_LEDGER_SEQ_NO);
+        encoder.int64_value(lcl_id.seq_no);
+        encoder.key(msg::usrmsg::FLD_LEDGER_HASH);
+        encoder.byte_string_value(lcl_id.hash.to_string_view());
         encoder.end_object();
         encoder.flush();
     }
