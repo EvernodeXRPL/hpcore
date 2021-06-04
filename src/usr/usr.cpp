@@ -529,11 +529,15 @@ namespace usr
         }
     }
 
+    /**
+     * Sends any change event notifications to relevant users who are currently connected to the node.
+     */
     void dispatch_change_events()
     {
         status::change_event ev;
         while (status::event_queue.try_dequeue(ev))
         {
+            // Array to hold constructed message cache from each protocol.
             std::vector<uint8_t> protocol_msgs[2];
 
             if (ev.index() == 0) // UNL change event. Broadcast for all users.
@@ -544,7 +548,7 @@ namespace usr
                 for (auto &[sid, user] : ctx.users)
                 {
                     std::vector<uint8_t> &msg = protocol_msgs[user.protocol];
-                    if (msg.empty())
+                    if (msg.empty()) // Construct the message with relevant protocol if not done so already.
                     {
                         msg::usrmsg::usrmsg_parser parser(user.protocol);
                         parser.create_unl_list_container(msg, unl_ev.unl);
@@ -552,6 +556,7 @@ namespace usr
                     user.session.send(msg);
                 }
 
+                // Clear the caches for the next event.
                 protocol_msgs[util::PROTOCOL::JSON].clear();
                 protocol_msgs[util::PROTOCOL::BSON].clear();
             }
