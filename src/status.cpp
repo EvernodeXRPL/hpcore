@@ -5,6 +5,8 @@
 
 namespace status
 {
+    moodycamel::ConcurrentQueue<change_event> event_queue;
+
     std::shared_mutex ledger_mutex;
     util::sequence_hash lcl_id;        // Last ledger id/hash pair.
     ledger::ledger_record last_ledger; // Last ledger record that the node created.
@@ -58,6 +60,8 @@ namespace status
     {
         std::unique_lock lock(unl_mutex);
         unl = new_unl;
+
+        event_queue.try_enqueue(unl_change_event{unl});
     }
 
     const std::set<std::string> get_unl()

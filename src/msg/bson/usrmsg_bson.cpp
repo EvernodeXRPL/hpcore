@@ -1,5 +1,4 @@
 #include "../../conf.hpp"
-#include "../../p2p/p2p.hpp"
 #include "../../pchheader.hpp"
 #include "../../util/version.hpp"
 #include "../../util/util.hpp"

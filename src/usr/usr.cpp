@@ -10,6 +10,7 @@
 #include "../ledger/ledger.hpp"
 #include "../util/buffer_store.hpp"
 #include "../hpfs/hpfs_mount.hpp"
+#include "../status.hpp"
 #include "usr.hpp"
 #include "user_session_handler.hpp"
 #include "user_comm_session.hpp"
@@ -524,6 +525,35 @@ namespace usr
                 // user's key did not pass, do not add to user input candidates
                 LOG_DEBUG << "Appbill validation failed " << hexpubkey << " return code was " << status;
                 return false;
+            }
+        }
+    }
+
+    void dispatch_change_events()
+    {
+        status::change_event ev;
+        while (status::event_queue.try_dequeue(ev))
+        {
+            std::vector<uint8_t> protocol_msgs[2];
+
+            if (ev.index() == 0) // UNL change event. Broadcast for all users.
+            {
+                const status::unl_change_event &unl_ev = std::get<status::unl_change_event>(ev);
+
+                std::scoped_lock<std::mutex> lock(ctx.users_mutex);
+                for (auto &[sid, user] : ctx.users)
+                {
+                    std::vector<uint8_t> &msg = protocol_msgs[user.protocol];
+                    if (msg.empty())
+                    {
+                        msg::usrmsg::usrmsg_parser parser(user.protocol);
+                        parser.create_unl_list_container(msg, unl_ev.unl);
+                    }
+                    user.session.send(msg);
+                }
+
+                protocol_msgs[util::PROTOCOL::JSON].clear();
+                protocol_msgs[util::PROTOCOL::BSON].clear();
             }
         }
     }

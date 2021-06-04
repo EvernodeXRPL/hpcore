@@ -8,6 +8,16 @@
 
 namespace status
 {
+    struct unl_change_event
+    {
+        std::set<std::string> unl;
+    };
+
+    // Represents any kind of change that has happened in the node.
+    typedef std::variant<unl_change_event> change_event;
+
+    extern moodycamel::ConcurrentQueue<change_event> event_queue;
+
     void init_ledger(const util::sequence_hash &ledger_id, const ledger::ledger_record &ledger);
     void ledger_created(const util::sequence_hash &ledger_id, const ledger::ledger_record &ledger);
     void sync_status_changed(const bool in_sync);

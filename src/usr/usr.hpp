@@ -101,6 +101,8 @@ namespace usr
 
     bool verify_appbill_check(std::string_view pubkey, const size_t input_len);
 
+    void dispatch_change_events();
+
 } // namespace usr
 
 #endif
