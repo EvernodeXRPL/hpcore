@@ -454,7 +454,7 @@ namespace msg::usrmsg::json
     }
 
     /**
-     * Constructs unl list container message.
+     * Constructs unl change notification message.
      * @param msg Buffer to construct the generated json message string into.
      *            Message format:
      *            {
@@ -463,7 +463,7 @@ namespace msg::usrmsg::json
      *            }
      * @param unl_list The unl node pubkey list to be put in the message.
      */
-    void create_unl_list_container(std::vector<uint8_t> &msg, const ::std::set<std::string> &unl_list)
+    void create_unl_notification(std::vector<uint8_t> &msg, const ::std::set<std::string> &unl_list)
     {
         msg.reserve((69 * unl_list.size()) + 30);
         msg += "{\"";
@@ -486,6 +486,35 @@ namespace msg::usrmsg::json
         }
 
         msg += "]}";
+    }
+
+    /**
+     * Constructs sync status notification message.
+     * @param msg Buffer to construct the generated bson message string into.
+     *            Message format:
+     *            {
+     *              "type": "ledger_event",
+     *              "event": "sync_status",
+     *              "in_sync": true | false
+     *            }
+     * @param in_sync Whether the node is in sync or not.
+     */
+    void create_sync_status_notification(std::vector<uint8_t> &msg, const bool in_sync)
+    {
+        msg.reserve(128);
+        msg += "{\"";
+        msg += msg::usrmsg::FLD_TYPE;
+        msg += SEP_COLON;
+        msg += msg::usrmsg::MSGTYPE_LEDGER_EVENT;
+        msg += SEP_COMMA;
+        msg += msg::usrmsg::FLD_EVENT;
+        msg += SEP_COLON;
+        msg += msg::usrmsg::LEDGER_EVENT_SYNC_STATUS;
+        msg += SEP_COMMA;
+        msg += msg::usrmsg::FLD_IN_SYNC;
+        msg += SEP_COLON_NOQUOTE;
+        msg += in_sync ? STR_TRUE : STR_FALSE;
+        msg += "}";
     }
 
     /**

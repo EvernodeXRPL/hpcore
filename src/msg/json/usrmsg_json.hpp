@@ -25,7 +25,9 @@ namespace msg::usrmsg::json
                                           const util::merkle_hash_node &hash_root, const std::vector<std::pair<std::string, std::string>> &unl_sig,
                                           const uint64_t lcl_seq_no, std::string_view lcl_hash);
 
-    void create_unl_list_container(std::vector<uint8_t> &msg, const ::std::set<std::string> &unl_list);
+    void create_unl_notification(std::vector<uint8_t> &msg, const ::std::set<std::string> &unl_list);
+
+    void create_sync_status_notification(std::vector<uint8_t> &msg, const bool in_sync);
 
     void create_ledger_query_response(std::vector<uint8_t> &msg, std::string_view reply_for,
                                       const ledger::query::query_result &result);

@@ -32,7 +32,7 @@ namespace msg::usrmsg::bson
     {
         const util::sequence_hash lcl_id = status::get_lcl_id();
         const std::set<std::string> unl = status::get_unl();
-        const bool in_sync= status::is_in_sync();
+        const bool in_sync = status::is_in_sync();
 
         jsoncons::bson::bson_bytes_encoder encoder(msg);
         encoder.begin_object();
@@ -239,7 +239,7 @@ namespace msg::usrmsg::bson
     }
 
     /**
-     * Constructs unl list container message.
+     * Constructs unl change notification message.
      * @param msg Buffer to construct the generated bson message string into.
      *            Message format:
      *            {
@@ -248,7 +248,7 @@ namespace msg::usrmsg::bson
      *            }
      * @param unl_list The unl node pubkey list to be put in the message.
      */
-    void create_unl_list_container(std::vector<uint8_t> &msg, const ::std::set<std::string> &unl_list)
+    void create_unl_notification(std::vector<uint8_t> &msg, const ::std::set<std::string> &unl_list)
     {
         jsoncons::bson::bson_bytes_encoder encoder(msg);
         encoder.begin_object();
@@ -259,6 +259,31 @@ namespace msg::usrmsg::bson
         for (std::string_view unl : unl_list)
             encoder.byte_string_value(unl);
         encoder.end_array();
+        encoder.end_object();
+        encoder.flush();
+    }
+
+    /**
+     * Constructs sync status notification message.
+     * @param msg Buffer to construct the generated bson message string into.
+     *            Message format:
+     *            {
+     *              "type": "ledger_event",
+     *              "event": "sync_status",
+     *              "in_sync": true | false
+     *            }
+     * @param in_sync Whether the node is in sync or not.
+     */
+    void create_sync_status_notification(std::vector<uint8_t> &msg, const bool in_sync)
+    {
+        jsoncons::bson::bson_bytes_encoder encoder(msg);
+        encoder.begin_object();
+        encoder.key(msg::usrmsg::FLD_TYPE);
+        encoder.string_value(msg::usrmsg::MSGTYPE_LEDGER_EVENT);
+        encoder.key(msg::usrmsg::FLD_EVENT);
+        encoder.string_value(msg::usrmsg::LEDGER_EVENT_SYNC_STATUS);
+        encoder.key(msg::usrmsg::FLD_IN_SYNC);
+        encoder.bool_value(in_sync);
         encoder.end_object();
         encoder.flush();
     }

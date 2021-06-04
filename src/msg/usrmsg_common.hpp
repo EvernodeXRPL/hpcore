@@ -61,6 +61,7 @@ namespace msg::usrmsg
     constexpr const char *FLD_INPUTS = "inputs";
     constexpr const char *FLD_BLOB = "blob";
     constexpr const char *FLD_BLOBS = "blobs";
+    constexpr const char *FLD_EVENT = "event";
 
     // Message types
     constexpr const char *MSGTYPE_USER_CHALLENGE = "user_challenge";
@@ -76,6 +77,7 @@ namespace msg::usrmsg
     constexpr const char *MSGTYPE_LCL = "lcl";
     constexpr const char *MSGTYPE_LCL_RESPONSE = "lcl_response";
     constexpr const char *MSGTYPE_UNL_CHANGE = "unl_change";
+    constexpr const char *MSGTYPE_LEDGER_EVENT = "ledger_event";
     constexpr const char *MSGTYPE_LEDGER_QUERY = "ledger_query";
     constexpr const char *MSGTYPE_LEDGER_QUERY_RESULT = "ledger_query_result";
     constexpr const char *MSGTYPE_UNKNOWN = "unknown";
@@ -95,6 +97,7 @@ namespace msg::usrmsg
     constexpr const char *QUERY_FILTER_BY_SEQ_NO = "seq_no";
     constexpr const char *STR_TRUE = "true";
     constexpr const char *STR_FALSE = "false";
+    constexpr const char *LEDGER_EVENT_SYNC_STATUS = "sync_status";
 
 
 } // namespace msg::usrmsg
