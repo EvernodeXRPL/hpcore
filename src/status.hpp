@@ -22,6 +22,7 @@ namespace status
     void ledger_created(const util::sequence_hash &ledger_id, const ledger::ledger_record &ledger);
     void sync_status_changed(const bool in_sync);
     const util::sequence_hash get_lcl_id();
+    const bool is_in_sync();
 
     void init_unl(const std::set<std::string> &init_unl);
     void unl_changed(const std::set<std::string> &new_unl);

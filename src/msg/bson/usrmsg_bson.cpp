@@ -32,6 +32,7 @@ namespace msg::usrmsg::bson
     {
         const util::sequence_hash lcl_id = status::get_lcl_id();
         const std::set<std::string> unl = status::get_unl();
+        const bool in_sync= status::is_in_sync();
 
         jsoncons::bson::bson_bytes_encoder encoder(msg);
         encoder.begin_object();
@@ -43,6 +44,8 @@ namespace msg::usrmsg::bson
         encoder.int64_value(lcl_id.seq_no);
         encoder.key(msg::usrmsg::FLD_LEDGER_HASH);
         encoder.byte_string_value(lcl_id.hash.to_string_view());
+        encoder.key(msg::usrmsg::FLD_IN_SYNC);
+        encoder.bool_value(in_sync);
         encoder.key(msg::usrmsg::FLD_ROUND_TIME);
         encoder.uint64_value(conf::cfg.contract.roundtime);
         encoder.key(msg::usrmsg::FLD_CONTARCT_EXECUTION_ENABLED);

@@ -621,6 +621,7 @@
                         hpVersion: m.hp_version,
                         ledgerSeqNo: m.ledger_seq_no,
                         ledgerHash: msgHelper.deserializeValue(m.ledger_hash),
+                        inSync: m.in_sync,
                         roundTime: m.round_time,
                         contractExecutionEnabled: m.contract_execution_enabled,
                         readRequestsEnabled: m.read_requests_enabled,

@@ -151,10 +151,9 @@ namespace msg::usrmsg::json
     {
         const util::sequence_hash lcl_id = status::get_lcl_id();
         const std::set<std::string> unl = status::get_unl();
+        const bool in_sync = status::is_in_sync();
 
-        const uint16_t msg_length = 406 + (69 * unl.size());
-
-        msg.reserve(msg_length);
+        msg.reserve(1024);
         msg += "{\"";
         msg += msg::usrmsg::FLD_TYPE;
         msg += SEP_COLON;
@@ -172,21 +171,25 @@ namespace msg::usrmsg::json
         msg += SEP_COLON;
         msg += util::to_hex(lcl_id.hash.to_string_view());
         msg += SEP_COMMA;
+        msg += msg::usrmsg::FLD_IN_SYNC;
+        msg += SEP_COLON_NOQUOTE;
+        msg += in_sync ? STR_TRUE : STR_FALSE;
+        msg += SEP_COMMA_NOQUOTE;
         msg += msg::usrmsg::FLD_ROUND_TIME;
         msg += SEP_COLON_NOQUOTE;
         msg += std::to_string(conf::cfg.contract.roundtime);
         msg += SEP_COMMA_NOQUOTE;
         msg += msg::usrmsg::FLD_CONTARCT_EXECUTION_ENABLED;
         msg += SEP_COLON_NOQUOTE;
-        msg += conf::cfg.contract.execute ? "true" : "false";
+        msg += conf::cfg.contract.execute ? STR_TRUE : STR_FALSE;
         msg += SEP_COMMA_NOQUOTE;
         msg += msg::usrmsg::FLD_READ_REQUESTS_ENABLED;
         msg += SEP_COLON_NOQUOTE;
-        msg += conf::cfg.user.concurrent_read_reqeuests != 0 ? "true" : "false";
+        msg += conf::cfg.user.concurrent_read_reqeuests != 0 ? STR_TRUE : STR_FALSE;
         msg += SEP_COMMA_NOQUOTE;
         msg += msg::usrmsg::FLD_IS_FULL_HISTORY_NODE;
         msg += SEP_COLON_NOQUOTE;
-        msg += conf::cfg.node.history == conf::HISTORY::FULL ? "true" : "false";
+        msg += conf::cfg.node.history == conf::HISTORY::FULL ? STR_TRUE : STR_FALSE;
         msg += SEP_COMMA_NOQUOTE;
         msg += msg::usrmsg::FLD_CURRENT_UNL;
         msg += SEP_COLON_NOQUOTE;
@@ -880,7 +883,7 @@ namespace msg::usrmsg::json
         if ((first == '\"' && last == '\"') ||
             (first == '{' && last == '}') ||
             (first == '[' && last == ']') ||
-            content == "true" || content == "false")
+            content == STR_TRUE || content == STR_FALSE)
             return false;
 
         // Check whether all characters are digits.

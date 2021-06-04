@@ -43,6 +43,7 @@ namespace msg::usrmsg
     constexpr const char *FLD_IS_FULL_HISTORY_NODE = "is_full_history_node";
     constexpr const char *FLD_CURRENT_UNL = "current_unl";
     constexpr const char *FLD_PEERS = "peers";
+    constexpr const char *FLD_IN_SYNC = "in_sync";
     constexpr const char *FLD_ID = "id";
     constexpr const char *FLD_REPLY_FOR = "reply_for";
     constexpr const char *FLD_FILTER_BY = "filter_by";
@@ -92,6 +93,9 @@ namespace msg::usrmsg
     constexpr const char *REASON_ALREADY_SUBMITTED = "already_submitted";
     constexpr const char *REASON_ROUND_INPUTS_OVERFLOW = "round_inputs_overflow";
     constexpr const char *QUERY_FILTER_BY_SEQ_NO = "seq_no";
+    constexpr const char *STR_TRUE = "true";
+    constexpr const char *STR_FALSE = "false";
+
 
 } // namespace msg::usrmsg
 
