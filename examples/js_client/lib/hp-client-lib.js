@@ -356,6 +356,10 @@
             return getMultiConnectionResult(con => con.getStatus());
         }
 
+        this.getLcl = () => {
+            return getMultiConnectionResult(con => con.getLcl());
+        }
+
         this.getLedgerBySeqNo = (seqNo, includeInputs, includeOutputs) => {
             return getMultiConnectionResult(con => con.getLedgerBySeqNo(seqNo, includeInputs, includeOutputs));
         }
@@ -378,6 +382,7 @@
         let handshakeResolver = null;
         let closeResolver = null;
         let statResponseResolvers = [];
+        let lclResponseResolvers = [];
         let contractInputResolvers = {}; // Contract input status-awaiting resolvers (keyed by input hash).
         let ledgerQueryResolvers = {}; // Message resolvers that uses request/reply associations.
 
@@ -620,11 +625,20 @@
                         contractExecutionEnabled: m.contract_execution_enabled,
                         readRequestsEnabled: m.read_requests_enabled,
                         isFullHistoryNode: m.is_full_history_node,
-                        currentUnl: m.current_unl,
+                        currentUnl: m.current_unl.map(u => msgHelper.deserializeValue(u)),
                         peers: m.peers
                     });
                 })
                 statResponseResolvers = [];
+            }
+            else if (m.type == "lcl_response") {
+                lclResponseResolvers.forEach(resolver => {
+                    resolver({
+                        ledgerSeqNo: m.ledger_seq_no,
+                        ledgerHash: msgHelper.deserializeValue(m.ledger_hash)
+                    });
+                })
+                lclResponseResolvers = [];
             }
             else if (m.type == "unl_change") {
                 if (m.unl) {
@@ -823,6 +837,24 @@
             return p;
         }
 
+        this.getLcl = () => {
+
+            if (connectionStatus != 2)
+                return Promise.resolve(null);
+
+            const p = new Promise(resolve => {
+                lclResponseResolvers.push(resolve);
+            });
+
+            // If this is the only awaiting lcl request, then send an actual lcl request.
+            // Otherwise simply wait for the previously sent request.
+            if (lclResponseResolvers.length == 1) {
+                const msg = msgHelper.createLclRequest();
+                wsSend(msgHelper.serializeObject(msg));
+            }
+            return p;
+        }
+
         this.submitContractInput = async (input, nonce, maxLedger, isOffset) => {
 
             if (connectionStatus != 2)
@@ -843,12 +875,12 @@
                 if (!maxLedger)
                     maxLedger = 10; // Default offset applied if not specified.
 
-                // Acquire the current ledger status and add the specified offset.
-                const stat = await this.getStatus();
-                if (!stat)
-                    throw "Error retrieving ledger status."
+                // Acquire the last ledger information and add the specified offset.
+                const lcl = await this.getLcl();
+                if (!lcl)
+                    throw "Error retrieving last closed ledger."
 
-                maxLedger += stat.ledgerSeqNo;
+                maxLedger += lcl.ledgerSeqNo;
             }
 
             const inp = msgHelper.createContractInputComponents(input, nonce, maxLedger);
@@ -1016,6 +1048,10 @@
 
         this.createStatusRequest = () => {
             return { type: "stat" };
+        }
+
+        this.createLclRequest = () => {
+            return { type: "lcl" };
         }
 
         this.createLedgerQuery = (filterBy, params, includeInputs, includeOutputs) => {

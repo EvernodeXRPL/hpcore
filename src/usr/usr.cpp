@@ -239,6 +239,13 @@ namespace usr
                 user.session.send(resp);
                 return 0;
             }
+            else if (msg_type == msg::usrmsg::MSGTYPE_LCL)
+            {
+                std::vector<uint8_t> resp;
+                parser.create_lcl_response(resp);
+                user.session.send(resp);
+                return 0;
+            }
             else if (msg_type == msg::usrmsg::MSGTYPE_LEDGER_QUERY)
             {
                 ledger::query::query_request req;

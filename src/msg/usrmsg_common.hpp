@@ -72,6 +72,8 @@ namespace msg::usrmsg
     constexpr const char *MSGTYPE_CONTRACT_OUTPUT = "contract_output";
     constexpr const char *MSGTYPE_STAT = "stat";
     constexpr const char *MSGTYPE_STAT_RESPONSE = "stat_response";
+    constexpr const char *MSGTYPE_LCL = "lcl";
+    constexpr const char *MSGTYPE_LCL_RESPONSE = "lcl_response";
     constexpr const char *MSGTYPE_UNL_CHANGE = "unl_change";
     constexpr const char *MSGTYPE_LEDGER_QUERY = "ledger_query";
     constexpr const char *MSGTYPE_LEDGER_QUERY_RESULT = "ledger_query_result";

@@ -136,8 +136,15 @@ namespace msg::usrmsg::json
      *            Message format:
      *            {
      *              "type": "stat_response",
+     *              "hp_version": "<version>",
      *              "ledger_seq_no": <lcl sequence no>,
-     *              "ledger_hash": "<lcl hash hex>"
+     *              "ledger_hash": "<lcl hash hex>",
+     *              "roundtime": <roundtime milliseconds>,
+     *              "contract_execution_enabled": true | false,
+     *              "read_requests_enabled": true | false,
+     *              "is_full_history_node": true | false,
+     *              "current_unl": [ "<ed prefixed pubkey hex>"", ... ],
+     *              "peers": [ "ip:port", ... ]
      *            }
      */
     void create_status_response(std::vector<uint8_t> &msg)
@@ -215,6 +222,36 @@ namespace msg::usrmsg::json
 
         msg += CLOSE_SQR_BRACKET;
         msg += "}";
+    }
+
+    /**
+     * Constructs a lcl response message.
+     * @param msg Buffer to construct the generated json message string into.
+     *            Message format:
+     *            {
+     *              "type": "lcl_response",
+     *              "ledger_seq_no": <lcl sequence no>,
+     *              "ledger_hash": "<lcl hash hex>"
+     *            }
+     */
+    void create_lcl_response(std::vector<uint8_t> &msg)
+    {
+        const util::sequence_hash lcl_id = status::get_lcl_id();
+
+        msg.reserve(512);
+        msg += "{\"";
+        msg += msg::usrmsg::FLD_TYPE;
+        msg += SEP_COLON;
+        msg += msg::usrmsg::MSGTYPE_LCL_RESPONSE;
+        msg += SEP_COMMA;
+        msg += msg::usrmsg::FLD_LEDGER_SEQ_NO;
+        msg += SEP_COLON_NOQUOTE;
+        msg += std::to_string(lcl_id.seq_no);
+        msg += SEP_COMMA_NOQUOTE;
+        msg += msg::usrmsg::FLD_LEDGER_HASH;
+        msg += SEP_COLON;
+        msg += util::to_hex(lcl_id.hash.to_string_view());
+        msg += "\"}";
     }
 
     /**
