@@ -50,7 +50,8 @@
         contractOutput: "contractOutput",
         contractReadResponse: "contractReadResponse",
         connectionChange: "connectionChange",
-        unlChange: "unlChange"
+        unlChange: "unlChange",
+        ledgerEvent: "ledgerEvent"
     }
     Object.freeze(events);
 
@@ -649,23 +650,18 @@
                 }
             }
             else if (m.type == "ledger_event") {
-                // console.log(m);
+                let ev = { event: m.event };
+                if (ev.event == "ledger_created")
+                    ev.ledger = msgHelper.deserializeLedger(m.ledger);
+                else if (ev.event == "sync_status")
+                    ev.inSync = m.in_sync;
+                emitter.emit(events.ledgerEvent, ev);
             }
             else if (m.type == "ledger_query_result") {
                 const resolver = ledgerQueryResolvers[m.reply_for];
                 if (resolver) {
                     const results = m.results.map(r => {
-                        const result = {
-                            seqNo: r.seq_no,
-                            timestamp: r.timestamp,
-                            hash: msgHelper.deserializeValue(r.hash),
-                            prevHash: msgHelper.deserializeValue(r.prev_hash),
-                            stateHash: msgHelper.deserializeValue(r.state_hash),
-                            configHash: msgHelper.deserializeValue(r.config_hash),
-                            userHash: msgHelper.deserializeValue(r.user_hash),
-                            inputHash: msgHelper.deserializeValue(r.input_hash),
-                            outputHash: msgHelper.deserializeValue(r.output_hash)
-                        }
+                        const result = msgHelper.deserializeLedger(r);
 
                         if (r.inputs) {
                             result.inputs = r.inputs.map(i => {
@@ -709,7 +705,7 @@
             // In browser, text(json) mode requires the buffer to be "decoded" to text before JSON parsing.
             const isTextMode = (connectionStatus < 2 || protocol == protocols.json);
             const data = (isBrowser && isTextMode) ? textDecoder.decode(rcvd.data) : rcvd.data;
-            
+
             try {
                 m = msgHelper.deserializeMessage(data);
             }
@@ -1070,6 +1066,20 @@
                 filter_by: filterBy,
                 params: params,
                 include: includes
+            }
+        }
+
+        this.deserializeLedger = (l) => {
+            return {
+                seqNo: l.seq_no,
+                timestamp: l.timestamp,
+                hash: this.deserializeValue(l.hash),
+                prevHash: this.deserializeValue(l.prev_hash),
+                stateHash: this.deserializeValue(l.state_hash),
+                configHash: this.deserializeValue(l.config_hash),
+                userHash: this.deserializeValue(l.user_hash),
+                inputHash: this.deserializeValue(l.input_hash),
+                outputHash: this.deserializeValue(l.output_hash)
             }
         }
     }

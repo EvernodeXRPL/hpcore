@@ -67,6 +67,11 @@ async function main() {
         console.log("Read response>> " + response);
     })
 
+    // This will get fired when any ledger event occurs (ledger created, sync status change).
+    hpc.on(HotPocket.events.ledgerEvent, (ev) => {
+        console.log(ev);
+    })
+
     // Establish HotPocket connection.
     if (!await hpc.connect()) {
         console.log('Connection failed.');
