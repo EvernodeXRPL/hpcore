@@ -62,6 +62,7 @@ namespace msg::usrmsg
     constexpr const char *FLD_BLOB = "blob";
     constexpr const char *FLD_BLOBS = "blobs";
     constexpr const char *FLD_EVENT = "event";
+    constexpr const char *FLD_LEDGER = "ledger";
 
     // Message types
     constexpr const char *MSGTYPE_USER_CHALLENGE = "user_challenge";
@@ -97,6 +98,7 @@ namespace msg::usrmsg
     constexpr const char *QUERY_FILTER_BY_SEQ_NO = "seq_no";
     constexpr const char *STR_TRUE = "true";
     constexpr const char *STR_FALSE = "false";
+    constexpr const char *LEDGER_EVENT_LEDGER_CREATED = "ledger_created";
     constexpr const char *LEDGER_EVENT_SYNC_STATUS = "sync_status";
 
 

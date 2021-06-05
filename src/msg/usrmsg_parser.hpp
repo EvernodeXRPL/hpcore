@@ -35,6 +35,8 @@ namespace msg::usrmsg
 
         void create_unl_notification(std::vector<uint8_t> &msg, const std::set<std::string> &unl_list) const;
 
+        void create_ledger_created_notification(std::vector<uint8_t> &msg, const ledger::ledger_record &ledger) const;
+
         void create_sync_status_notification(std::vector<uint8_t> &msg, const bool in_sync) const;
 
         void create_ledger_query_response(std::vector<uint8_t> &msg, std::string_view reply_for,

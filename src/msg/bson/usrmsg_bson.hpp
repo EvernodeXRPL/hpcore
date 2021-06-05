@@ -23,6 +23,8 @@ namespace msg::usrmsg::bson
 
     void create_unl_notification(std::vector<uint8_t> &msg, const ::std::set<std::string> &unl_list);
 
+    void create_ledger_created_notification(std::vector<uint8_t> &msg, const ledger::ledger_record &ledger);
+
     void create_sync_status_notification(std::vector<uint8_t> &msg, const bool in_sync);
 
     void create_ledger_query_response(std::vector<uint8_t> &msg, std::string_view reply_for,
@@ -48,6 +50,8 @@ namespace msg::usrmsg::bson
     void populate_output_hash_array(jsoncons::bson::bson_bytes_encoder &encoder, const util::merkle_hash_node &node);
 
     void populate_ledger_query_results(jsoncons::bson::bson_bytes_encoder &encoder, const std::vector<ledger::ledger_record> &results);
+
+    void populate_ledger_fields(jsoncons::bson::bson_bytes_encoder &encoder, const ledger::ledger_record &ledger);
 
     void populate_ledger_inputs(jsoncons::bson::bson_bytes_encoder &encoder, const std::vector<ledger::ledger_user_input> &inputs);
 

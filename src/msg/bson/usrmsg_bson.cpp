@@ -264,6 +264,33 @@ namespace msg::usrmsg::bson
     }
 
     /**
+     * Constructs ledger created notification message.
+     * @param msg Buffer to construct the generated bson message string into.
+     *            Message format:
+     *            {
+     *              "type": "ledger_event",
+     *              "event": "ledger_created",
+     *              "ledger": { ... }
+     *            }
+     * @param ledger The created ledger.
+     */
+    void create_ledger_created_notification(std::vector<uint8_t> &msg, const ledger::ledger_record &ledger)
+    {
+        jsoncons::bson::bson_bytes_encoder encoder(msg);
+        encoder.begin_object();
+        encoder.key(msg::usrmsg::FLD_TYPE);
+        encoder.string_value(msg::usrmsg::MSGTYPE_LEDGER_EVENT);
+        encoder.key(msg::usrmsg::FLD_EVENT);
+        encoder.string_value(msg::usrmsg::LEDGER_EVENT_LEDGER_CREATED);
+        encoder.key(msg::usrmsg::FLD_LEDGER);
+        encoder.begin_object();
+        populate_ledger_fields(encoder, ledger);
+        encoder.end_object();
+        encoder.end_object();
+        encoder.flush();
+    }
+
+    /**
      * Constructs sync status notification message.
      * @param msg Buffer to construct the generated bson message string into.
      *            Message format:
@@ -290,7 +317,7 @@ namespace msg::usrmsg::bson
 
     /**
      * Constructs a ledger query response.
-     * @param msg Buffer to construct the generated json message string into.
+     * @param msg Buffer to construct the generated bson message string into.
      *            Message format:
      *            {
      *              "type": "ledger_query_result",
@@ -575,24 +602,7 @@ namespace msg::usrmsg::bson
         for (const ledger::ledger_record &ledger : results)
         {
             encoder.begin_object();
-            encoder.key(msg::usrmsg::FLD_SEQ_NO);
-            encoder.uint64_value(ledger.seq_no);
-            encoder.key(msg::usrmsg::FLD_TIMESTAMP);
-            encoder.uint64_value(ledger.timestamp);
-            encoder.key(msg::usrmsg::FLD_HASH);
-            encoder.byte_string_value(ledger.ledger_hash);
-            encoder.key(msg::usrmsg::FLD_PREV_HASH);
-            encoder.byte_string_value(ledger.prev_ledger_hash);
-            encoder.key(msg::usrmsg::FLD_STATE_HASH);
-            encoder.byte_string_value(ledger.state_hash);
-            encoder.key(msg::usrmsg::FLD_CONFIG_HASH);
-            encoder.byte_string_value(ledger.config_hash);
-            encoder.key(msg::usrmsg::FLD_USER_HASH);
-            encoder.byte_string_value(ledger.user_hash);
-            encoder.key(msg::usrmsg::FLD_INPUT_HASH);
-            encoder.byte_string_value(ledger.input_hash);
-            encoder.key(msg::usrmsg::FLD_OUTPUT_HASH);
-            encoder.byte_string_value(ledger.output_hash);
+            populate_ledger_fields(encoder, ledger);
 
             // If raw inputs or outputs is not requested, we don't include that field at all in the response.
             // Otherwise the field will always contain an array (empty array if no data).
@@ -611,6 +621,28 @@ namespace msg::usrmsg::bson
 
             encoder.end_object();
         }
+    }
+
+    void populate_ledger_fields(jsoncons::bson::bson_bytes_encoder &encoder, const ledger::ledger_record &ledger)
+    {
+        encoder.key(msg::usrmsg::FLD_SEQ_NO);
+        encoder.uint64_value(ledger.seq_no);
+        encoder.key(msg::usrmsg::FLD_TIMESTAMP);
+        encoder.uint64_value(ledger.timestamp);
+        encoder.key(msg::usrmsg::FLD_HASH);
+        encoder.byte_string_value(ledger.ledger_hash);
+        encoder.key(msg::usrmsg::FLD_PREV_HASH);
+        encoder.byte_string_value(ledger.prev_ledger_hash);
+        encoder.key(msg::usrmsg::FLD_STATE_HASH);
+        encoder.byte_string_value(ledger.state_hash);
+        encoder.key(msg::usrmsg::FLD_CONFIG_HASH);
+        encoder.byte_string_value(ledger.config_hash);
+        encoder.key(msg::usrmsg::FLD_USER_HASH);
+        encoder.byte_string_value(ledger.user_hash);
+        encoder.key(msg::usrmsg::FLD_INPUT_HASH);
+        encoder.byte_string_value(ledger.input_hash);
+        encoder.key(msg::usrmsg::FLD_OUTPUT_HASH);
+        encoder.byte_string_value(ledger.output_hash);
     }
 
     void populate_ledger_inputs(jsoncons::bson::bson_bytes_encoder &encoder, const std::vector<ledger::ledger_user_input> &inputs)

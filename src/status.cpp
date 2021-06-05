@@ -41,8 +41,11 @@ namespace status
 
     void sync_status_changed(const bool new_in_sync)
     {
-        in_sync = new_in_sync;
-        event_queue.try_enqueue(sync_status_change_event{new_in_sync});
+        if (in_sync != new_in_sync)
+        {
+            in_sync = new_in_sync;
+            event_queue.try_enqueue(sync_status_change_event{new_in_sync});
+        }
     }
 
     const util::sequence_hash get_lcl_id()

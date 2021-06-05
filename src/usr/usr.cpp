@@ -549,8 +549,6 @@ namespace usr
 
             if (ev.index() == 0) // UNL change event. Broadcast for all users.
             {
-                const status::unl_change_event &unl_ev = std::get<status::unl_change_event>(ev);
-
                 std::scoped_lock<std::mutex> lock(ctx.users_mutex);
                 for (auto &[sid, user] : ctx.users)
                 {
@@ -558,19 +556,14 @@ namespace usr
                     if (msg.empty()) // Construct the message with relevant protocol if not done so already.
                     {
                         msg::usrmsg::usrmsg_parser parser(user.protocol);
+                        const status::unl_change_event &unl_ev = std::get<status::unl_change_event>(ev);
                         parser.create_unl_notification(msg, unl_ev.unl);
                     }
                     user.session.send(msg);
                 }
-
-                // Clear the caches for the next event.
-                protocol_msgs[util::PROTOCOL::JSON].clear();
-                protocol_msgs[util::PROTOCOL::BSON].clear();
             }
-            else if (ev.index() == 2) // Sync status change event. Broadcast for all users.
+            else if (ev.index() == 1 || ev.index() == 2) // Ledger events. Broadcast for subscribed users.
             {
-                const status::sync_status_change_event &sync_ev = std::get<status::sync_status_change_event>(ev);
-
                 std::scoped_lock<std::mutex> lock(ctx.users_mutex);
                 for (auto &[sid, user] : ctx.users)
                 {
@@ -578,14 +571,20 @@ namespace usr
                     if (msg.empty()) // Construct the message with relevant protocol if not done so already.
                     {
                         msg::usrmsg::usrmsg_parser parser(user.protocol);
-                        parser.create_sync_status_notification(msg, sync_ev.in_sync);
+
+                        if (ev.index() == 1) // Ledger created event.
+                        {
+                            const status::ledger_created_event &ledger_ev = std::get<status::ledger_created_event>(ev);
+                            parser.create_ledger_created_notification(msg, ledger_ev.ledger);
+                        }
+                        else if (ev.index() == 2) // Sync status chnge event.
+                        {
+                            const status::sync_status_change_event &sync_ev = std::get<status::sync_status_change_event>(ev);
+                            parser.create_sync_status_notification(msg, sync_ev.in_sync);
+                        }
                     }
                     user.session.send(msg);
                 }
-
-                // Clear the caches for the next event.
-                protocol_msgs[util::PROTOCOL::JSON].clear();
-                protocol_msgs[util::PROTOCOL::BSON].clear();
             }
         }
     }

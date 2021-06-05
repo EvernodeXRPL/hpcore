@@ -489,8 +489,37 @@ namespace msg::usrmsg::json
     }
 
     /**
+     * Constructs ledger created notification message.
+     * @param msg Buffer to construct the generated json message string into.
+     *            Message format:
+     *            {
+     *              "type": "ledger_event",
+     *              "event": "ledger_created",
+     *              "ledger": { ... }
+     *            }
+     * @param ledger The created ledger.
+     */
+    void create_ledger_created_notification(std::vector<uint8_t> &msg, const ledger::ledger_record &ledger)
+    {
+        msg.reserve(1024);
+        msg += "{\"";
+        msg += msg::usrmsg::FLD_TYPE;
+        msg += SEP_COLON;
+        msg += msg::usrmsg::MSGTYPE_LEDGER_EVENT;
+        msg += SEP_COMMA;
+        msg += msg::usrmsg::FLD_EVENT;
+        msg += SEP_COLON;
+        msg += msg::usrmsg::LEDGER_EVENT_LEDGER_CREATED;
+        msg += SEP_COMMA;
+        msg += msg::usrmsg::FLD_LEDGER;
+        msg += "\":{";
+        populate_ledger_fields(msg, ledger);
+        msg += "}}";
+    }
+
+    /**
      * Constructs sync status notification message.
-     * @param msg Buffer to construct the generated bson message string into.
+     * @param msg Buffer to construct the generated json message string into.
      *            Message format:
      *            {
      *              "type": "ledger_event",
@@ -965,43 +994,8 @@ namespace msg::usrmsg::json
         {
             const ledger::ledger_record &ledger = results[i];
 
-            msg += "{\"";
-            msg += msg::usrmsg::FLD_SEQ_NO;
-            msg += SEP_COLON_NOQUOTE;
-            msg += std::to_string(ledger.seq_no);
-            msg += SEP_COMMA_NOQUOTE;
-            msg += msg::usrmsg::FLD_TIMESTAMP;
-            msg += SEP_COLON_NOQUOTE;
-            msg += std::to_string(ledger.timestamp);
-            msg += SEP_COMMA_NOQUOTE;
-            msg += msg::usrmsg::FLD_HASH;
-            msg += SEP_COLON;
-            msg += util::to_hex(ledger.ledger_hash);
-            msg += SEP_COMMA;
-            msg += msg::usrmsg::FLD_PREV_HASH;
-            msg += SEP_COLON;
-            msg += util::to_hex(ledger.prev_ledger_hash);
-            msg += SEP_COMMA;
-            msg += msg::usrmsg::FLD_STATE_HASH;
-            msg += SEP_COLON;
-            msg += util::to_hex(ledger.state_hash);
-            msg += SEP_COMMA;
-            msg += msg::usrmsg::FLD_CONFIG_HASH;
-            msg += SEP_COLON;
-            msg += util::to_hex(ledger.config_hash);
-            msg += SEP_COMMA;
-            msg += msg::usrmsg::FLD_USER_HASH;
-            msg += SEP_COLON;
-            msg += util::to_hex(ledger.user_hash);
-            msg += SEP_COMMA;
-            msg += msg::usrmsg::FLD_INPUT_HASH;
-            msg += SEP_COLON;
-            msg += util::to_hex(ledger.input_hash);
-            msg += SEP_COMMA;
-            msg += msg::usrmsg::FLD_OUTPUT_HASH;
-            msg += SEP_COLON;
-            msg += util::to_hex(ledger.output_hash);
-            msg += "\"";
+            msg += "{";
+            populate_ledger_fields(msg, ledger);
 
             // If raw inputs or outputs is not requested, we don't include that field at all in the response.
             // Otherwise the field will always contain an array (empty array if no data).
@@ -1024,6 +1018,47 @@ namespace msg::usrmsg::json
 
             msg += (i == (results.size() - 1) ? "}" : "},");
         }
+    }
+
+    void populate_ledger_fields(std::vector<uint8_t> &msg, const ledger::ledger_record &ledger)
+    {
+        msg += "\"";
+        msg += msg::usrmsg::FLD_SEQ_NO;
+        msg += SEP_COLON_NOQUOTE;
+        msg += std::to_string(ledger.seq_no);
+        msg += SEP_COMMA_NOQUOTE;
+        msg += msg::usrmsg::FLD_TIMESTAMP;
+        msg += SEP_COLON_NOQUOTE;
+        msg += std::to_string(ledger.timestamp);
+        msg += SEP_COMMA_NOQUOTE;
+        msg += msg::usrmsg::FLD_HASH;
+        msg += SEP_COLON;
+        msg += util::to_hex(ledger.ledger_hash);
+        msg += SEP_COMMA;
+        msg += msg::usrmsg::FLD_PREV_HASH;
+        msg += SEP_COLON;
+        msg += util::to_hex(ledger.prev_ledger_hash);
+        msg += SEP_COMMA;
+        msg += msg::usrmsg::FLD_STATE_HASH;
+        msg += SEP_COLON;
+        msg += util::to_hex(ledger.state_hash);
+        msg += SEP_COMMA;
+        msg += msg::usrmsg::FLD_CONFIG_HASH;
+        msg += SEP_COLON;
+        msg += util::to_hex(ledger.config_hash);
+        msg += SEP_COMMA;
+        msg += msg::usrmsg::FLD_USER_HASH;
+        msg += SEP_COLON;
+        msg += util::to_hex(ledger.user_hash);
+        msg += SEP_COMMA;
+        msg += msg::usrmsg::FLD_INPUT_HASH;
+        msg += SEP_COLON;
+        msg += util::to_hex(ledger.input_hash);
+        msg += SEP_COMMA;
+        msg += msg::usrmsg::FLD_OUTPUT_HASH;
+        msg += SEP_COLON;
+        msg += util::to_hex(ledger.output_hash);
+        msg += "\"";
     }
 
     void populate_ledger_inputs(std::vector<uint8_t> &msg, const std::vector<ledger::ledger_user_input> &inputs)

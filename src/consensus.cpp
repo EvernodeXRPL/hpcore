@@ -157,9 +157,10 @@ namespace consensus
                     new_sync_status = check_sync_status(unl_count, votes, lcl_id);
                 }
 
-                // Update the status if the sync status changed.
-                if ((ctx.sync_status != 0 && new_sync_status == 0) || (ctx.sync_status == 0 && new_sync_status != 0))
-                    status::sync_status_changed(new_sync_status == 0);
+                // Update the sync status if we went from in-sync to not-in-sync. We will report back as being in-sync
+                // only when we hit stage 3.
+                if (ctx.sync_status == 0 && new_sync_status != 0)
+                    status::sync_status_changed(false);
 
                 ctx.sync_status = new_sync_status;
             }
@@ -187,6 +188,8 @@ namespace consensus
                 // Upon successful consensus at stage 3, update the ledger and execute the contract using the consensus proposal.
                 if (ctx.stage == 3)
                 {
+                    status::sync_status_changed(true); // Creating a new ledger means we are in sync.
+
                     consensed_user_map consensed_users;
                     if (prepare_consensed_users(consensed_users, p) == -1 ||
                         commit_consensus_results(p, consensed_users, patch_hash) == -1)

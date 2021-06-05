@@ -64,6 +64,14 @@ namespace msg::usrmsg
             busrmsg::create_unl_notification(msg, unl_list);
     }
 
+    void usrmsg_parser::create_ledger_created_notification(std::vector<uint8_t> &msg, const ledger::ledger_record &ledger) const
+    {
+        if (protocol == util::PROTOCOL::JSON)
+            jusrmsg::create_ledger_created_notification(msg, ledger);
+        else
+            busrmsg::create_ledger_created_notification(msg, ledger);
+    }
+
     void usrmsg_parser::create_sync_status_notification(std::vector<uint8_t> &msg, const bool in_sync) const
     {
         if (protocol == util::PROTOCOL::JSON)

@@ -648,6 +648,9 @@
                     validateAndEmitUnlChange(unl);
                 }
             }
+            else if (m.type == "ledger_event") {
+                // console.log(m);
+            }
             else if (m.type == "ledger_query_result") {
                 const resolver = ledgerQueryResolvers[m.reply_for];
                 if (resolver) {
@@ -706,7 +709,7 @@
             // In browser, text(json) mode requires the buffer to be "decoded" to text before JSON parsing.
             const isTextMode = (connectionStatus < 2 || protocol == protocols.json);
             const data = (isBrowser && isTextMode) ? textDecoder.decode(rcvd.data) : rcvd.data;
-
+            
             try {
                 m = msgHelper.deserializeMessage(data);
             }
