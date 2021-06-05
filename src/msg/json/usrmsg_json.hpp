@@ -4,6 +4,7 @@
 #include "../../pchheader.hpp"
 #include "../../util/merkle_hash_tree.hpp"
 #include "../../ledger/ledger_query.hpp"
+#include "../../usr/user_common.hpp"
 
 namespace msg::usrmsg::json
 {
@@ -48,6 +49,8 @@ namespace msg::usrmsg::json
 
     int extract_input_container(std::string &input, uint64_t &nonce,
                                 uint64_t &max_ledger_seq_no, std::string_view contentjson);
+
+    int extract_subscription_request(usr::NOTIFICATION_CHANNEL &channel, bool &enabled, const jsoncons::json &d);
 
     int extract_ledger_query(ledger::query::query_request &extracted_query, std::string &extracted_id, const jsoncons::json &d);
 

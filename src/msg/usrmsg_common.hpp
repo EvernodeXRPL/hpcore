@@ -63,6 +63,8 @@ namespace msg::usrmsg
     constexpr const char *FLD_BLOBS = "blobs";
     constexpr const char *FLD_EVENT = "event";
     constexpr const char *FLD_LEDGER = "ledger";
+    constexpr const char *FLD_CHANNEL = "channel";
+    constexpr const char *FLD_ENABLED = "enabled";
 
     // Message types
     constexpr const char *MSGTYPE_USER_CHALLENGE = "user_challenge";
@@ -81,6 +83,7 @@ namespace msg::usrmsg
     constexpr const char *MSGTYPE_LEDGER_EVENT = "ledger_event";
     constexpr const char *MSGTYPE_LEDGER_QUERY = "ledger_query";
     constexpr const char *MSGTYPE_LEDGER_QUERY_RESULT = "ledger_query_result";
+    constexpr const char *MSGTYPE_SUBSCRIPTION = "subscription";
     constexpr const char *MSGTYPE_UNKNOWN = "unknown";
 
     // Values

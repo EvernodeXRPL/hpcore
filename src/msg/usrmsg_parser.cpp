@@ -130,6 +130,14 @@ namespace msg::usrmsg
             return busrmsg::extract_input_container(input, nonce, max_ledger_seq_no, encoded_content);
     }
 
+    int usrmsg_parser::extract_subscription_request(usr::NOTIFICATION_CHANNEL &channel, bool &enabled)
+    {
+        if (protocol == util::PROTOCOL::JSON)
+            return jusrmsg::extract_subscription_request(channel, enabled, jdoc);
+        else
+            return busrmsg::extract_subscription_request(channel, enabled, bdoc);
+    }
+
     int usrmsg_parser::extract_ledger_query(ledger::query::query_request &extracted_query, std::string &extracted_id) const
     {
         if (protocol == util::PROTOCOL::JSON)

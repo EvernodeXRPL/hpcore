@@ -858,6 +858,51 @@ namespace msg::usrmsg::json
     }
 
     /**
+     * Extract ledger event subscription request.
+     * @param channel Extracted subscription channel.
+     * @param enabled Whether the subscription is enabled or not.
+     * @param d The json document holding the subscription request.
+     *          Accepted message format:
+     *          {
+     *            "type": "subscription",
+     *            "channel": "unl_change" | "ledger_event",
+     *            "enabled": true | false
+     *          }
+     * @return 0 on successful extraction. -1 for failure.
+     */
+    int extract_subscription_request(usr::NOTIFICATION_CHANNEL &channel, bool &enabled, const jsoncons::json &d)
+    {
+        if (!d.contains(msg::usrmsg::FLD_CHANNEL) || !d.contains(msg::usrmsg::FLD_ENABLED))
+        {
+            LOG_DEBUG << "User subscription request required fields missing.";
+            return -1;
+        }
+
+        if (!d[msg::usrmsg::FLD_CHANNEL].is<std::string>() || !d[msg::usrmsg::FLD_ENABLED].is<bool>())
+        {
+            LOG_DEBUG << "User subscription request invalid field values.";
+            return -1;
+        }
+
+        if (d[msg::usrmsg::FLD_CHANNEL] == msg::usrmsg::MSGTYPE_LEDGER_EVENT)
+        {
+            channel = usr::NOTIFICATION_CHANNEL::LEDGER_EVENT;
+        }
+        else if (d[msg::usrmsg::FLD_CHANNEL] == msg::usrmsg::MSGTYPE_UNL_CHANGE)
+        {
+            channel = usr::NOTIFICATION_CHANNEL::UNL_CHANGE;
+        }
+        else
+        {
+            LOG_DEBUG << "User subscription request invalid channel.";
+            return -1;
+        }
+
+        enabled = d[msg::usrmsg::FLD_ENABLED].as<bool>();
+        return 0;
+    }
+
+    /**
      * Extract query information from a ledger query request.
      * @param extracted_query Extracted query criteria.
      * @param extracted_id The query id.

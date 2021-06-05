@@ -5,12 +5,10 @@
 #include "../util/util.hpp"
 #include "../util/merkle_hash_tree.hpp"
 #include "../ledger/ledger_query.hpp"
+#include "../usr/user_common.hpp"
 
 namespace msg::usrmsg
 {
-    // Forward declaration
-    class usrmsg_parser;
-
     class usrmsg_parser
     {
         const util::PROTOCOL protocol;
@@ -52,6 +50,8 @@ namespace msg::usrmsg
 
         int extract_input_container(std::string &input, uint64_t &nonce,
                                     uint64_t &max_ledger_seq_no, std::string_view encoded_content) const;
+
+        int extract_subscription_request(usr::NOTIFICATION_CHANNEL &channel, bool &enabled);
 
         int extract_ledger_query(ledger::query::query_request &extracted_query, std::string &extracted_id) const;
     };

@@ -11,6 +11,7 @@
 #include "user_comm_server.hpp"
 #include "user_session_handler.hpp"
 #include "user_input.hpp"
+#include "user_common.hpp"
 
 /**
  * Maintains the global user list with pending input outputs and manages user connections.
@@ -34,6 +35,9 @@ namespace usr
         // Total input bytes collected which are pending to be subjected to consensus.
         size_t collected_input_size = 0;
 
+        // User's notification subscription toggles.
+        bool subscriptions[2];
+
         // Holds the websocket session of this user.
         // We don't need to own the session object since the lifetime of user and session are coupled.
         usr::user_comm_session &session;
@@ -48,6 +52,9 @@ namespace usr
         connected_user(usr::user_comm_session &session, std::string_view pubkey, util::PROTOCOL protocol)
             : session(session), pubkey(pubkey), protocol(protocol)
         {
+            // Default subscriptions.
+            subscriptions[NOTIFICATION_CHANNEL::UNL_CHANGE] = true;
+            subscriptions[NOTIFICATION_CHANNEL::LEDGER_EVENT] = false;
         }
     };
 
