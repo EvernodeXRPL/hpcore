@@ -5,12 +5,10 @@
 #include "../util/util.hpp"
 #include "../util/merkle_hash_tree.hpp"
 #include "../ledger/ledger_query.hpp"
+#include "../usr/user_common.hpp"
 
 namespace msg::usrmsg
 {
-    // Forward declaration
-    class usrmsg_parser;
-
     class usrmsg_parser
     {
         const util::PROTOCOL protocol;
@@ -33,7 +31,11 @@ namespace msg::usrmsg
                                               const util::merkle_hash_node &hash_root, const std::vector<std::pair<std::string, std::string>> &unl_sig,
                                               const uint64_t lcl_seq_no, std::string_view lcl_hash) const;
 
-        void create_unl_list_container(std::vector<uint8_t> &msg, const ::std::set<std::string> &unl_list) const;
+        void create_unl_notification(std::vector<uint8_t> &msg, const std::set<std::string> &unl_list) const;
+
+        void create_ledger_created_notification(std::vector<uint8_t> &msg, const ledger::ledger_record &ledger) const;
+
+        void create_sync_status_notification(std::vector<uint8_t> &msg, const bool in_sync) const;
 
         void create_ledger_query_response(std::vector<uint8_t> &msg, std::string_view reply_for,
                                           const ledger::query::query_result &result) const;
@@ -48,6 +50,8 @@ namespace msg::usrmsg
 
         int extract_input_container(std::string &input, uint64_t &nonce,
                                     uint64_t &max_ledger_seq_no, std::string_view encoded_content) const;
+
+        int extract_subscription_request(usr::NOTIFICATION_CHANNEL &channel, bool &enabled);
 
         int extract_ledger_query(ledger::query::query_request &extracted_query, std::string &extracted_id) const;
     };

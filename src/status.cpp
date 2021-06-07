@@ -10,7 +10,8 @@ namespace status
     std::shared_mutex ledger_mutex;
     util::sequence_hash lcl_id;        // Last ledger id/hash pair.
     ledger::ledger_record last_ledger; // Last ledger record that the node created.
-    bool is_in_sync = false;           // Indicates whether this node is in sync with other nodes or not.
+
+    std::atomic<bool> in_sync = false; // Indicates whether this node is in sync with other nodes or not.
 
     std::shared_mutex unl_mutex;
     std::set<std::string> unl; // List of last reported unl binary pubkeys.
@@ -25,7 +26,9 @@ namespace status
         // Not acquiring the mutex lock since this is called during startup only.
         lcl_id = ledger_id;
         last_ledger = ledger;
-        is_in_sync = true;
+
+        // We assume we are not in sync unless otherwise found that we are.
+        in_sync = false;
     }
 
     void ledger_created(const util::sequence_hash &ledger_id, const ledger::ledger_record &ledger)
@@ -33,19 +36,27 @@ namespace status
         std::unique_lock lock(ledger_mutex);
         lcl_id = ledger_id;
         last_ledger = ledger;
-        is_in_sync = true; // Creating a ledger automatically means we are in sync.
+        event_queue.try_enqueue(ledger_created_event{ledger});
     }
 
-    void sync_status_changed(const bool in_sync)
+    void sync_status_changed(const bool new_in_sync)
     {
-        std::unique_lock lock(ledger_mutex);
-        is_in_sync = in_sync;
+        if (in_sync != new_in_sync)
+        {
+            in_sync = new_in_sync;
+            event_queue.try_enqueue(sync_status_change_event{new_in_sync});
+        }
     }
 
     const util::sequence_hash get_lcl_id()
     {
         std::shared_lock lock(ledger_mutex);
         return lcl_id;
+    }
+
+    const bool is_in_sync()
+    {
+        return in_sync;
     }
 
     //----- UNL status

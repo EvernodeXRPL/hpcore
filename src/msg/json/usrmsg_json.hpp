@@ -4,6 +4,7 @@
 #include "../../pchheader.hpp"
 #include "../../util/merkle_hash_tree.hpp"
 #include "../../ledger/ledger_query.hpp"
+#include "../../usr/user_common.hpp"
 
 namespace msg::usrmsg::json
 {
@@ -25,7 +26,11 @@ namespace msg::usrmsg::json
                                           const util::merkle_hash_node &hash_root, const std::vector<std::pair<std::string, std::string>> &unl_sig,
                                           const uint64_t lcl_seq_no, std::string_view lcl_hash);
 
-    void create_unl_list_container(std::vector<uint8_t> &msg, const ::std::set<std::string> &unl_list);
+    void create_unl_notification(std::vector<uint8_t> &msg, const ::std::set<std::string> &unl_list);
+
+    void create_ledger_created_notification(std::vector<uint8_t> &msg, const ledger::ledger_record &ledger);
+
+    void create_sync_status_notification(std::vector<uint8_t> &msg, const bool in_sync);
 
     void create_ledger_query_response(std::vector<uint8_t> &msg, std::string_view reply_for,
                                       const ledger::query::query_result &result);
@@ -45,6 +50,8 @@ namespace msg::usrmsg::json
     int extract_input_container(std::string &input, uint64_t &nonce,
                                 uint64_t &max_ledger_seq_no, std::string_view contentjson);
 
+    int extract_subscription_request(usr::NOTIFICATION_CHANNEL &channel, bool &enabled, const jsoncons::json &d);
+
     int extract_ledger_query(ledger::query::query_request &extracted_query, std::string &extracted_id, const jsoncons::json &d);
 
     bool is_json_string(std::string_view content);
@@ -52,6 +59,8 @@ namespace msg::usrmsg::json
     void populate_output_hash_array(std::vector<uint8_t> &msg, const util::merkle_hash_node &node);
 
     void populate_ledger_query_results(std::vector<uint8_t> &msg, const std::vector<ledger::ledger_record> &results);
+
+    void populate_ledger_fields(std::vector<uint8_t> &msg, const ledger::ledger_record &ledger);
 
     void populate_ledger_inputs(std::vector<uint8_t> &msg, const std::vector<ledger::ledger_user_input> &inputs);
 

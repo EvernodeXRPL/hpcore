@@ -43,6 +43,7 @@ namespace msg::usrmsg
     constexpr const char *FLD_IS_FULL_HISTORY_NODE = "is_full_history_node";
     constexpr const char *FLD_CURRENT_UNL = "current_unl";
     constexpr const char *FLD_PEERS = "peers";
+    constexpr const char *FLD_IN_SYNC = "in_sync";
     constexpr const char *FLD_ID = "id";
     constexpr const char *FLD_REPLY_FOR = "reply_for";
     constexpr const char *FLD_FILTER_BY = "filter_by";
@@ -60,6 +61,10 @@ namespace msg::usrmsg
     constexpr const char *FLD_INPUTS = "inputs";
     constexpr const char *FLD_BLOB = "blob";
     constexpr const char *FLD_BLOBS = "blobs";
+    constexpr const char *FLD_EVENT = "event";
+    constexpr const char *FLD_LEDGER = "ledger";
+    constexpr const char *FLD_CHANNEL = "channel";
+    constexpr const char *FLD_ENABLED = "enabled";
 
     // Message types
     constexpr const char *MSGTYPE_USER_CHALLENGE = "user_challenge";
@@ -75,8 +80,10 @@ namespace msg::usrmsg
     constexpr const char *MSGTYPE_LCL = "lcl";
     constexpr const char *MSGTYPE_LCL_RESPONSE = "lcl_response";
     constexpr const char *MSGTYPE_UNL_CHANGE = "unl_change";
+    constexpr const char *MSGTYPE_LEDGER_EVENT = "ledger_event";
     constexpr const char *MSGTYPE_LEDGER_QUERY = "ledger_query";
     constexpr const char *MSGTYPE_LEDGER_QUERY_RESULT = "ledger_query_result";
+    constexpr const char *MSGTYPE_SUBSCRIPTION = "subscription";
     constexpr const char *MSGTYPE_UNKNOWN = "unknown";
 
     // Values
@@ -92,6 +99,11 @@ namespace msg::usrmsg
     constexpr const char *REASON_ALREADY_SUBMITTED = "already_submitted";
     constexpr const char *REASON_ROUND_INPUTS_OVERFLOW = "round_inputs_overflow";
     constexpr const char *QUERY_FILTER_BY_SEQ_NO = "seq_no";
+    constexpr const char *STR_TRUE = "true";
+    constexpr const char *STR_FALSE = "false";
+    constexpr const char *LEDGER_EVENT_LEDGER_CREATED = "ledger_created";
+    constexpr const char *LEDGER_EVENT_SYNC_STATUS = "sync_status";
+
 
 } // namespace msg::usrmsg
 
