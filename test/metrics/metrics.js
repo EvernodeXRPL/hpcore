@@ -1,7 +1,7 @@
 // HotPocket test client to collect metrics.
 // This assumes the HotPocket server we are connecting to is hosting the echo contract.
 
-const HotPocket = require('../../examples/js_client/hp-client-lib');
+const HotPocket = require('../../examples/js_client/lib/hp-client-lib');
 
 let server = 'wss://localhost:8080';
 if (process.argv.length == 3) server = 'wss://localhost:' + process.argv[2];
