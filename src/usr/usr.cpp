@@ -557,7 +557,7 @@ namespace usr
             // Array to hold constructed message cache from each protocol.
             std::vector<uint8_t> protocol_msgs[2];
 
-            if (ev.index() == 0) // UNL change event. Broadcast for all users.
+            if (ev.index() == 0) // UNL change event. Broadcast for subscribed users.
             {
                 std::scoped_lock<std::mutex> lock(ctx.users_mutex);
                 for (auto &[sid, user] : ctx.users)

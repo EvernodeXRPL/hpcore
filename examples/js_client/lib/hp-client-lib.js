@@ -683,7 +683,7 @@
                 processUnlUpdate(m.unl, false);
             }
             else if (m.type == "ledger_event") {
-                let ev = { event: m.event };
+                const ev = { event: m.event };
                 if (ev.event == "ledger_created")
                     ev.ledger = msgHelper.deserializeLedger(m.ledger);
                 else if (ev.event == "sync_status")
