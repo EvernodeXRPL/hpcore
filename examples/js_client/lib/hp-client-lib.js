@@ -47,12 +47,20 @@
     /*--- Included in public interface. ---*/
     const events = {
         disconnect: "disconnect",
-        contractOutput: "contractOutput",
-        contractReadResponse: "contractReadResponse",
-        connectionChange: "connectionChange",
-        unlChange: "unlChange"
+        contractOutput: "contract_output",
+        contractReadResponse: "contract_read_response",
+        connectionChange: "connection_change",
+        unlChange: "unl_change",
+        ledgerEvent: "ledger_event"
     }
     Object.freeze(events);
+
+    /*--- Included in public interface. ---*/
+    const notificationChannels = {
+        unlChange: "unl_change",
+        ledgerEvent: "ledger_event"
+    }
+    Object.freeze(notificationChannels);
 
     /*--- Included in public interface. ---*/
     // privateKeyHex: Hex private key with prefix ('ed').
@@ -143,6 +151,8 @@
             if (key.length > 0)
                 trustedKeysLookup[key] = true
         });
+        // If there are no keys specified, mark the lookup as null, indicating that we are not intersted in
+        // checking for trusted servers.
         if (Object.keys(trustedKeysLookup).length == 0)
             trustedKeysLookup = null;
 
@@ -153,15 +163,9 @@
 
         let emitter = new EventEmitter();
 
-        // The accessor function passed into connections to query latest trusted key list.
-        // We update the returning key list whenever we get a unl update.
+        // The accessor functions passed into connections to query and set latest trusted key list.
         const getTrustedKeys = () => trustedKeysLookup;
-
-        // Whenever unl change is reported, update the trusted key list.
-        emitter.on(events.unlChange, (unl) => {
-            trustedKeysLookup = {};
-            unl.sort().forEach(pubkey => trustedKeysLookup[pubkey] = true);
-        })
+        const setTrustedKeys = (newKeys) => (trustedKeysLookup = newKeys);
 
         const nodes = Object.keys(serversLookup).map(s => {
             return {
@@ -170,6 +174,12 @@
                 lastActivity: 0 // Last connection activity timestamp.
             }
         });
+
+        // Default subscriptions.
+        const subscriptions = {};
+        // Subscribe for unl changes if we have to maintain the trusted server key checks.
+        subscriptions[notificationChannels.unlChange] = trustedKeysLookup ? true : false;
+        subscriptions[notificationChannels.ledgerEvent] = false;
 
         let status = 0; //0:none, 1:connected, 2:closed
 
@@ -241,14 +251,24 @@
 
                 // Get the next available node.
                 const n = freeNodes.shift();
-                n.connection = new HotPocketConnection(contractId, contractVersion, clientKeys, n.server, getTrustedKeys, protocol, connectionTimeoutMs, emitter);
+                n.connection = new HotPocketConnection(
+                    contractId, contractVersion, clientKeys, n.server,
+                    getTrustedKeys, setTrustedKeys, protocol, connectionTimeoutMs, emitter);
                 n.lastActivity = new Date().getTime();
 
                 n.connection.connect().then(success => {
-                    if (!success)
+                    if (!success) {
                         n.connection = null;
-                    else
+                    }
+                    else {
                         emitter && emitter.emit(events.connectionChange, n.server, "add");
+
+                        // Issue subscription request for any subscriptions we have to maintain.
+                        // We don't wait for completion because we just need to issue the request to the server.
+                        for (const [channel, enabled] of Object.entries(subscriptions)) {
+                            if (enabled) n.connection.subscribe(channel)
+                        }
+                    }
                 });
 
                 n.connection.onClose = () => {
@@ -356,12 +376,28 @@
             return getMultiConnectionResult(con => con.getStatus());
         }
 
+        this.getLcl = () => {
+            return getMultiConnectionResult(con => con.getLcl());
+        }
+
+        this.subscribe = (channel) => {
+            subscriptions[channel] = true;
+            return executeMultiConnectionFunc(con => con.subscribe(channel));
+        }
+
+        this.unsubscribe = (channel) => {
+            subscriptions[channel] = false;
+            return executeMultiConnectionFunc(con => con.unsubscribe(channel));
+        }
+
         this.getLedgerBySeqNo = (seqNo, includeInputs, includeOutputs) => {
             return getMultiConnectionResult(con => con.getLedgerBySeqNo(seqNo, includeInputs, includeOutputs));
         }
     }
 
-    function HotPocketConnection(contractId, contractVersion, clientKeys, server, getTrustedKeys, protocol, connectionTimeoutMs, emitter) {
+    function HotPocketConnection(
+        contractId, contractVersion, clientKeys, server,
+        getTrustedKeys, setTrustedKeys, protocol, connectionTimeoutMs, emitter) {
 
         // Create message helper with JSON protocol initially.
         // After challenge handshake, we will change this to use the protocol specified by user.
@@ -378,6 +414,7 @@
         let handshakeResolver = null;
         let closeResolver = null;
         let statResponseResolvers = [];
+        let lclResponseResolvers = [];
         let contractInputResolvers = {}; // Contract input status-awaiting resolvers (keyed by input hash).
         let ledgerQueryResolvers = {}; // Message resolvers that uses request/reply associations.
 
@@ -486,18 +523,24 @@
             return false;
         }
 
-        const validateAndEmitUnlChange = (changedUnl) => {
-            // If this is currently a trusted connection, notify unl update.
-            const trustedKeys = getTrustedKeys();
-            if (trustedKeys && trustedKeys[pubkey]) {
-                // Prepare sorted new unl lookup object for equality comparison.
-                const newUnl = {};
-                changedUnl.sort().forEach(k => newUnl[k] = true);
+        const processUnlUpdate = (unl, isHandshake) => {
 
-                // Only emit unl change event if the unl has really changed.
-                if (JSON.stringify(trustedKeys) != JSON.stringify(newUnl))
-                    emitter && emitter.emit(events.unlChange, changedUnl);
+            unl = unl.map(k => msgHelper.deserializeValue(k)).sort();
+
+            // If this is currently a trusted connection, update the trusted key set with the received unl.
+            let trustedKeys = getTrustedKeys();
+            if (trustedKeys && trustedKeys[pubkey]) {
+                trustedKeys = {}; // reset the object and reinitialize the list.
+
+                // Convert unl pubkeys to hex string so we can use them as lookup object keys.
+                const hexUnl = unl.map(k => msgHelper.stringifyValue(k));
+                hexUnl.forEach(k => trustedKeys[k] = true);
+                setTrustedKeys(trustedKeys);
+                liblog(0, "Updated trusted keys.");
             }
+
+            if (!isHandshake)
+                emitter && emitter.emit(events.unlChange, unl);
         }
 
         const handshakeMessageHandler = (m) => {
@@ -551,16 +594,16 @@
                 clearTimeout(handshakeTimer); // Cancel the handshake timeout monitor.
                 handshakeTimer = null;
                 serverChallenge = null; // Clear the sent challenge as we no longer need it.
-                msgHelper.useProtocol(protocol); // Here onwards, use the message protocol specified by user.
                 pubkey = m.pubkey; // Set this connection's public key.
                 connectionStatus = 2; // Handshake complete.
+
+                processUnlUpdate(m.unl, true);
+                msgHelper.useProtocol(protocol); // Here onwards, use the message protocol specified by user.
 
                 // If we are still connected, report handshaking as successful.
                 // (If websocket disconnects, handshakeResolver will be already null)
                 handshakeResolver && handshakeResolver(true);
                 liblog(0, `Connected to ${server}`);
-
-                validateAndEmitUnlChange(m.unl);
 
                 return true;
             }
@@ -616,38 +659,42 @@
                         hpVersion: m.hp_version,
                         ledgerSeqNo: m.ledger_seq_no,
                         ledgerHash: msgHelper.deserializeValue(m.ledger_hash),
+                        inSync: m.in_sync,
                         roundTime: m.round_time,
                         contractExecutionEnabled: m.contract_execution_enabled,
                         readRequestsEnabled: m.read_requests_enabled,
                         isFullHistoryNode: m.is_full_history_node,
-                        currentUnl: m.current_unl,
+                        currentUnl: m.current_unl.map(u => msgHelper.deserializeValue(u)),
                         peers: m.peers
                     });
                 })
                 statResponseResolvers = [];
             }
+            else if (m.type == "lcl_response") {
+                lclResponseResolvers.forEach(resolver => {
+                    resolver({
+                        ledgerSeqNo: m.ledger_seq_no,
+                        ledgerHash: msgHelper.deserializeValue(m.ledger_hash)
+                    });
+                })
+                lclResponseResolvers = [];
+            }
             else if (m.type == "unl_change") {
-                if (m.unl) {
-                    // Convert unl pubkeys to hex string.
-                    let unl = m.unl.map(k => msgHelper.stringifyValue(k));
-                    validateAndEmitUnlChange(unl);
-                }
+                processUnlUpdate(m.unl, false);
+            }
+            else if (m.type == "ledger_event") {
+                const ev = { event: m.event };
+                if (ev.event == "ledger_created")
+                    ev.ledger = msgHelper.deserializeLedger(m.ledger);
+                else if (ev.event == "sync_status")
+                    ev.inSync = m.in_sync;
+                emitter.emit(events.ledgerEvent, ev);
             }
             else if (m.type == "ledger_query_result") {
                 const resolver = ledgerQueryResolvers[m.reply_for];
                 if (resolver) {
                     const results = m.results.map(r => {
-                        const result = {
-                            seqNo: r.seq_no,
-                            timestamp: r.timestamp,
-                            hash: msgHelper.deserializeValue(r.hash),
-                            prevHash: msgHelper.deserializeValue(r.prev_hash),
-                            stateHash: msgHelper.deserializeValue(r.state_hash),
-                            configHash: msgHelper.deserializeValue(r.config_hash),
-                            userHash: msgHelper.deserializeValue(r.user_hash),
-                            inputHash: msgHelper.deserializeValue(r.input_hash),
-                            outputHash: msgHelper.deserializeValue(r.output_hash)
-                        }
+                        const result = msgHelper.deserializeLedger(r);
 
                         if (r.inputs) {
                             result.inputs = r.inputs.map(i => {
@@ -823,6 +870,24 @@
             return p;
         }
 
+        this.getLcl = () => {
+
+            if (connectionStatus != 2)
+                return Promise.resolve(null);
+
+            const p = new Promise(resolve => {
+                lclResponseResolvers.push(resolve);
+            });
+
+            // If this is the only awaiting lcl request, then send an actual lcl request.
+            // Otherwise simply wait for the previously sent request.
+            if (lclResponseResolvers.length == 1) {
+                const msg = msgHelper.createLclRequest();
+                wsSend(msgHelper.serializeObject(msg));
+            }
+            return p;
+        }
+
         this.submitContractInput = async (input, nonce, maxLedger, isOffset) => {
 
             if (connectionStatus != 2)
@@ -843,12 +908,12 @@
                 if (!maxLedger)
                     maxLedger = 10; // Default offset applied if not specified.
 
-                // Acquire the current ledger status and add the specified offset.
-                const stat = await this.getStatus();
-                if (!stat)
-                    throw "Error retrieving ledger status."
+                // Acquire the last ledger information and add the specified offset.
+                const lcl = await this.getLcl();
+                if (!lcl)
+                    throw "Error retrieving last closed ledger."
 
-                maxLedger += stat.ledgerSeqNo;
+                maxLedger += lcl.ledgerSeqNo;
             }
 
             const inp = msgHelper.createContractInputComponents(input, nonce, maxLedger);
@@ -876,6 +941,24 @@
                 return Promise.resolve();
 
             const msg = msgHelper.createReadRequest(request);
+            wsSend(msgHelper.serializeObject(msg));
+            return Promise.resolve();
+        }
+
+        this.subscribe = (channel) => {
+            if (connectionStatus != 2)
+                return Promise.resolve();
+
+            const msg = msgHelper.createSubscriptionRequest(channel, true);
+            wsSend(msgHelper.serializeObject(msg));
+            return Promise.resolve();
+        }
+
+        this.unsubscribe = (channel) => {
+            if (connectionStatus != 2)
+                return Promise.resolve();
+
+            const msg = msgHelper.createSubscriptionRequest(channel, false);
             wsSend(msgHelper.serializeObject(msg));
             return Promise.resolve();
         }
@@ -1018,6 +1101,18 @@
             return { type: "stat" };
         }
 
+        this.createLclRequest = () => {
+            return { type: "lcl" };
+        }
+
+        this.createSubscriptionRequest = (channel, enabled) => {
+            return {
+                type: "subscription",
+                channel: channel,
+                enabled: enabled
+            }
+        }
+
         this.createLedgerQuery = (filterBy, params, includeInputs, includeOutputs) => {
 
             const includes = [];
@@ -1030,6 +1125,20 @@
                 filter_by: filterBy,
                 params: params,
                 include: includes
+            }
+        }
+
+        this.deserializeLedger = (l) => {
+            return {
+                seqNo: l.seq_no,
+                timestamp: l.timestamp,
+                hash: this.deserializeValue(l.hash),
+                prevHash: this.deserializeValue(l.prev_hash),
+                stateHash: this.deserializeValue(l.state_hash),
+                configHash: this.deserializeValue(l.config_hash),
+                userHash: this.deserializeValue(l.user_hash),
+                inputHash: this.deserializeValue(l.input_hash),
+                outputHash: this.deserializeValue(l.output_hash)
             }
         }
     }
@@ -1209,6 +1318,7 @@
             generateKeys,
             createClient,
             events,
+            notificationChannels,
             protocols,
             setLogLevel
         };
@@ -1218,6 +1328,7 @@
             generateKeys,
             createClient,
             events,
+            notificationChannels,
             protocols,
             setLogLevel
         };

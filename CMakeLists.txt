@@ -31,6 +31,7 @@ add_executable(hpcore
     src/util/buffer_store.cpp
     src/util/merkle_hash_tree.cpp
     src/util/h32.cpp
+    src/util/sequence_hash.cpp
     src/unl.cpp
     src/crypto.cpp
     src/conf.cpp
@@ -68,6 +69,7 @@ add_executable(hpcore
     src/ledger/ledger_sync.cpp
     src/ledger/ledger_serve.cpp
     src/ledger/ledger.cpp
+    src/status.cpp
     src/consensus.cpp
     src/main.cpp
 )

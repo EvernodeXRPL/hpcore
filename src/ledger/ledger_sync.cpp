@@ -56,7 +56,7 @@ namespace ledger
                     return;
                 }
 
-                const p2p::sequence_hash updated_primary_shard_id{synced_shard_seq_no, hash};
+                const util::sequence_hash updated_primary_shard_id{synced_shard_seq_no, hash};
                 if (get_last_ledger_and_update_context(hpfs::RW_SESSION_NAME, updated_primary_shard_id, false) == -1)
                 {
                     LOG_ERROR << "Error updating context from the synced shard " << vpath;
@@ -114,7 +114,7 @@ namespace ledger
                 }
 
                 last_raw_shard_seq_no = synced_shard_seq_no;
-                ctx.set_last_raw_shard_id(p2p::sequence_hash{synced_shard_seq_no, hash});
+                ctx.set_last_raw_shard_id(util::sequence_hash{synced_shard_seq_no, hash});
                 is_last_raw_shard_syncing = false;
 
                 // If existing max shard is older than the max we can keep. Then delete all the existing shards.

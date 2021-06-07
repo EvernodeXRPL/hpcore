@@ -1,10 +1,11 @@
 #include "../../conf.hpp"
-#include "../../p2p/p2p.hpp"
 #include "../../pchheader.hpp"
 #include "../../util/version.hpp"
 #include "../../util/util.hpp"
+#include "../../util/sequence_hash.hpp"
 #include "../../hplog.hpp"
 #include "../../ledger/ledger_query.hpp"
+#include "../../status.hpp"
 #include "../usrmsg_common.hpp"
 #include "usrmsg_bson.hpp"
 
@@ -16,12 +17,23 @@ namespace msg::usrmsg::bson
      *            Message format:
      *            {
      *              "type": "stat_response",
+     *              "hp_version": "<version>",
      *              "ledger_seq_no": <lcl sequence no>,
-     *              "ledger_hash": <binary lcl hash>
+     *              "ledger_hash": <binary lcl hash>,
+     *              "roundtime": <roundtime milliseconds>,
+     *              "contract_execution_enabled": true | false,
+     *              "read_requests_enabled": true | false,
+     *              "is_full_history_node": true | false,
+     *              "current_unl": [ <ed prefixed pubkey>, ... ],
+     *              "peers": [ "ip:port", ... ]
      *            }
      */
-    void create_status_response(std::vector<uint8_t> &msg, const uint64_t lcl_seq_no, std::string_view lcl_hash)
+    void create_status_response(std::vector<uint8_t> &msg)
     {
+        const util::sequence_hash lcl_id = status::get_lcl_id();
+        const std::set<std::string> unl = status::get_unl();
+        const bool in_sync = status::is_in_sync();
+
         jsoncons::bson::bson_bytes_encoder encoder(msg);
         encoder.begin_object();
         encoder.key(msg::usrmsg::FLD_TYPE);
@@ -29,9 +41,11 @@ namespace msg::usrmsg::bson
         encoder.key(msg::usrmsg::FLD_HP_VERSION);
         encoder.string_value(version::HP_VERSION);
         encoder.key(msg::usrmsg::FLD_LEDGER_SEQ_NO);
-        encoder.int64_value(lcl_seq_no);
+        encoder.int64_value(lcl_id.seq_no);
         encoder.key(msg::usrmsg::FLD_LEDGER_HASH);
-        encoder.byte_string_value(lcl_hash);
+        encoder.byte_string_value(lcl_id.hash.to_string_view());
+        encoder.key(msg::usrmsg::FLD_IN_SYNC);
+        encoder.bool_value(in_sync);
         encoder.key(msg::usrmsg::FLD_ROUND_TIME);
         encoder.uint64_value(conf::cfg.contract.roundtime);
         encoder.key(msg::usrmsg::FLD_CONTARCT_EXECUTION_ENABLED);
@@ -43,31 +57,51 @@ namespace msg::usrmsg::bson
 
         encoder.key(msg::usrmsg::FLD_CURRENT_UNL);
         encoder.begin_array();
-        for (std::string_view unl : conf::cfg.contract.unl)
-            encoder.byte_string_value(unl);
+        for (std::string_view pubkey : unl)
+            encoder.byte_string_value(pubkey);
         encoder.end_array();
         encoder.key(msg::usrmsg::FLD_PEERS);
 
         {
-            std::scoped_lock<std::mutex> lock(p2p::ctx.peer_connections_mutex);
-
-            const size_t max_peers_count = MIN(MAX_KNOWN_PEERS_INFO, p2p::ctx.peer_connections.size());
+            const std::set<conf::peer_ip_port> peers = status::get_peers();
+            const size_t max_peers_count = MIN(MAX_KNOWN_PEERS_INFO, peers.size());
             size_t count = 1;
 
             encoder.begin_array();
-            // Currently all peers, up to a max of 10 are sent regardless of state.
-            for (auto peer = p2p::ctx.peer_connections.begin(); peer != p2p::ctx.peer_connections.end() && count <= max_peers_count; peer++)
+            for (auto peer = peers.begin(); peer != peers.end() && count <= max_peers_count; peer++)
             {
-                const p2p::peer_comm_session *sess = peer->second;
-                if (sess->known_ipport)
-                {
-                    encoder.string_value(sess->known_ipport->to_string());
-                    count++;
-                }
+                encoder.string_value(peer->to_string());
+                count++;
             }
             encoder.end_array();
         }
 
+        encoder.end_object();
+        encoder.flush();
+    }
+
+    /**
+     * Constructs a lcl response message.
+     * @param msg Buffer to construct the generated bson message into.
+     *            Message format:
+     *            {
+     *              "type": "lcl_response",
+     *              "ledger_seq_no": <lcl sequence no>,
+     *              "ledger_hash": <binary lcl hash>
+     *            }
+     */
+    void create_lcl_response(std::vector<uint8_t> &msg)
+    {
+        const util::sequence_hash lcl_id = status::get_lcl_id();
+
+        jsoncons::bson::bson_bytes_encoder encoder(msg);
+        encoder.begin_object();
+        encoder.key(msg::usrmsg::FLD_TYPE);
+        encoder.string_value(msg::usrmsg::MSGTYPE_LCL_RESPONSE);
+        encoder.key(msg::usrmsg::FLD_LEDGER_SEQ_NO);
+        encoder.int64_value(lcl_id.seq_no);
+        encoder.key(msg::usrmsg::FLD_LEDGER_HASH);
+        encoder.byte_string_value(lcl_id.hash.to_string_view());
         encoder.end_object();
         encoder.flush();
     }
@@ -205,7 +239,7 @@ namespace msg::usrmsg::bson
     }
 
     /**
-     * Constructs unl list container message.
+     * Constructs unl change notification message.
      * @param msg Buffer to construct the generated bson message string into.
      *            Message format:
      *            {
@@ -214,7 +248,7 @@ namespace msg::usrmsg::bson
      *            }
      * @param unl_list The unl node pubkey list to be put in the message.
      */
-    void create_unl_list_container(std::vector<uint8_t> &msg, const ::std::set<std::string> &unl_list)
+    void create_unl_notification(std::vector<uint8_t> &msg, const ::std::set<std::string> &unl_list)
     {
         jsoncons::bson::bson_bytes_encoder encoder(msg);
         encoder.begin_object();
@@ -230,8 +264,60 @@ namespace msg::usrmsg::bson
     }
 
     /**
+     * Constructs ledger created notification message.
+     * @param msg Buffer to construct the generated bson message string into.
+     *            Message format:
+     *            {
+     *              "type": "ledger_event",
+     *              "event": "ledger_created",
+     *              "ledger": { ... }
+     *            }
+     * @param ledger The created ledger.
+     */
+    void create_ledger_created_notification(std::vector<uint8_t> &msg, const ledger::ledger_record &ledger)
+    {
+        jsoncons::bson::bson_bytes_encoder encoder(msg);
+        encoder.begin_object();
+        encoder.key(msg::usrmsg::FLD_TYPE);
+        encoder.string_value(msg::usrmsg::MSGTYPE_LEDGER_EVENT);
+        encoder.key(msg::usrmsg::FLD_EVENT);
+        encoder.string_value(msg::usrmsg::LEDGER_EVENT_LEDGER_CREATED);
+        encoder.key(msg::usrmsg::FLD_LEDGER);
+        encoder.begin_object();
+        populate_ledger_fields(encoder, ledger);
+        encoder.end_object();
+        encoder.end_object();
+        encoder.flush();
+    }
+
+    /**
+     * Constructs sync status notification message.
+     * @param msg Buffer to construct the generated bson message string into.
+     *            Message format:
+     *            {
+     *              "type": "ledger_event",
+     *              "event": "sync_status",
+     *              "in_sync": true | false
+     *            }
+     * @param in_sync Whether the node is in sync or not.
+     */
+    void create_sync_status_notification(std::vector<uint8_t> &msg, const bool in_sync)
+    {
+        jsoncons::bson::bson_bytes_encoder encoder(msg);
+        encoder.begin_object();
+        encoder.key(msg::usrmsg::FLD_TYPE);
+        encoder.string_value(msg::usrmsg::MSGTYPE_LEDGER_EVENT);
+        encoder.key(msg::usrmsg::FLD_EVENT);
+        encoder.string_value(msg::usrmsg::LEDGER_EVENT_SYNC_STATUS);
+        encoder.key(msg::usrmsg::FLD_IN_SYNC);
+        encoder.bool_value(in_sync);
+        encoder.end_object();
+        encoder.flush();
+    }
+
+    /**
      * Constructs a ledger query response.
-     * @param msg Buffer to construct the generated json message string into.
+     * @param msg Buffer to construct the generated bson message string into.
      *            Message format:
      *            {
      *              "type": "ledger_query_result",
@@ -418,6 +504,46 @@ namespace msg::usrmsg::bson
     }
 
     /**
+     * Extract ledger event subscription request.
+     * @param channel Extracted subscription channel.
+     * @param enabled Whether the subscription is enabled or not.
+     * @param d The json document holding the subscription request.
+     *          Accepted message format:
+     *          {
+     *            "type": "subscription",
+     *            "channel": "unl_change" | "ledger_event",
+     *            "enabled": true | false
+     *          }
+     * @return 0 on successful extraction. -1 for failure.
+     */
+    int extract_subscription_request(usr::NOTIFICATION_CHANNEL &channel, bool &enabled, const jsoncons::ojson &d)
+    {
+        if (!d.contains(msg::usrmsg::FLD_CHANNEL) || !d.contains(msg::usrmsg::FLD_ENABLED) ||
+            !d[msg::usrmsg::FLD_CHANNEL].is<std::string>() || !d[msg::usrmsg::FLD_ENABLED].is<bool>())
+        {
+            LOG_DEBUG << "User subscription request required fields missing or invalid.";
+            return -1;
+        }
+
+        if (d[msg::usrmsg::FLD_CHANNEL] == msg::usrmsg::MSGTYPE_LEDGER_EVENT)
+        {
+            channel = usr::NOTIFICATION_CHANNEL::LEDGER_EVENT;
+        }
+        else if (d[msg::usrmsg::FLD_CHANNEL] == msg::usrmsg::MSGTYPE_UNL_CHANGE)
+        {
+            channel = usr::NOTIFICATION_CHANNEL::UNL_CHANGE;
+        }
+        else
+        {
+            LOG_DEBUG << "User subscription request invalid channel.";
+            return -1;
+        }
+
+        enabled = d[msg::usrmsg::FLD_ENABLED].as<bool>();
+        return 0;
+    }
+
+    /**
      * Extract query information from a ledger query request.
      * @param extracted_query Extracted query criteria.
      * @param extracted_id The query id.
@@ -516,24 +642,7 @@ namespace msg::usrmsg::bson
         for (const ledger::ledger_record &ledger : results)
         {
             encoder.begin_object();
-            encoder.key(msg::usrmsg::FLD_SEQ_NO);
-            encoder.uint64_value(ledger.seq_no);
-            encoder.key(msg::usrmsg::FLD_TIMESTAMP);
-            encoder.uint64_value(ledger.timestamp);
-            encoder.key(msg::usrmsg::FLD_HASH);
-            encoder.byte_string_value(ledger.ledger_hash);
-            encoder.key(msg::usrmsg::FLD_PREV_HASH);
-            encoder.byte_string_value(ledger.prev_ledger_hash);
-            encoder.key(msg::usrmsg::FLD_STATE_HASH);
-            encoder.byte_string_value(ledger.state_hash);
-            encoder.key(msg::usrmsg::FLD_CONFIG_HASH);
-            encoder.byte_string_value(ledger.config_hash);
-            encoder.key(msg::usrmsg::FLD_USER_HASH);
-            encoder.byte_string_value(ledger.user_hash);
-            encoder.key(msg::usrmsg::FLD_INPUT_HASH);
-            encoder.byte_string_value(ledger.input_hash);
-            encoder.key(msg::usrmsg::FLD_OUTPUT_HASH);
-            encoder.byte_string_value(ledger.output_hash);
+            populate_ledger_fields(encoder, ledger);
 
             // If raw inputs or outputs is not requested, we don't include that field at all in the response.
             // Otherwise the field will always contain an array (empty array if no data).
@@ -552,6 +661,28 @@ namespace msg::usrmsg::bson
 
             encoder.end_object();
         }
+    }
+
+    void populate_ledger_fields(jsoncons::bson::bson_bytes_encoder &encoder, const ledger::ledger_record &ledger)
+    {
+        encoder.key(msg::usrmsg::FLD_SEQ_NO);
+        encoder.uint64_value(ledger.seq_no);
+        encoder.key(msg::usrmsg::FLD_TIMESTAMP);
+        encoder.uint64_value(ledger.timestamp);
+        encoder.key(msg::usrmsg::FLD_HASH);
+        encoder.byte_string_value(ledger.ledger_hash);
+        encoder.key(msg::usrmsg::FLD_PREV_HASH);
+        encoder.byte_string_value(ledger.prev_ledger_hash);
+        encoder.key(msg::usrmsg::FLD_STATE_HASH);
+        encoder.byte_string_value(ledger.state_hash);
+        encoder.key(msg::usrmsg::FLD_CONFIG_HASH);
+        encoder.byte_string_value(ledger.config_hash);
+        encoder.key(msg::usrmsg::FLD_USER_HASH);
+        encoder.byte_string_value(ledger.user_hash);
+        encoder.key(msg::usrmsg::FLD_INPUT_HASH);
+        encoder.byte_string_value(ledger.input_hash);
+        encoder.key(msg::usrmsg::FLD_OUTPUT_HASH);
+        encoder.byte_string_value(ledger.output_hash);
     }
 
     void populate_ledger_inputs(jsoncons::bson::bson_bytes_encoder &encoder, const std::vector<ledger::ledger_user_input> &inputs)

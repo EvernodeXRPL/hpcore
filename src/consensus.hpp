@@ -9,6 +9,7 @@
 #include "p2p/p2p.hpp"
 #include "usr/user_input.hpp"
 #include "util/h32.hpp"
+#include "util/sequence_hash.hpp"
 
 namespace consensus
 {
@@ -134,8 +135,8 @@ namespace consensus
         std::map<std::string, uint32_t> output_hash;
         std::map<util::h32, uint32_t> state_hash;
         std::map<util::h32, uint32_t> patch_hash;
-        std::map<p2p::sequence_hash, uint32_t> last_ledger_primary_shard;
-        std::map<p2p::sequence_hash, uint32_t> last_ledger_raw_shard;
+        std::map<util::sequence_hash, uint32_t> last_ledger_primary_shard;
+        std::map<util::sequence_hash, uint32_t> last_ledger_raw_shard;
     };
 
     extern std::atomic<bool> is_patch_update_pending; // Keep track whether the patch file is changed by the SC and is not yet applied to runtime.
@@ -152,13 +153,13 @@ namespace consensus
 
     int commit_consensus_results(const p2p::proposal &cons_prop, const consensus::consensed_user_map &consensed_users, const util::h32 &patch_hash);
 
-    int check_sync_status(const size_t unl_count, vote_counter &votes, const p2p::sequence_hash &lcl_id);
+    int check_sync_status(const size_t unl_count, vote_counter &votes, const util::sequence_hash &lcl_id);
 
     void revise_candidate_proposals(const bool in_sync);
 
     int prepare_consensed_users(consensed_user_map &consensed_users, const p2p::proposal &cons_prop);
 
-    void expire_candidate_inputs(const p2p::sequence_hash &lcl_id);
+    void expire_candidate_inputs(const util::sequence_hash &lcl_id);
 
     int cleanup_consensed_user_inputs(const consensed_user_map &consensed_users);
 
@@ -173,16 +174,16 @@ namespace consensus
     int verify_and_populate_candidate_user_inputs(const uint64_t lcl_seq_no);
 
     p2p::proposal create_stage0_proposal(const util::h32 &state_hash, const util::h32 &patch_hash,
-                                         const p2p::sequence_hash &last_primary_shard_id, const p2p::sequence_hash &last_raw_shard_id);
+                                         const util::sequence_hash &last_primary_shard_id, const util::sequence_hash &last_raw_shard_id);
 
     p2p::proposal create_stage123_proposal(vote_counter &votes, const size_t unl_count, const util::h32 &state_hash, const util::h32 &patch_hash,
-                                           const p2p::sequence_hash &last_primary_shard_id, const p2p::sequence_hash &last_raw_shard_id);
+                                           const util::sequence_hash &last_primary_shard_id, const util::sequence_hash &last_raw_shard_id);
 
     void broadcast_proposal(const p2p::proposal &p);
 
-    bool check_last_primary_shard_hash_votes(bool &is_desync, p2p::sequence_hash &majority_primary_shard_id, vote_counter &votes, const size_t unl_count);
+    bool check_last_primary_shard_hash_votes(bool &is_desync, util::sequence_hash &majority_primary_shard_id, vote_counter &votes, const size_t unl_count);
 
-    void check_last_raw_shard_hash_votes(bool &is_ledger_blob_desync, p2p::sequence_hash &majority_raw_shard_id, vote_counter &votes);
+    void check_last_raw_shard_hash_votes(bool &is_ledger_blob_desync, util::sequence_hash &majority_raw_shard_id, vote_counter &votes);
 
     void check_state_votes(bool &is_state_desync, util::h32 &majority_state_hash, vote_counter &votes);
 
@@ -194,11 +195,11 @@ namespace consensus
 
     uint64_t get_stage_time_resolution(const uint64_t time);
 
-    int execute_contract(const p2p::proposal &cons_prop, const consensed_user_map &consensed_users, const p2p::sequence_hash &lcl_id);
+    int execute_contract(const p2p::proposal &cons_prop, const consensed_user_map &consensed_users, const util::sequence_hash &lcl_id);
 
-    void dispatch_consensed_user_input_responses(const consensed_user_map &consensed_users, const p2p::sequence_hash &lcl_id);
+    void dispatch_consensed_user_input_responses(const consensed_user_map &consensed_users, const util::sequence_hash &lcl_id);
 
-    void dispatch_consensed_user_outputs(const consensed_user_map &consensed_users, const p2p::sequence_hash &lcl_id);
+    void dispatch_consensed_user_outputs(const consensed_user_map &consensed_users, const util::sequence_hash &lcl_id);
 
     void feed_user_inputs_to_contract_bufmap(sc::contract_bufmap_t &bufmap, const consensed_user_map &consensed_users);
 

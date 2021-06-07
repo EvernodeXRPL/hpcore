@@ -6,6 +6,7 @@
 #include "peer_comm_server.hpp"
 #include "peer_comm_session.hpp"
 #include "self_node.hpp"
+#include "../status.hpp"
 
 namespace p2p
 {
@@ -96,14 +97,26 @@ namespace p2p
         // Find already connected known remote parties list.
         std::vector<conf::peer_ip_port> known_remotes;
 
+        // Keeps challenge-verified known peers list.
+        std::set<conf::peer_ip_port> verified_remotes;
+
         {
             std::scoped_lock<std::mutex> lock(sessions_mutex);
             for (const p2p::peer_comm_session &session : sessions)
             {
-                if (session.state != comm::SESSION_STATE::CLOSED && session.known_ipport.has_value())
+                if (!session.known_ipport)
+                    continue;
+
+                if (session.state != comm::SESSION_STATE::CLOSED)
                     known_remotes.push_back(session.known_ipport.value());
+
+                if (session.challenge_status == comm::CHALLENGE_STATUS::CHALLENGE_VERIFIED)
+                    verified_remotes.emplace(session.known_ipport.value());
             }
         }
+
+        // Update the central status holder.
+        status::set_peers(verified_remotes);
 
         // Update global known remote count when new connections are made.
         known_remote_count = known_remotes.size();

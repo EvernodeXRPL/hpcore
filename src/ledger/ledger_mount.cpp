@@ -1,4 +1,5 @@
-#include "./ledger_mount.hpp"
+#include "../util/sequence_hash.hpp"
+#include "ledger_mount.hpp"
 #include "ledger.hpp"
 
 namespace ledger
@@ -10,8 +11,8 @@ namespace ledger
     int ledger_mount::prepare_fs()
     {
         // Add ledger fs preparation logic here.
-        p2p::sequence_hash last_primary_shard_id;
-        p2p::sequence_hash last_raw_shard_id;
+        util::sequence_hash last_primary_shard_id;
+        util::sequence_hash last_raw_shard_id;
 
         if (acquire_rw_session() == -1)
         {

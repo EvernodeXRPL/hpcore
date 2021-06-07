@@ -3,6 +3,7 @@
 #include "conf.hpp"
 #include "unl.hpp"
 #include "crypto.hpp"
+#include "status.hpp"
 
 /**
  * Manages the UNL public keys of this node.
@@ -23,7 +24,8 @@ namespace unl
             return -1;
 
         std::unique_lock lock(unl_mutex);
-        update_unl_list(conf::cfg.contract.unl);
+        merge_latest_unl_config();
+        status::init_unl(conf::cfg.contract.unl);
 
         return 0;
     }
@@ -68,15 +70,13 @@ namespace unl
         bool is_unl_list_changed = false;
         {
             std::unique_lock lock(unl_mutex);
-            is_unl_list_changed = update_unl_list(conf::cfg.contract.unl);
+            is_unl_list_changed = merge_latest_unl_config();
         }
 
-        // Update the is_unl flag of peer sessions.
-        // Broadcast changed unl list to all the connected users.
         if (is_unl_list_changed)
         {
-            p2p::update_unl_connections();
-            usr::announce_unl_list(conf::cfg.contract.unl);
+            p2p::update_unl_connections();               // Update the is_unl flag of peer sessions.
+            status::unl_changed(conf::cfg.contract.unl); // Update the central node status holder.
         }
     }
 
@@ -141,10 +141,10 @@ namespace unl
     }
 
     /**
-     * Updates the unl list using the provided new list.
+     * Updates the unl list using the latest config unl.
      * @return Whether or not any unl list changes were made.
      */
-    bool update_unl_list(const std::set<std::string> &new_list)
+    bool merge_latest_unl_config()
     {
         bool changes_made = false;
 
@@ -176,7 +176,7 @@ namespace unl
             return false;
 
         // Update the prepared json list which will be fed into contract args.
-        json_list = prepare_json_list(new_list);
+        json_list = prepare_json_list(conf::cfg.contract.unl);
 
         // Update the own node's unl status.
         conf::cfg.node.is_unl = (list.count(conf::cfg.node.public_key) == 1);

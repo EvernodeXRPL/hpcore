@@ -243,7 +243,7 @@ namespace msg::fbuf::p2pmsg
         return hpfs_log_response;
     }
 
-    p2p::sequence_hash flatbuf_seqhash_to_seqhash(const SequenceHash *fbseqhash)
+    util::sequence_hash flatbuf_seqhash_to_seqhash(const SequenceHash *fbseqhash)
     {
         return {
             fbseqhash->seq_no(),
@@ -334,7 +334,7 @@ namespace msg::fbuf::p2pmsg
         return crypto::sign(hasher.hash(), conf::cfg.node.private_key);
     }
 
-    const std::string generate_npl_signature(std::string_view data, const p2p::sequence_hash &lcl_id)
+    const std::string generate_npl_signature(std::string_view data, const util::sequence_hash &lcl_id)
     {
         flatbuf_hasher hasher;
         hasher.add(data);
@@ -411,7 +411,7 @@ namespace msg::fbuf::p2pmsg
         create_p2p_msg(builder, P2PMsgContent_ProposalMsg, msg.Union());
     }
 
-    void create_msg_from_npl_output(flatbuffers::FlatBufferBuilder &builder, std::string_view data, const p2p::sequence_hash &lcl_id)
+    void create_msg_from_npl_output(flatbuffers::FlatBufferBuilder &builder, std::string_view data, const util::sequence_hash &lcl_id)
     {
         const auto msg = CreateNplMsg(
             builder,
@@ -647,7 +647,7 @@ namespace msg::fbuf::p2pmsg
     }
 
     const flatbuffers::Offset<msg::fbuf::p2pmsg::SequenceHash>
-    seqhash_to_flatbuf_seqhash(flatbuffers::FlatBufferBuilder &builder, const p2p::sequence_hash &seqhash)
+    seqhash_to_flatbuf_seqhash(flatbuffers::FlatBufferBuilder &builder, const util::sequence_hash &seqhash)
     {
         return CreateSequenceHash(builder, seqhash.seq_no, hash_to_flatbuf_bytes(builder, seqhash.hash));
     }

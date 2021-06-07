@@ -11,10 +11,12 @@
 #include "hplog.hpp"
 #include "crypto.hpp"
 #include "util/h32.hpp"
+#include "util/sequence_hash.hpp"
 #include "unl.hpp"
 #include "ledger/ledger.hpp"
 #include "consensus.hpp"
 #include "sc/hpfs_log_sync.hpp"
+#include "status.hpp"
 
 namespace p2pmsg = msg::fbuf::p2pmsg;
 
@@ -107,11 +109,11 @@ namespace consensus
         revise_candidate_proposals(ctx.sync_status == 0);
 
         // Get current lcl, state, patch, primary shard and raw shard info.
-        p2p::sequence_hash lcl_id = ledger::ctx.get_lcl_id();
+        util::sequence_hash lcl_id = ledger::ctx.get_lcl_id();
         util::h32 state_hash = sc::contract_fs.get_parent_hash(sc::STATE_DIR_PATH);
         const util::h32 patch_hash = sc::contract_fs.get_parent_hash(sc::PATCH_FILE_PATH);
-        const p2p::sequence_hash last_primary_shard_id = ledger::ctx.get_last_primary_shard_id();
-        const p2p::sequence_hash last_raw_shard_id = ledger::ctx.get_last_raw_shard_id();
+        const util::sequence_hash last_primary_shard_id = ledger::ctx.get_last_primary_shard_id();
+        const util::sequence_hash last_raw_shard_id = ledger::ctx.get_last_raw_shard_id();
 
         if (ctx.stage == 0 || ctx.stage == 2)
         {
@@ -142,7 +144,8 @@ namespace consensus
 
             // Check whether we are in sync with other nodes using proposals.
             {
-                const int new_sync_status = check_sync_status(unl_count, votes, lcl_id);
+                int new_sync_status = check_sync_status(unl_count, votes, lcl_id);
+
                 if (ctx.sync_status != 0 && new_sync_status == 0)
                 {
                     // If we are just becoming 'in-sync' after being out-of-sync, check the sync status again after the proper
@@ -151,12 +154,15 @@ namespace consensus
 
                     LOG_DEBUG << "Rechecking sync status after becoming in-sync.";
                     revise_candidate_proposals(true);
-                    ctx.sync_status = check_sync_status(unl_count, votes, lcl_id);
+                    new_sync_status = check_sync_status(unl_count, votes, lcl_id);
                 }
-                else
-                {
-                    ctx.sync_status = new_sync_status;
-                }
+
+                // Update the sync status if we went from in-sync to not-in-sync. We will report back as being in-sync
+                // only when we hit stage 3.
+                if (ctx.sync_status == 0 && new_sync_status != 0)
+                    status::sync_status_changed(false);
+
+                ctx.sync_status = new_sync_status;
             }
 
             if (ctx.sync_status == -2) // Unreliable votes.
@@ -182,6 +188,8 @@ namespace consensus
                 // Upon successful consensus at stage 3, update the ledger and execute the contract using the consensus proposal.
                 if (ctx.stage == 3)
                 {
+                    status::sync_status_changed(true); // Creating a new ledger means we are in sync.
+
                     consensed_user_map consensed_users;
                     if (prepare_consensed_users(consensed_users, p) == -1 ||
                         commit_consensus_results(p, consensed_users, patch_hash) == -1)
@@ -215,7 +223,7 @@ namespace consensus
         if (ledger::update_ledger(cons_prop, consensed_users) == -1)
             return -1;
 
-        p2p::sequence_hash lcl_id = ledger::ctx.get_lcl_id();
+        util::sequence_hash lcl_id = ledger::ctx.get_lcl_id();
         LOG_INFO << "****Ledger created**** (lcl:" << lcl_id << " state:" << cons_prop.state_hash << " patch:" << cons_prop.patch_hash << ")";
 
         // Now that there's a new ledger, prune any newly-expired candidate inputs.
@@ -242,10 +250,10 @@ namespace consensus
      * Checks whether we are in sync with the received votes.
      * @return 0 if we are in sync. -1 on ledger or contract state desync. -2 if majority last ledger primary shard hash unreliable.
      */
-    int check_sync_status(const size_t unl_count, vote_counter &votes, const p2p::sequence_hash &lcl_id)
+    int check_sync_status(const size_t unl_count, vote_counter &votes, const util::sequence_hash &lcl_id)
     {
         bool is_last_primary_shard_desync = false;
-        p2p::sequence_hash majority_primary_shard_id;
+        util::sequence_hash majority_primary_shard_id;
         if (check_last_primary_shard_hash_votes(is_last_primary_shard_desync, majority_primary_shard_id, votes, unl_count))
         {
             // We proceed further only if last primary shard hash check was success (meaning last primary shard hash check could be reliably performed).
@@ -261,7 +269,7 @@ namespace consensus
 
             // Check out raw shard hash with majority raw shard hash.
             bool is_last_raw_shard_desync = false;
-            p2p::sequence_hash majority_raw_shard_id;
+            util::sequence_hash majority_raw_shard_id;
             check_last_raw_shard_hash_votes(is_last_raw_shard_desync, majority_raw_shard_id, votes);
 
             // Check our state with majority state.
@@ -477,7 +485,7 @@ namespace consensus
     /**
      * Removes any candidate inputs that has lived passed the current ledger seq no.
      */
-    void expire_candidate_inputs(const p2p::sequence_hash &lcl_id)
+    void expire_candidate_inputs(const util::sequence_hash &lcl_id)
     {
         auto itr = ctx.candidate_user_inputs.begin();
         while (itr != ctx.candidate_user_inputs.end())
@@ -757,7 +765,7 @@ namespace consensus
     }
 
     p2p::proposal create_stage0_proposal(const util::h32 &state_hash, const util::h32 &patch_hash,
-                                         const p2p::sequence_hash &last_primary_shard_id, const p2p::sequence_hash &last_raw_shard_id)
+                                         const util::sequence_hash &last_primary_shard_id, const util::sequence_hash &last_raw_shard_id)
     {
         // This is the proposal that stage 0 votes on.
         // We report our own values in stage 0.
@@ -786,7 +794,7 @@ namespace consensus
     }
 
     p2p::proposal create_stage123_proposal(vote_counter &votes, const size_t unl_count, const util::h32 &state_hash, const util::h32 &patch_hash,
-                                           const p2p::sequence_hash &last_primary_shard_id, const p2p::sequence_hash &last_raw_shard_id)
+                                           const util::sequence_hash &last_primary_shard_id, const util::sequence_hash &last_raw_shard_id)
     {
         // The proposal to be emited at the end of this stage.
         p2p::proposal p;
@@ -911,7 +919,7 @@ namespace consensus
      * @param unl_count Number of unl peers.
      * @return True if majority ledger primary hash could be calculated reliably. False if shard index hash check failed due to unreliable votes.
      */
-    bool check_last_primary_shard_hash_votes(bool &is_desync, p2p::sequence_hash &majority_primary_shard_id, vote_counter &votes, const size_t unl_count)
+    bool check_last_primary_shard_hash_votes(bool &is_desync, util::sequence_hash &majority_primary_shard_id, vote_counter &votes, const size_t unl_count)
     {
         uint32_t total_ledger_primary_hash_votes = 0;
 
@@ -971,7 +979,7 @@ namespace consensus
      * @param majority_primary_shard_id Majority primary shard id.
      * @param votes Vote counter for this stage.
      */
-    void check_last_raw_shard_hash_votes(bool &is_ledger_blob_desync, p2p::sequence_hash &majority_raw_shard_id, vote_counter &votes)
+    void check_last_raw_shard_hash_votes(bool &is_ledger_blob_desync, util::sequence_hash &majority_raw_shard_id, vote_counter &votes)
     {
         for (const auto &[pubkey, cp] : ctx.candidate_proposals)
         {
@@ -1049,7 +1057,7 @@ namespace consensus
      * @param consensed_users Consensed users and their inputs.
      * @param lcl_id Current lcl id of the node.
      */
-    int execute_contract(const p2p::proposal &cons_prop, const consensed_user_map &consensed_users, const p2p::sequence_hash &lcl_id)
+    int execute_contract(const p2p::proposal &cons_prop, const consensed_user_map &consensed_users, const util::sequence_hash &lcl_id)
     {
         if (!conf::cfg.contract.execute || ctx.is_shutting_down)
             return 0;
@@ -1109,7 +1117,7 @@ namespace consensus
      * @param consensed_users The map of consensed users containing their inputs.
      * @param lcl_id The ledger the inputs got included in.
      */
-    void dispatch_consensed_user_input_responses(const consensed_user_map &consensed_users, const p2p::sequence_hash &lcl_id)
+    void dispatch_consensed_user_input_responses(const consensed_user_map &consensed_users, const util::sequence_hash &lcl_id)
     {
         if (consensed_users.empty())
             return;
@@ -1139,7 +1147,7 @@ namespace consensus
      * @param consensed_users The map of consensed users containing their outputs.
      * @param lcl_id The ledger the outputs got included in.
      */
-    void dispatch_consensed_user_outputs(const consensed_user_map &consensed_users, const p2p::sequence_hash &lcl_id)
+    void dispatch_consensed_user_outputs(const consensed_user_map &consensed_users, const util::sequence_hash &lcl_id)
     {
         if (!consensed_users.empty())
         {

@@ -13,12 +13,20 @@ namespace msg::usrmsg
     {
     }
 
-    void usrmsg_parser::create_status_response(std::vector<uint8_t> &msg, const uint64_t lcl_seq_no, std::string_view lcl_hash) const
+    void usrmsg_parser::create_status_response(std::vector<uint8_t> &msg) const
     {
         if (protocol == util::PROTOCOL::JSON)
-            jusrmsg::create_status_response(msg, lcl_seq_no, lcl_hash);
+            jusrmsg::create_status_response(msg);
         else
-            busrmsg::create_status_response(msg, lcl_seq_no, lcl_hash);
+            busrmsg::create_status_response(msg);
+    }
+
+    void usrmsg_parser::create_lcl_response(std::vector<uint8_t> &msg) const
+    {
+        if (protocol == util::PROTOCOL::JSON)
+            jusrmsg::create_lcl_response(msg);
+        else
+            busrmsg::create_lcl_response(msg);
     }
 
     void usrmsg_parser::create_contract_input_status(std::vector<uint8_t> &msg, std::string_view status, std::string_view reason,
@@ -48,12 +56,28 @@ namespace msg::usrmsg
             busrmsg::create_contract_output_container(msg, hash, outputs, hash_root, unl_sig, lcl_seq_no, lcl_hash);
     }
 
-    void usrmsg_parser::create_unl_list_container(std::vector<uint8_t> &msg, const ::std::set<std::string> &unl_list) const
+    void usrmsg_parser::create_unl_notification(std::vector<uint8_t> &msg, const std::set<std::string> &unl_list) const
     {
         if (protocol == util::PROTOCOL::JSON)
-            jusrmsg::create_unl_list_container(msg, unl_list);
+            jusrmsg::create_unl_notification(msg, unl_list);
         else
-            busrmsg::create_unl_list_container(msg, unl_list);
+            busrmsg::create_unl_notification(msg, unl_list);
+    }
+
+    void usrmsg_parser::create_ledger_created_notification(std::vector<uint8_t> &msg, const ledger::ledger_record &ledger) const
+    {
+        if (protocol == util::PROTOCOL::JSON)
+            jusrmsg::create_ledger_created_notification(msg, ledger);
+        else
+            busrmsg::create_ledger_created_notification(msg, ledger);
+    }
+
+    void usrmsg_parser::create_sync_status_notification(std::vector<uint8_t> &msg, const bool in_sync) const
+    {
+        if (protocol == util::PROTOCOL::JSON)
+            jusrmsg::create_sync_status_notification(msg, in_sync);
+        else
+            busrmsg::create_sync_status_notification(msg, in_sync);
     }
 
     void usrmsg_parser::create_ledger_query_response(std::vector<uint8_t> &msg, std::string_view reply_for,
@@ -104,6 +128,14 @@ namespace msg::usrmsg
             return jusrmsg::extract_input_container(input, nonce, max_ledger_seq_no, encoded_content);
         else
             return busrmsg::extract_input_container(input, nonce, max_ledger_seq_no, encoded_content);
+    }
+
+    int usrmsg_parser::extract_subscription_request(usr::NOTIFICATION_CHANNEL &channel, bool &enabled)
+    {
+        if (protocol == util::PROTOCOL::JSON)
+            return jusrmsg::extract_subscription_request(channel, enabled, jdoc);
+        else
+            return busrmsg::extract_subscription_request(channel, enabled, bdoc);
     }
 
     int usrmsg_parser::extract_ledger_query(ledger::query::query_request &extracted_query, std::string &extracted_id) const

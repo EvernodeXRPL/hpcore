@@ -52,11 +52,6 @@ async function main() {
         console.log(server + " " + action);
     })
 
-    // This will get when the unl public key list changes.
-    hpc.on(HotPocket.events.unlChange, (unl) => {
-        console.log("New unl received: " + JSON.stringify(unl)); // unl is an array of hex public keys.
-    })
-
     // This will get fired when contract sends outputs.
     hpc.on(HotPocket.events.contractOutput, (r) => {
         r.outputs.forEach(o => console.log(`Output (ledger:${r.ledgerSeqNo})>> ${o}`));
@@ -67,12 +62,27 @@ async function main() {
         console.log("Read response>> " + response);
     })
 
+    // This will get fired when the unl public key list changes.
+    hpc.on(HotPocket.events.unlChange, (unl) => {
+        console.log("New unl received:");
+        console.log(unl); // unl is an array of public keys.
+    })
+
+    // This will get fired when any ledger event occurs (ledger created, sync status change).
+    hpc.on(HotPocket.events.ledgerEvent, (ev) => {
+        console.log(ev);
+    })
+
     // Establish HotPocket connection.
     if (!await hpc.connect()) {
         console.log('Connection failed.');
         return;
     }
     console.log('HotPocket Connected.');
+
+    // After connecting, we can subscribe to events from the HotPocket node.
+    // await hpc.subscribe(HotPocket.notificationChannels.unlChange);
+    // await hpc.subscribe(HotPocket.notificationChannels.ledgerEvent);
 
     // start listening for stdin
     const rl = readline.createInterface({
