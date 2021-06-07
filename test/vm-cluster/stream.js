@@ -1,7 +1,7 @@
 const HotPocket = require('../../examples/js_client/lib/hp-client-lib');
 const fs = require('fs');
 
-const reconnectDelay = 1000;
+const reconnectDelayMax = 60000;
 const dispatchInterval = 1000;
 const metricsTrackInterval = 10000;
 const dispatchBatchSize = 10;
@@ -10,6 +10,7 @@ let keys = null;
 let vultrApiKey = null;
 const queue = [];
 const metrics = {};
+const nodes = {};
 
 async function main() {
 
@@ -21,11 +22,17 @@ async function main() {
     // Load cluster config.
     const config = JSON.parse(fs.readFileSync("config.json"));
     vultrApiKey = config.vultr.api_key;
-    const clusters = config.contracts.map(c => ({
+
+    // We only consider clusters with stream=true.
+    const clusters = config.contracts.filter(c => c.stream == true).map(c => ({
         name: c.name,
         hosts: c.hosts,
         userPort: c.config.user.port
     }));
+
+    console.log(`${clusters.length} clusters found with streaming enabled.`);
+    if (clusters.length == 0)
+        return;
 
     // Start event dispatcher.
     eventDispatcher();
@@ -66,49 +73,64 @@ async function streamCluster(cluster) {
 
     // TODO: Resolve Vultr vm groups.
 
-    await Promise.all(cluster.hosts.map((h, idx) => streamNode(cluster.name, (idx + 1), h, cluster.userPort)));
+    cluster.hosts.forEach((h, idx) => streamNode(cluster.name, (idx + 1), h, cluster.userPort));
 }
 
-async function streamNode(clusterName, nodeIdx, host, port) {
+function streamNode(clusterName, nodeIdx, host, port) {
     const serverUri = `wss://${host}:${port}`;
-    await establishClientConnection(clusterName, nodeIdx, serverUri);
+    nodes[serverUri] = {
+        failureCount: 0
+    };
+
+    establishClientConnection(clusterName, nodeIdx, serverUri);
 }
 
 async function establishClientConnection(clusterName, idx, serverUri) {
 
-    const hpc = await HotPocket.createClient([serverUri], keys);
+    const hpc = await HotPocket.createClient([serverUri], keys, { connectionTimeoutMs: 2000 });
 
     hpc.on(HotPocket.events.disconnect, () => {
-        console.log(serverUri + " disconnected.");
-        reportEvent(clusterName, idx, serverUri, { event: "disconnect" })
-
-        // Connect again after a small delay.
-        setTimeout(() => establishClientConnection(serverUri), reconnectDelay);
+        onConnectionFail(clusterName, idx, serverUri);
     });
 
     // This will get fired when any ledger event occurs (ledger created, sync status change).
     hpc.on(HotPocket.events.ledgerEvent, (ev) => {
         reportEvent(clusterName, idx, serverUri, ev);
-    })
+    });
 
     // Establish HotPocket connection.
     if (!await hpc.connect()) {
-        console.log('Connection failed. ' + serverUri);
-
-        // Connect again after a small delay.
-        setTimeout(() => establishClientConnection(serverUri), reconnectDelay);
+        onConnectionFail(clusterName, idx, serverUri);
     }
     else {
+        nodes[serverUri].failureCount = 0;
         await hpc.subscribe(HotPocket.notificationChannels.ledgerEvent);
     }
+}
+
+function onConnectionFail(clusterName, idx, serverUri) {
+
+    const node = nodes[serverUri];
+    node.failureCount++;
+
+    // Calculate back-off delay.
+    let delay = (2000 * node.failureCount);
+    if (delay > reconnectDelayMax)
+        delay = reconnectDelayMax;
+
+    console.log(`${serverUri} connection failed. Backoff ${delay}ms.`);
+
+    // Report offline event and connect again after a small delay.
+    reportEvent(clusterName, idx, serverUri, { event: "offline" });
+    setTimeout(() => establishClientConnection(clusterName, idx, serverUri), delay);
 }
 
 async function reportEvent(clusterName, nodeIdx, serverUri, ev) {
     const obj = {
         cluster: clusterName,
-        nodeIdx: nodeIdx,
-        serverUri: serverUri,
-        epoch: new Date().getTime(), // Epoch milliseconds.
+        idx: nodeIdx,
+        uri: serverUri,
+        timestamp: new Date().getTime(), // Epoch milliseconds.
         data: ev
     }
 
