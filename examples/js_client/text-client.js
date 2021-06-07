@@ -79,6 +79,10 @@ async function main() {
     }
     console.log('HotPocket Connected.');
 
+    // After connecting, we can subscribe to events from the HotPocket node.
+    // await hpc.subscribe(HotPocket.notificationChannels.unlChange);
+    // await hpc.subscribe(HotPocket.notificationChannels.ledgerEvent);
+
     // start listening for stdin
     const rl = readline.createInterface({
         input: process.stdin,

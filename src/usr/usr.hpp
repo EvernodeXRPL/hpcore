@@ -53,7 +53,7 @@ namespace usr
             : session(session), pubkey(pubkey), protocol(protocol)
         {
             // Default subscriptions.
-            subscriptions[NOTIFICATION_CHANNEL::UNL_CHANGE] = true;
+            subscriptions[NOTIFICATION_CHANNEL::UNL_CHANGE] = false;
             subscriptions[NOTIFICATION_CHANNEL::LEDGER_EVENT] = false;
         }
     };
