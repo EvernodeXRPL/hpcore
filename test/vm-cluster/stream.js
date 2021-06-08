@@ -91,29 +91,29 @@ function eventDispatcher() {
 
 function nodeStateUploader() {
 
-    const uploads = [];
+    const updated = [];
 
     for (const [uri, node] of Object.entries(nodes)) {
-        const ev = node.lastEvent;
-        if (ev && !ev.uploaded) {
-            ev.uploaded = true;
-            uploads.push(node);
+        if (node.hasUpdates) {
+            node.hasUpdates = false;
+            updated.push(node);
         }
     }
 
     const ent = azure.TableUtilities.entityGenerator;
-    for (let i = 0, j = uploads.length; i < j; i += tableBatchSize) {
-        const batch = uploads.slice(i, i + tableBatchSize);
+    for (let i = 0, j = updated.length; i < j; i += tableBatchSize) {
+        const batch = updated.slice(i, i + tableBatchSize);
 
         const tableBatch = new azure.TableBatch();
 
         for (const node of batch) {
-            const ev = node.lastEvent;
             tableBatch.insertOrReplaceEntity({
                 PartitionKey: ent.String(node.cluster),
                 RowKey: ent.String(node.idx.toString()),
-                uri: ent.String(node.uri),
-                data: ent.String(JSON.stringify({ timestamp: ev.timestamp, data: ev.data }))
+                Uri: ent.String(node.uri),
+                LastUpdated: ent.DateTime(new Date(node.lastUpdated)),
+                InSync: ent.Boolean(node.inSync),
+                LastLedger: ent.String(JSON.stringify(node.lastLedger))
             });
         }
 
@@ -147,7 +147,9 @@ function streamNode(clusterName, nodeIdx, host, port) {
         idx: nodeIdx,
         uri: uri,
         failureCount: 0,
-        lastEvent: null
+        lastLedger: null,
+        inSync: null,
+        lastUpdated: null
     };
 
     nodes[uri] = node;
@@ -206,10 +208,15 @@ async function reportEvent(node, ev) {
         data: ev
     });
 
-    nodes[node.uri].lastEvent = {
-        timestamp: ts,
-        data: ev
-    };
+    if (ev.event == 'ledger_created') {
+        node.inSync = true;
+        node.lastLedger = ev.ledger;
+    }
+    else if (ev.event == 'sync_status') {
+        node.inSync = ev.inSync;
+    }
+    node.hasUpdates = true;
+    node.lastUpdated = ts;
 
     const count = metrics[node.cluster];
     metrics[node.cluster] = count ? (count + 1) : 1;
