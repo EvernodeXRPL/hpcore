@@ -1,6 +1,7 @@
 const HotPocket = require('../../examples/js_client/lib/hp-client-lib');
 const azure = require('azure-storage');
 const fs = require('fs');
+const https = require('https')
 
 const reconnectDelayMax = 60000;
 const dispatchInterval = 1000;
@@ -42,9 +43,13 @@ async function main() {
         hosts: c.hosts,
         userPort: c.config.user.port
     }));
-
     console.log(`${clusters.length} clusters found with streaming enabled.`);
     if (clusters.length == 0)
+        return;
+
+    // Resolve any vultr hosts.
+    await Promise.all(clusters.map(c => resolveHosts(c)));
+    if (clusters.filter(c => c.hosts.length > 0).length == 0)
         return;
 
     // Start node state uploader.
@@ -60,6 +65,14 @@ async function main() {
 
     // Start streaming events from all clusters.
     clusters.forEach(c => streamCluster(c));
+}
+
+async function resolveHosts(cluster) {
+    // If first host is an element with the pattern "vultr:", then we fetch hosts from vultr.
+    if (cluster.hosts.length > 0 && cluster.hosts[0].startsWith("vultr:"))
+        cluster.hosts = await getVultrHosts(cluster.hosts[0].split(":")[1]);
+
+    console.log(`${cluster.hosts.length} hosts in '${cluster.name}' cluster.`)
 }
 
 function eventDispatcher() {
@@ -200,6 +213,35 @@ async function reportEvent(node, ev) {
 
     const count = metrics[node.cluster];
     metrics[node.cluster] = count ? (count + 1) : 1;
+}
+
+function getVultrHosts(group) {
+
+    return new Promise(resolve => {
+
+        if (!group || group.trim().length == 0)
+            resolve([]);
+
+        const req = https.request({
+            hostname: 'api.vultr.com',
+            port: 443,
+            path: `/v2/instances?tag=${group}`,
+            method: 'GET',
+            headers: { "Authorization": `Bearer ${vultrApiKey}` }
+        }, res => {
+            if (res.statusCode >= 200 && res.statusCode < 300)
+                res.on('data', d => resolve(JSON.parse(d).instances.map(i => i.main_ip)));
+            else
+                resolve([]);
+        })
+
+        req.on('error', error => {
+            console.error(error);
+            resolve([]);
+        })
+
+        req.end();
+    })
 }
 
 main();

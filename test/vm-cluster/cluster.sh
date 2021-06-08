@@ -123,7 +123,7 @@ if [[ ${_host1parts[0]} == "vultr" ]]; then
     [ -z "$_vultrvms" ] && exit 1
     _vultrips=$(echo $(echo $_vultrvms | jq -r ".instances | sort_by(.label) | .[] | .main_ip"))
     readarray -d " " -t hostaddrs < <(printf '%s' "$_vultrips") # Populate hostaddrs with ips retrieved from vultr.
-    echo "Retrieved ${#hostaddrs[@]} host addresses from vultr."
+    echo "Retrieved ${#hostaddrs[@]} host addresses from vultr group: '${_host1parts[1]}'"
 fi
 hostcount=${#hostaddrs[@]}
 
