@@ -1,14 +1,14 @@
 const HotPocket = require('../../examples/js_client/lib/hp-client-lib');
 const azure = require('azure-storage');
 const fs = require('fs');
-const https = require('https')
+const https = require('https');
 
-const reconnectDelayMax = 60000;
-const dispatchInterval = 1000;
-const stateUploadInterval = 10000;
-const metricsTrackInterval = 10000;
-const eventsBatchSize = 10;
-const tableBatchSize = 20;
+const dispatchInterval = process.env.DISPATCH || 1000;
+const stateUploadInterval = process.env.STATEUPLOAD || 10000;
+const metricsTrackInterval = process.env.METRICSTRACK || 10000;
+const backoffDelayMax = process.env.BACKOFFMAX || 60000;
+const eventsBatchSize = process.env.EVENTBATCH || 10;
+const stateBatchSize = process.env.STATEBATCH || 20;
 
 let keys = null;
 let vultrApiKey = null;
@@ -101,8 +101,8 @@ function nodeStateUploader() {
     }
 
     const ent = azure.TableUtilities.entityGenerator;
-    for (let i = 0, j = updated.length; i < j; i += tableBatchSize) {
-        const batch = updated.slice(i, i + tableBatchSize);
+    for (let i = 0, j = updated.length; i < j; i += stateBatchSize) {
+        const batch = updated.slice(i, i + stateBatchSize);
 
         const tableBatch = new azure.TableBatch();
 
@@ -186,8 +186,8 @@ function onConnectionFail(node) {
 
     // Calculate back-off delay.
     let delay = (2000 * node.failureCount);
-    if (delay > reconnectDelayMax)
-        delay = reconnectDelayMax;
+    if (delay > backoffDelayMax)
+        delay = backoffDelayMax;
 
     console.log(`${node.uri} connection failed. Backoff ${delay}ms.`);
 
