@@ -241,7 +241,12 @@ function getVultrHosts(group) {
             headers: { "Authorization": `Bearer ${vultrApiKey}` }
         }, res => {
             if (res.statusCode >= 200 && res.statusCode < 300)
-                res.on('data', d => resolve(JSON.parse(d).instances.map(i => i.main_ip)));
+                res.on('data', d => {
+                    // Sort vms by label.
+                    const vms = JSON.parse(d).instances;
+                    const ips = vms.sort((a, b) => (a.label < b.label) ? -1 : 1).map(i => i.main_ip);
+                    resolve(ips)
+                });
             else
                 resolve([]);
         })
