@@ -16,7 +16,7 @@ let azureTable = null;
 let tableSvc = null;
 const queue = [];
 const metrics = {};
-const nodes = {};
+const nodeGroups = {};
 
 async function main() {
 
@@ -91,33 +91,34 @@ function eventDispatcher() {
 
 function nodeStateUploader() {
 
-    const updated = [];
 
-    for (const [uri, node] of Object.entries(nodes)) {
-        if (node.hasUpdates) {
+    for (const [cluster, nodes] of Object.entries(nodeGroups)) {
+
+        // Collect nodes with updates inside this cluster.
+        const updated = [];
+        for (const node of nodes.filter(n => n.hasUpdates)) {
             node.hasUpdates = false;
             updated.push(node);
         }
-    }
 
-    const ent = azure.TableUtilities.entityGenerator;
-    for (let i = 0, j = updated.length; i < j; i += stateBatchSize) {
-        const batch = updated.slice(i, i + stateBatchSize);
+        const ent = azure.TableUtilities.entityGenerator;
+        for (let i = 0, j = updated.length; i < j; i += stateBatchSize) {
+            const batch = updated.slice(i, i + stateBatchSize);
+            const tableBatch = new azure.TableBatch();
 
-        const tableBatch = new azure.TableBatch();
+            for (const node of batch) {
+                tableBatch.insertOrReplaceEntity({
+                    PartitionKey: ent.String(node.cluster),
+                    RowKey: ent.String(node.idx.toString()),
+                    Uri: ent.String(node.uri),
+                    LastUpdated: ent.DateTime(new Date(node.lastUpdated)),
+                    InSync: ent.Boolean(node.inSync),
+                    LastLedger: ent.String(JSON.stringify(node.lastLedger))
+                });
+            }
 
-        for (const node of batch) {
-            tableBatch.insertOrReplaceEntity({
-                PartitionKey: ent.String(node.cluster),
-                RowKey: ent.String(node.idx.toString()),
-                Uri: ent.String(node.uri),
-                LastUpdated: ent.DateTime(new Date(node.lastUpdated)),
-                InSync: ent.Boolean(node.inSync),
-                LastLedger: ent.String(JSON.stringify(node.lastLedger))
-            });
+            tableSvc.executeBatch(azureTable, tableBatch, (err) => err && console.log(err));
         }
-
-        tableSvc.executeBatch(azureTable, tableBatch, (err) => err && console.log(err));
     }
 
     setTimeout(() => nodeStateUploader(), stateUploadInterval);
@@ -152,7 +153,10 @@ function streamNode(clusterName, nodeIdx, host, port) {
         lastUpdated: null
     };
 
-    nodes[uri] = node;
+    if (!nodeGroups[clusterName])
+        nodeGroups[clusterName] = [];
+
+    nodeGroups[clusterName].push(node);
 
     establishClientConnection(node);
 }
