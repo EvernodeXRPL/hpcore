@@ -180,6 +180,7 @@ async function establishClientConnection(node) {
     }
     else {
         node.failureCount = 0;
+        reportEvent(node, { event: "online" });
         await hpc.subscribe(HotPocket.notificationChannels.ledgerEvent);
     }
 }
@@ -219,9 +220,13 @@ async function reportEvent(node, ev) {
     else if (ev.event == 'sync_status') {
         node.status = ev.inSync ? 'in_sync' : 'desync';
     }
+    else if (ev.event == 'online') {
+        node.status = 'online';
+    }
     else if (ev.event == 'offline') {
         node.status = 'offline';
     }
+    
     node.hasUpdates = true;
     node.lastUpdated = ts;
 
