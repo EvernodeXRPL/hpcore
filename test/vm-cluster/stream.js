@@ -112,7 +112,7 @@ function nodeStateUploader() {
                     RowKey: ent.String(node.idx.toString()),
                     Uri: ent.String(node.uri),
                     LastUpdated: ent.DateTime(new Date(node.lastUpdated)),
-                    InSync: ent.Boolean(node.inSync),
+                    Status: ent.String(node.status),
                     LastLedger: ent.String(JSON.stringify(node.lastLedger))
                 });
             }
@@ -149,7 +149,7 @@ function streamNode(clusterName, nodeIdx, host, port) {
         uri: uri,
         failureCount: 0,
         lastLedger: null,
-        inSync: null,
+        status: null,
         lastUpdated: null
     };
 
@@ -213,11 +213,14 @@ async function reportEvent(node, ev) {
     });
 
     if (ev.event == 'ledger_created') {
-        node.inSync = true;
+        node.status = 'in_sync';
         node.lastLedger = ev.ledger;
     }
     else if (ev.event == 'sync_status') {
-        node.inSync = ev.inSync;
+        node.status = ev.inSync ? 'in_sync' : 'desync';
+    }
+    else if (ev.event == 'offline') {
+        node.status = 'offline';
     }
     node.hasUpdates = true;
     node.lastUpdated = ts;
