@@ -7,8 +7,8 @@ let server = 'wss://localhost:8080';
 if (process.argv.length == 3) server = 'wss://localhost:' + process.argv[2];
 if (process.argv.length == 4) server = 'wss://' + process.argv[2] + ':' + process.argv[3];
 console.log("Server: " + server);
-let statusResponsesCounter = 0;
-let statusResponseGroups = {};
+
+let activity = {};
 
 async function main() {
 
@@ -16,13 +16,13 @@ async function main() {
 
     const tests = {
         "Large payload": () => largePayload(2),
-        "Single user read requests": () => singleUserReadRequests(10, 10),
-        "Single user Input/Output": () => singleUserInputOutput(10, 10),
+        "Single user read requests": () => multiUserReadRequests(10, 10, 1),
+        "Single user Input/Output": () => multiUserInputOutput(10, 10, 1),
         "Multi user read requests": () => multiUserReadRequests(10, 10, 10),
         "Multi user Input/Output": () => multiUserInputOutput(10, 10, 10),
     };
 
-    statusRespCounter();
+    activityLogger();
 
     // Execute all tests.
     for (const test in tests) {
@@ -35,7 +35,8 @@ async function main() {
         // Each tuple indicates [start time, end time] of a particular atomic test.
         const result = await tests[test]();
 
-        resetStatusResponse();
+        // Test ended. Clear activity.
+        activity = {};
 
         // If the result is a single period tuple, put them in a parent array.
         const runPeriods = Array.isArray(result[0]) ? result : [result];
@@ -49,19 +50,20 @@ async function main() {
         console.log(duration + "ms");
     }
 
-    statusResponsesCounter = -1;
+    activity = null;
     console.log("Done.");
 }
 
-async function statusRespCounter() {
-    if (statusResponsesCounter > 0)
-        console.log(`Received ${statusResponsesCounter} status responses. ${JSON.stringify(statusResponseGroups)}`);
+async function activityLogger() {
+    if (activity && Object.keys(activity).length > 0)
+        console.log(JSON.stringify(activity));
 
-    if (statusResponsesCounter != -1)
-        setTimeout(() => statusRespCounter(), 1000);
+    if (activity)
+        setTimeout(() => activityLogger(), 1000);
 }
 
 async function createClient() {
+    increment("creating");
     const keys = await HotPocket.generateKeys();
 
     const hpc = await HotPocket.createClient([server], keys,
@@ -74,6 +76,8 @@ async function createClient() {
     if (!await hpc.connect()) {
         throw "Connection failed."
     }
+    decrement("creating");
+    increment("clients");
 
     return hpc;
 }
@@ -89,6 +93,7 @@ function singleUserReadRequests(payloadKB, requestCount) {
         const timer = new Timer();
 
         hpc.on(HotPocket.events.contractReadResponse, (response) => {
+            increment("readresp");
             respCount++;
             if (respCount == requestCount) {
                 const runPeriod = timer.stop();
@@ -98,12 +103,16 @@ function singleUserReadRequests(payloadKB, requestCount) {
 
         timer.start();
         for (let i = 0; i < requestCount; i++) {
-            hpc.sendContractReadRequest(payload);
+            increment("submitting");
+            hpc.sendContractReadRequest(payload).then(() => {
+                decrement("submitting");
+                increment("submitted");
+            });
         }
     })
 }
 
-function performSingleUserInputOutput(payloadKB, requestCount) {
+function singleUserInputOutput(payloadKB, requestCount) {
     return new Promise(async (resolve) => {
 
         const payload = "A".repeat(payloadKB * 1024);
@@ -114,6 +123,7 @@ function performSingleUserInputOutput(payloadKB, requestCount) {
 
         hpc.on(HotPocket.events.contractOutput, (r) => {
             r.outputs.forEach(response => {
+                increment("outputs");
                 respCount++;
                 if (respCount == requestCount) {
                     const runPeriod = timer.stop();
@@ -124,15 +134,13 @@ function performSingleUserInputOutput(payloadKB, requestCount) {
 
         timer.start();
         for (let i = 0; i < requestCount; i++) {
+            increment("submitting");
             const input = await hpc.submitContractInput(payload);
+            decrement("submitting");
+            increment("submitted");
             input.submissionStatus.then(onStatusResponse);
         }
     })
-}
-
-function singleUserInputOutput(payloadKB, requestCount) {
-    console.log("Submitting " + requestCount + " requests.");
-    return performSingleUserInputOutput(payloadKB, requestCount);
 }
 
 function multiUserReadRequests(payloadKB, requestCountPerUser, userCount) {
@@ -152,7 +160,7 @@ function multiUserInputOutput(payloadKB, requestCountPerUser, userCount) {
 
     const tasks = [];
     for (let i = 0; i < userCount; i++) {
-        tasks.push(performSingleUserInputOutput(payloadKB, requestCountPerUser));
+        tasks.push(singleUserInputOutput(payloadKB, requestCountPerUser));
     }
     return Promise.all(tasks);
 }
@@ -168,6 +176,7 @@ function largePayload(payloadMB) {
 
         hpc.on(HotPocket.events.contractOutput, (r) => {
             r.outputs.forEach(response => {
+                increment("outputs");
                 if (response.length < payload.length)
                     console.log("Payload length mismatch.");
 
@@ -177,26 +186,40 @@ function largePayload(payloadMB) {
         });
 
         timer.start();
+        increment("submitting");
         const input = await hpc.submitContractInput(payload);
+        decrement("submitting");
+        increment("submitted");
         input.submissionStatus.then(onStatusResponse);
     })
 }
 
+function increment(key) {
+    if (!activity[key])
+        activity[key] = 0;
+    activity[key]++;
+}
+
+function decrement(key) {
+    activity[key]--;
+    if (activity[key] == 0)
+        delete activity[key];
+}
+
 function onStatusResponse(s) {
 
-    if (!statusResponseGroups[s.status])
-        statusResponseGroups[s.status] = 0;
+    increment("statresp");
 
-    statusResponsesCounter++;
-    statusResponseGroups[s.status]++;
+    if (!activity.groups)
+        activity.groups = {};
+
+    if (!activity.groups[s.status])
+        activity.groups[s.status] = 0;
+
+    activity.groups[s.status]++;
 
     if (s.status != "accepted")
         console.log(s.reason);
-}
-
-function resetStatusResponse() {
-    statusResponsesCounter = 0;
-    statusResponseGroups = {};
 }
 
 function Timer() {
