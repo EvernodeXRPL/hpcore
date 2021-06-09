@@ -1,3 +1,4 @@
 cfg
-*.json
+config.json
 hpfiles
+node_modules
