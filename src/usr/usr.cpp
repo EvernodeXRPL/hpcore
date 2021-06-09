@@ -152,7 +152,8 @@ namespace usr
                 std::string content;
                 if (parser.extract_read_request(content) != -1)
                 {
-                    read_req::populate_read_req_queue(user.pubkey, std::move(content));
+                    if (read_req::populate_read_req_queue(user.pubkey, std::move(content)) == -1)
+                        LOG_WARNING << "Failed to enqueue read request.";
                     return 0;
                 }
                 else

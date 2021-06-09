@@ -88,10 +88,15 @@ namespace comm
                     std::vector<char> msg(data.size());
                     memcpy(msg.data(), data.data(), data.size());
 
+                    bool enqueued = false;
+
                     if (priority == 1)
-                        in_msg_queue1.try_enqueue(std::move(msg));
+                        enqueued = in_msg_queue1.try_enqueue(std::move(msg));
                     else if (priority == 2)
-                        in_msg_queue2.try_enqueue(std::move(msg));
+                        enqueued = in_msg_queue2.try_enqueue(std::move(msg));
+
+                    if (!enqueued)
+                        LOG_WARNING << "Failed to enqueue comm msg.";
                 }
 
                 // Signal the hpws client that we are ready for next message.
