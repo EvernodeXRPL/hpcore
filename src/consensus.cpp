@@ -483,15 +483,20 @@ namespace consensus
     }
 
     /**
-     * Removes any candidate inputs that has lived passed the current ledger seq no.
+     * Removes any candidate inputs that has lived past the current ledger seq no.
      */
     void expire_candidate_inputs(const util::sequence_hash &lcl_id)
     {
+        std::unordered_map<std::string, std::vector<usr::input_status_response>> rejections;
+
         auto itr = ctx.candidate_user_inputs.begin();
         while (itr != ctx.candidate_user_inputs.end())
         {
             if (itr->second.max_ledger_seq_no <= lcl_id.seq_no)
             {
+                const std::string input_hash = std::string(util::get_string_suffix(itr->first, BLAKE3_OUT_LEN));
+                rejections[itr->second.user_pubkey].push_back(usr::input_status_response{input_hash, msg::usrmsg::REASON_MAX_LEDGER_EXPIRED});
+
                 // Erase the candidate input along with its data buffer in the input store.
                 usr::input_store.purge(itr->second.input);
                 ctx.candidate_user_inputs.erase(itr++);
@@ -501,6 +506,9 @@ namespace consensus
                 ++itr;
             }
         }
+
+        // Inform any connected users about their expired inputs.
+        usr::send_input_status_responses(rejections);
     }
 
     /**
