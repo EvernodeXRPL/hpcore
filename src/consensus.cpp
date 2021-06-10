@@ -166,14 +166,10 @@ namespace consensus
                     ctx.sync_recovery_pending = true;
 
                 // If we just bacame in-sync after being in desync, we need to restore consensus context information from the synced ledger.
-                if (new_sync_status == 0 && ctx.sync_recovery_pending)
+                if (new_sync_status == 0 && ctx.sync_recovery_pending && perform_sync_recovery(lcl_id) == -1)
                 {
-                    ctx.sync_recovery_pending = false;
-                    if (perform_sync_recovery(lcl_id) == -1)
-                    {
-                        LOG_ERROR << "Sync recovery failure.";
-                        return -1;
-                    }
+                    LOG_ERROR << "Sync recovery failure.";
+                    return -1;
                 }
 
                 ctx.sync_status = new_sync_status;
@@ -199,9 +195,15 @@ namespace consensus
                 const p2p::proposal p = create_stage123_proposal(votes, unl_count, state_hash, patch_hash, last_primary_shard_id, last_raw_shard_id);
                 broadcast_proposal(p);
 
-                // Upon successful consensus at stage 3, update the ledger and execute the contract using the consensus proposal.
-                if (ctx.stage == 3)
+                if (ctx.stage == 1)
                 {
+                    // Clear any sync recovery pending state if we enter stage 1 while being in sync.
+                    ctx.sync_recovery_pending = false;
+                }
+                else if (ctx.stage == 3)
+                {
+                    // Upon successful consensus at stage 3, update the ledger and execute the contract using the consensus proposal.
+
                     status::sync_status_changed(true); // Creating a new ledger means we are in sync.
 
                     consensed_user_map consensed_users;
@@ -230,32 +232,8 @@ namespace consensus
         // TODO: Find out any inputs we are holding that may have made their way into the ledger and reply with input statuses
         // if the user is conencted to us.
 
-        // We need to regenerate the last round outputs by executing the contract with the last ledger inputs we have synced.
+        // Cleanup any outputs we may have had before the sync cycle began.
         cleanup_output_collections();
-
-        // Prepare consensued user inputs from the latest ledger.i
-        consensed_user_map consensed_users;
-        {
-            std::vector<std::string> users;
-            std::vector<ledger::ledger_user_input> inputs;
-            if (ledger::get_input_users_from_ledger(lcl_id.seq_no, users, inputs) == -1)
-                return -1;
-
-            for (const std::string pubkey : users)
-                consensed_users.try_emplace(pubkey, consensed_user{});
-
-            for (const ledger::ledger_user_input &input : inputs)
-            {
-                const std::string ordered_hash = util::uint64_to_string_bytes(input.nonce) + input.hash;
-                const util::buffer_view input_buf = usr::input_store.write_buf(input.blob.data(), input.blob.size());
-                consensed_users[input.pubkey].consensed_inputs.push_back(consensed_user_input{ordered_hash, input_buf});
-            }
-        }
-
-        // Execute the contract with the inputs and users collected from the ledger.
-        const ledger::ledger_record last_ledger = status::get_last_ledger();
-        if (execute_contract(last_ledger.timestamp, consensed_users, lcl_id) == -1)
-            return -1;
 
         return 0;
     }
@@ -509,8 +487,10 @@ namespace consensus
         }
 
         // If final elected output hash matches our output hash, move the outputs into consensed outputs.
+        // However, do not perform the safety matching check if we have just completed a sync cycle as we will not possess the outputs
+        // generated during the previous ledger.
         {
-            if (cons_prop.output_hash == ctx.user_outputs_hashtree.root_hash())
+            if (ctx.sync_recovery_pending || cons_prop.output_hash == ctx.user_outputs_hashtree.root_hash())
             {
                 for (const auto &[hash, gen_output] : ctx.generated_user_outputs)
                 {
