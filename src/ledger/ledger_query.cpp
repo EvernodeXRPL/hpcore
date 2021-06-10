@@ -44,6 +44,9 @@ namespace ledger::query
                 // Fill raw data if required.
                 if (seq_q.inputs || seq_q.outputs)
                 {
+                    // Do not return other users' blobs if consensus is private.
+                    const std::string filter_user = conf::cfg.contract.is_consensus_public ? "" : std::string(user_pubkey);
+
                     for (ledger_record &ledger : ledgers)
                     {
                         if (seq_q.inputs)
@@ -52,7 +55,7 @@ namespace ledger::query
                             ledger.outputs = std::vector<ledger::ledger_user_output>();
 
                         // No need to actually query raw data for genesis ledger.
-                        if (seq_q.seq_no == 0 || get_ledger_raw_data(ledger, user_pubkey, fs_sess_name) != -1)
+                        if (seq_q.seq_no == 0 || get_ledger_raw_data(ledger, filter_user, fs_sess_name) != -1)
                             res = ledgers;
                     }
                 }
@@ -103,7 +106,7 @@ namespace ledger::query
     /**
      * Retrieve user inputs and outputs by ledger seq no. If consensus is private, this only fills blobs of the requesting user.
      * @param ledger Ledger record to populate with inputs and outputs.
-     * @param user_pubkey Binary pubkey of the user executing the query.
+     * @param user_pubkey Binary user pubkey. If not empty, include raw data only for this user.
      * @param fs_sess_name The ledger hosting fs session name.
      * @returns 0 on success. -1 on failure.
      */
@@ -141,7 +144,7 @@ namespace ledger::query
      * @param inputs User input collection to populate.
      * @param seq_no Ledger seq no. to query.
      * @param shard_path The shard physical path.
-     * @param user_pubkey Binary pubkey of the user executing the query.
+     * @param user_pubkey Binary user pubkey. If not empty, include raw data only for this user.
      * @param fs_sess_name The ledger hosting fs session name.
      * @returns 0 on success. -1 on failure.
      */
@@ -163,8 +166,8 @@ namespace ledger::query
 
         for (ledger_user_input &inp : inputs)
         {
-            // Do not return other users' blobs if consensus is private.
-            if (!conf::cfg.contract.is_consensus_public && inp.pubkey != user_pubkey)
+            // Apply user filter.
+            if (!user_pubkey.empty() && inp.pubkey != user_pubkey)
                 continue;
 
             inp.blob.resize(inp.blob_size);
@@ -185,7 +188,7 @@ namespace ledger::query
      * @param outputs User output collection to populate.
      * @param seq_no Ledger seq no. to query.
      * @param shard_path The shard physical path.
-     * @param user_pubkey Binary pubkey of the user executing the query.
+     * @param user_pubkey Binary user pubkey. If not empty, include raw data only for this user.
      * @param fs_sess_name The ledger hosting fs session name.
      * @returns 0 on success. -1 on failure.
      */
@@ -208,8 +211,8 @@ namespace ledger::query
         // Loop through each user's blob groups.
         for (ledger_user_output &user : outputs)
         {
-            // Do not return other users' blobs if consensus is private.
-            if (!conf::cfg.contract.is_consensus_public && user.pubkey != user_pubkey)
+            // Apply user filter.
+            if (!user_pubkey.empty() && user.pubkey != user_pubkey)
                 continue;
 
             // Output blobs for each user are grouped. Group header contains all individual blob offsets and sizes

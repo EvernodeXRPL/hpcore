@@ -24,7 +24,7 @@ namespace ledger
         uint64_t nonce;         // Nonce the user had submitted for this input.
         off_t blob_offset;      // Blob file offset of this input blob.
         size_t blob_size;       // Length of the input.
-        std::string blob;       // THe actual input blob.
+        std::string blob;       // The actual input blob.
     };
 
     /**
