@@ -817,4 +817,39 @@ namespace ledger
         root_hash = hpfs::get_root_hash(ledger.config_hash, ledger.state_hash);
         return 0;
     }
+
+    /**
+     * Loads inputs and connected users from the specified ledger.
+     */
+    int get_input_users_from_ledger(const uint64_t seq_no, std::vector<std::string> &users, std::vector<ledger_user_input> &inputs)
+    {
+        const char *session_name = "input_users";
+        if (ledger_fs.start_ro_session(session_name, false) == -1)
+            return -1;
+
+        const uint64_t shard_seq_no = SHARD_SEQ(seq_no, ledger::RAW_SHARD_SIZE);
+        const std::string shard_path = ledger::ledger_fs.physical_path(session_name, std::string(ledger::RAW_DIR) + "/" + std::to_string(shard_seq_no) + "/");
+        const std::string db_path = shard_path + RAW_DB;
+
+        sqlite3 *db = NULL;
+        if (sqlite::open_db(db_path, &db) == -1)
+        {
+            LOG_ERROR << errno << ": Error openning the shard database for input_users, shard: " << shard_seq_no;
+            ledger_fs.stop_ro_session(session_name);
+            return -1;
+        }
+
+        if (sqlite::get_users_by_seq_no(db, seq_no, users) == -1 ||
+            sqlite::get_user_inputs_by_seq_no(db, seq_no, inputs) == -1)
+        {
+            LOG_ERROR << errno << ": Error querying ledger input_users, seq_no: " << seq_no;
+            sqlite::close_db(&db);
+            ledger_fs.stop_ro_session(session_name);
+            return -1;
+        }
+
+        sqlite::close_db(&db);
+        ledger_fs.stop_ro_session(session_name);
+        return 0;
+    }
 } // namespace ledger

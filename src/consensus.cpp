@@ -157,10 +157,24 @@ namespace consensus
                     new_sync_status = check_sync_status(unl_count, votes, lcl_id);
                 }
 
-                // Update the sync status if we went from in-sync to not-in-sync. We will report back as being in-sync
-                // only when we hit stage 3.
+                // Update the sync status if we went from in-sync to not-in-sync. We will report back as being in-sync only when we hit stage 3.
                 if (ctx.sync_status == 0 && new_sync_status != 0)
                     status::sync_status_changed(false);
+
+                // The moment we enter into a syncing cycle, we need to remember to recover local context after the sync is complete.
+                if (new_sync_status == -1)
+                    ctx.sync_recovery_pending = true;
+
+                // If we just bacame in-sync after being in desync, we need to restore consensus context information from the synced ledger.
+                if (new_sync_status == 0 && ctx.sync_recovery_pending)
+                {
+                    ctx.sync_recovery_pending = false;
+                    if (perform_sync_recovery(lcl_id) == -1)
+                    {
+                        LOG_ERROR << "Sync recovery failure.";
+                        return -1;
+                    }
+                }
 
                 ctx.sync_status = new_sync_status;
             }
@@ -211,6 +225,41 @@ namespace consensus
         return 0;
     }
 
+    int perform_sync_recovery(const util::sequence_hash &lcl_id)
+    {
+        // TODO: Find out any inputs we are holding that may have made their way into the ledger and reply with input statuses
+        // if the user is conencted to us.
+
+        // We need to regenerate the last round outputs by executing the contract with the last ledger inputs we have synced.
+        cleanup_output_collections();
+
+        // Prepare consensued user inputs from the latest ledger.i
+        consensed_user_map consensed_users;
+        {
+            std::vector<std::string> users;
+            std::vector<ledger::ledger_user_input> inputs;
+            if (ledger::get_input_users_from_ledger(lcl_id.seq_no, users, inputs) == -1)
+                return -1;
+
+            for (const std::string pubkey : users)
+                consensed_users.try_emplace(pubkey, consensed_user{});
+
+            for (const ledger::ledger_user_input &input : inputs)
+            {
+                const std::string ordered_hash = util::uint64_to_string_bytes(input.nonce) + input.hash;
+                const util::buffer_view input_buf = usr::input_store.write_buf(input.blob.data(), input.blob.size());
+                consensed_users[input.pubkey].consensed_inputs.push_back(consensed_user_input{ordered_hash, input_buf});
+            }
+        }
+
+        // Execute the contract with the inputs and users collected from the ledger.
+        const ledger::ledger_record last_ledger = status::get_last_ledger();
+        if (execute_contract(last_ledger.timestamp, consensed_users, lcl_id) == -1)
+            return -1;
+
+        return 0;
+    }
+
     /**
      * Performs the consensus finalalization activities with the provided consensused information.
      * @param cons_prop The proposal which reached consensus.
@@ -240,7 +289,7 @@ namespace consensus
             return -1;
 
         // Execute the smart contract with the consensed user inputs.
-        if (execute_contract(cons_prop, consensed_users, lcl_id) == -1)
+        if (execute_contract(cons_prop.time, consensed_users, lcl_id) == -1)
             return -1;
 
         return 0;
@@ -1061,11 +1110,11 @@ namespace consensus
 
     /**
      * Executes the contract after consensus.
-     * @param cons_prop The proposal that reached consensus.
+     * @param time The consensus time.
      * @param consensed_users Consensed users and their inputs.
      * @param lcl_id Current lcl id of the node.
      */
-    int execute_contract(const p2p::proposal &cons_prop, const consensed_user_map &consensed_users, const util::sequence_hash &lcl_id)
+    int execute_contract(const uint64_t time, const consensed_user_map &consensed_users, const util::sequence_hash &lcl_id)
     {
         if (!conf::cfg.contract.execute || ctx.is_shutting_down)
             return 0;
@@ -1077,7 +1126,7 @@ namespace consensus
 
         sc::contract_execution_args &args = ctx.contract_ctx->args;
         args.readonly = false;
-        args.time = cons_prop.time;
+        args.time = time;
 
         // lcl to be passed to the contract.
         args.lcl_id = lcl_id;

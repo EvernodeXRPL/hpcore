@@ -89,6 +89,8 @@ namespace ledger::sqlite
 
     int get_ledger_by_seq_no(sqlite3 *db, const uint64_t seq_no, ledger::ledger_record &ledger);
 
+    int get_users_by_seq_no(sqlite3 *db, const uint64_t seq_no, std::vector<std::string> &users);
+
     int get_user_inputs_by_seq_no(sqlite3 *db, const uint64_t seq_no, std::vector<ledger::ledger_user_input> &inputs);
 
     int get_user_outputs_by_seq_no(sqlite3 *db, const uint64_t seq_no, std::vector<ledger::ledger_user_output> &outputs);

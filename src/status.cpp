@@ -59,6 +59,12 @@ namespace status
         return in_sync;
     }
 
+    const ledger::ledger_record get_last_ledger()
+    {
+        std::shared_lock lock(ledger_mutex);
+        return last_ledger;
+    }
+
     //----- UNL status
 
     void init_unl(const std::set<std::string> &init_unl)

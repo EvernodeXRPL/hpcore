@@ -99,6 +99,8 @@ namespace ledger
 
     int get_root_hash_from_ledger(util::h32 &root_hash, const uint64_t seq_no);
 
+    int get_input_users_from_ledger(const uint64_t seq_no, std::vector<std::string> &users, std::vector<ledger_user_input> &inputs);
+
 } // namespace ledger
 
 #endif

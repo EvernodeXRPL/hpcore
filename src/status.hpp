@@ -33,6 +33,7 @@ namespace status
     void sync_status_changed(const bool in_sync);
     const util::sequence_hash get_lcl_id();
     const bool is_in_sync();
+    const ledger::ledger_record get_last_ledger();
 
     void init_unl(const std::set<std::string> &init_unl);
     void unl_changed(const std::set<std::string> &new_unl);

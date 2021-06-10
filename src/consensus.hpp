@@ -113,6 +113,7 @@ namespace consensus
         uint64_t round_boundry_offset = 0;       // Time window boundry offset based on contract id.
         uint16_t unreliable_votes_attempts = 0;  // No. of times we failed to get reliable votes continously.
         int sync_status = 0;                     // Current sync status.
+        bool sync_recovery_pending = false;      // Flag to remember whether we need to recover local context after a sync.
 
         std::optional<sc::execution_context> contract_ctx;
         std::mutex contract_ctx_mutex;
@@ -150,6 +151,8 @@ namespace consensus
     void run_consensus();
 
     int consensus();
+
+    int perform_sync_recovery(const util::sequence_hash &lcl_id);
 
     int commit_consensus_results(const p2p::proposal &cons_prop, const consensus::consensed_user_map &consensed_users, const util::h32 &patch_hash);
 
@@ -195,7 +198,7 @@ namespace consensus
 
     uint64_t get_stage_time_resolution(const uint64_t time);
 
-    int execute_contract(const p2p::proposal &cons_prop, const consensed_user_map &consensed_users, const util::sequence_hash &lcl_id);
+    int execute_contract(const uint64_t time, const consensed_user_map &consensed_users, const util::sequence_hash &lcl_id);
 
     void dispatch_consensed_user_input_responses(const consensed_user_map &consensed_users, const util::sequence_hash &lcl_id);
 

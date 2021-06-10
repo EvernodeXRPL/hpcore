@@ -87,7 +87,7 @@ namespace ledger::query
         }
 
         // Construct shard path based on provided ledger seq no.
-        const uint64_t shard_seq_no = (q.seq_no - 1) / ledger::PRIMARY_SHARD_SIZE;
+        const uint64_t shard_seq_no = SHARD_SEQ(q.seq_no, ledger::PRIMARY_SHARD_SIZE);
         const std::string db_vpath = std::string(ledger::PRIMARY_DIR) + "/" + std::to_string(shard_seq_no) + "/" + ledger::PRIMARY_DB;
         const std::string db_path = ledger::ledger_fs.physical_path(fs_sess_name, db_vpath);
 
@@ -116,7 +116,7 @@ namespace ledger::query
         if (!ledger.inputs && !ledger.outputs)
             return 0;
 
-        const uint64_t shard_seq_no = (ledger.seq_no - 1) / ledger::RAW_SHARD_SIZE;
+        const uint64_t shard_seq_no = SHARD_SEQ(ledger.seq_no, ledger::RAW_SHARD_SIZE);
         const std::string shard_path = ledger::ledger_fs.physical_path(fs_sess_name, std::string(ledger::RAW_DIR) + "/" + std::to_string(shard_seq_no) + "/");
         const std::string db_path = shard_path + RAW_DB;
 

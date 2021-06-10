@@ -411,7 +411,7 @@ namespace sc::hpfs_log_sync
 
         do
         {
-            const uint64_t shard_seq_no = (current_seq_no - 1) / ledger::PRIMARY_SHARD_SIZE;
+            const uint64_t shard_seq_no = SHARD_SEQ(current_seq_no, ledger::PRIMARY_SHARD_SIZE);
             const std::string shard_path = ledger::ledger_fs.physical_path(session_name, ledger::PRIMARY_DIR) + "/" + std::to_string(shard_seq_no);
 
             // Change db connection if the shard changes.

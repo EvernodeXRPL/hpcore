@@ -28,7 +28,7 @@ namespace ledger::sqlite
     constexpr const char *AND = " AND ";
     constexpr const char *SELECT_LAST_LEDGER = "SELECT * FROM ledger ORDER BY seq_no DESC LIMIT 1";
     constexpr const char *SELECT_LEDGER_BY_SEQ_NO = "SELECT * FROM ledger WHERE seq_no=? LIMIT 1";
-
+    constexpr const char *SELECT_USERS_BY_SEQ_NO = "SELECT * FROM users WHERE ledger_seq_no=?";
     constexpr const char *SELECT_INPUTS_BY_SEQ_NO = "SELECT * FROM inputs WHERE ledger_seq_no=?";
     constexpr const char *SELECT_OUTPUTS_BY_SEQ_NO = "SELECT * FROM outputs WHERE ledger_seq_no=?";
 
@@ -575,6 +575,25 @@ namespace ledger::sqlite
         }
 
         LOG_ERROR << "Error when querying ledger by seq no. from db. " << sqlite3_errmsg(db);
+        sqlite3_finalize(stmt);
+        return -1;
+    }
+
+    int get_users_by_seq_no(sqlite3 *db, const uint64_t seq_no, std::vector<std::string> &users)
+    {
+        sqlite3_stmt *stmt;
+
+        if (sqlite3_prepare_v2(db, SELECT_USERS_BY_SEQ_NO, -1, &stmt, 0) == SQLITE_OK && stmt != NULL &&
+            sqlite3_bind_int64(stmt, 1, seq_no) == SQLITE_OK)
+        {
+            while (sqlite3_step(stmt) == SQLITE_ROW)
+                users.push_back(GET_PUBKEY_BLOB(1));
+
+            sqlite3_finalize(stmt);
+            return 0;
+        }
+
+        LOG_ERROR << "Error when querying ledger inputs by seq no. from db. " << sqlite3_errmsg(db);
         sqlite3_finalize(stmt);
         return -1;
     }
