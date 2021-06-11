@@ -95,6 +95,8 @@ namespace ledger::sqlite
 
     int get_user_outputs_by_seq_no(sqlite3 *db, const uint64_t seq_no, std::vector<ledger::ledger_user_output> &outputs);
 
+    int get_user_input_by_hash(sqlite3 *db, std::string_view hash, std::optional<ledger::ledger_user_input> &input);
+
     void populate_ledger_from_sql_record(ledger::ledger_record &ledger, sqlite3_stmt *stmt);
 
     ledger::ledger_user_input populate_user_input_from_sql_record(sqlite3_stmt *stmt);

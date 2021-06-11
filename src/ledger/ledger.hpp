@@ -70,9 +70,9 @@ namespace ledger
 
     void deinit();
 
-    int update_ledger(const p2p::proposal &proposal, const consensus::consensed_user_map &consensed_users);
+    int update_ledger(const p2p::proposal &proposal, const consensus::consensed_user_map &consensed_users, const bool sync_recovery_pending);
 
-    int update_primary_ledger(const p2p::proposal &proposal, const consensus::consensed_user_map &consensed_users, util::sequence_hash &new_lcl_id);
+    int update_primary_ledger(const p2p::proposal &proposal, const consensus::consensed_user_map &consensed_users, const bool sync_recovery_pending, util::sequence_hash &new_lcl_id);
 
     int update_ledger_raw_data(const p2p::proposal &proposal, const consensus::consensed_user_map &consensed_users, const util::sequence_hash &lcl_id);
 
@@ -98,9 +98,6 @@ namespace ledger
     int persist_max_shard_seq_no(const std::string &shard_parent_dir, const uint64_t last_shard_seq_no);
 
     int get_root_hash_from_ledger(util::h32 &root_hash, const uint64_t seq_no);
-
-    int get_input_users_from_ledger(const uint64_t seq_no, std::vector<std::string> &users, std::vector<ledger_user_input> &inputs);
-
 } // namespace ledger
 
 #endif

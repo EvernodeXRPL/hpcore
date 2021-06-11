@@ -14,6 +14,7 @@
 #include "util/sequence_hash.hpp"
 #include "unl.hpp"
 #include "ledger/ledger.hpp"
+#include "ledger/ledger_query.hpp"
 #include "consensus.hpp"
 #include "sc/hpfs_log_sync.hpp"
 #include "status.hpp"
@@ -166,10 +167,14 @@ namespace consensus
                     ctx.sync_recovery_pending = true;
 
                 // If we just bacame in-sync after being in desync, we need to restore consensus context information from the synced ledger.
-                if (new_sync_status == 0 && ctx.sync_recovery_pending && perform_sync_recovery(lcl_id) == -1)
+                if (ctx.sync_status != 0 && new_sync_status == 0 && ctx.sync_recovery_pending)
                 {
-                    LOG_ERROR << "Sync recovery failure.";
-                    return -1;
+                    LOG_DEBUG << "Sync recovery started.";
+                    if (perform_sync_recovery(lcl_id) == -1)
+                    {
+                        LOG_ERROR << "Sync recovery failure.";
+                        return -1;
+                    }
                 }
 
                 ctx.sync_status = new_sync_status;
@@ -195,10 +200,11 @@ namespace consensus
                 const p2p::proposal p = create_stage123_proposal(votes, unl_count, state_hash, patch_hash, last_primary_shard_id, last_raw_shard_id);
                 broadcast_proposal(p);
 
-                if (ctx.stage == 1)
+                if (ctx.stage == 1 && ctx.sync_recovery_pending)
                 {
                     // Clear any sync recovery pending state if we enter stage 1 while being in sync.
                     ctx.sync_recovery_pending = false;
+                    LOG_DEBUG << "Sync recovery completed.";
                 }
                 else if (ctx.stage == 3)
                 {
@@ -229,8 +235,18 @@ namespace consensus
 
     int perform_sync_recovery(const util::sequence_hash &lcl_id)
     {
-        // TODO: Find out any inputs we are holding that may have made their way into the ledger and reply with input statuses
+        // Find out any inputs we are holding that may have made their way into the ledger and reply with input statuses
         // if the user is conencted to us.
+        std::unordered_map<std::string, std::vector<usr::input_status_response>> responses;
+        const uint64_t last_primary_shard_seq_no = SHARD_SEQ(lcl_id.seq_no, ledger::PRIMARY_SHARD_SIZE);
+        for (const auto &[ordered_hash, cand_inp] : ctx.candidate_user_inputs)
+        {
+            const std::string input_hash = std::string(util::get_string_suffix(ordered_hash, BLAKE3_OUT_LEN));
+            std::optional<ledger::ledger_user_input> input;
+            if (ledger::query::get_input_by_hash(last_primary_shard_seq_no, input_hash, input) != -1 && input)
+                responses[cand_inp.user_pubkey].push_back(usr::input_status_response{input_hash});
+        }
+        usr::send_input_status_responses(responses);
 
         // Cleanup any outputs we may have had before the sync cycle began.
         cleanup_output_collections();
@@ -247,11 +263,12 @@ namespace consensus
     int commit_consensus_results(const p2p::proposal &cons_prop, const consensus::consensed_user_map &consensed_users, const util::h32 &patch_hash)
     {
         // Persist the new ledger with the consensus results.
-        if (ledger::update_ledger(cons_prop, consensed_users) == -1)
+        if (ledger::update_ledger(cons_prop, consensed_users, ctx.sync_recovery_pending) == -1)
             return -1;
 
         util::sequence_hash lcl_id = ledger::ctx.get_lcl_id();
-        LOG_INFO << "****Ledger created**** (lcl:" << lcl_id << " state:" << cons_prop.state_hash << " patch:" << cons_prop.patch_hash << ")";
+        if (!ctx.sync_recovery_pending)
+            LOG_INFO << "****Ledger created**** (lcl:" << lcl_id << " state:" << cons_prop.state_hash << " patch:" << cons_prop.patch_hash << ")";
 
         // Now that there's a new ledger, prune any newly-expired candidate inputs.
         expire_candidate_inputs(lcl_id);
