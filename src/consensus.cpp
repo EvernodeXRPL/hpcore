@@ -162,23 +162,18 @@ namespace consensus
                 if (ctx.sync_status == 0 && new_sync_status != 0)
                     status::sync_status_changed(false);
 
-                // The moment we enter into a syncing cycle, we need to remember to recover local context after the sync is complete.
-                if (new_sync_status == -1 && !ctx.sync_recovery_pending)
+                // This marks entering into a new sync cycle.
+                if (new_sync_status == -1 && !ctx.sync_ongoing)
                 {
-                    cleanup_output_collections(); // Cleanup any outputs we may have had before the sync cycle began.
-                    ctx.sync_recovery_pending = true;
+                    // Cleanup any unconsensed contract outputs we may have had before the sync cycle began because those are going to be
+                    // irrelavant after the sync.
+                    cleanup_output_collections();
+                    ctx.sync_ongoing = true;
                 }
 
                 // If we just bacame in-sync after being in desync, we need to restore consensus context information from the synced ledger.
-                if (ctx.sync_status != 0 && new_sync_status == 0 && ctx.sync_recovery_pending)
-                {
-                    LOG_DEBUG << "Sync recovery started.";
-                    if (perform_sync_recovery(lcl_id) == -1)
-                    {
-                        LOG_ERROR << "Sync recovery failure.";
-                        return -1;
-                    }
-                }
+                if (ctx.sync_status != 0 && new_sync_status == 0 && ctx.sync_ongoing)
+                    dispatch_synced_ledger_input_statuses(lcl_id);
 
                 ctx.sync_status = new_sync_status;
             }
@@ -186,6 +181,9 @@ namespace consensus
             if (ctx.sync_status == -2) // Unreliable votes.
             {
                 ctx.unreliable_votes_attempts++;
+
+                // If we get too many consecative unreliable vote rounds, then we perform time config sniffing just in case the unreliable votes
+                // are caused because our roundtime config information is different from other nodes.
                 if (ctx.unreliable_votes_attempts >= MAX_UNRELIABLE_VOTES_ATTEMPTS)
                 {
                     refresh_time_config(true);
@@ -203,17 +201,17 @@ namespace consensus
                 const p2p::proposal p = create_stage123_proposal(votes, unl_count, state_hash, patch_hash, last_primary_shard_id, last_raw_shard_id);
                 broadcast_proposal(p);
 
-                if (ctx.stage == 1 && ctx.sync_recovery_pending)
+                // This marks the moment we finish a sync cycle. We are in stage 1 and we ditect that our votes are in sync.
+                if (ctx.stage == 1 && ctx.sync_ongoing)
                 {
                     // Clear any sync recovery pending state if we enter stage 1 while being in sync.
-                    ctx.sync_recovery_pending = false;
+                    ctx.sync_ongoing = false;
+                    status::sync_status_changed(true);
                     LOG_DEBUG << "Sync recovery completed.";
                 }
                 else if (ctx.stage == 3)
                 {
                     // Upon successful consensus at stage 3, update the ledger and execute the contract using the consensus proposal.
-
-                    status::sync_status_changed(true); // Creating a new ledger means we are in sync.
 
                     consensed_user_map consensed_users;
                     if (prepare_consensed_users(consensed_users, p) == -1 ||
@@ -236,25 +234,6 @@ namespace consensus
         return 0;
     }
 
-    int perform_sync_recovery(const util::sequence_hash &lcl_id)
-    {
-        // Find out any inputs we were holding that may have made their way into the ledger while we were syncing,
-        // and reply with input statuses if the user is conencted to us.
-        std::unordered_map<std::string, std::vector<usr::input_status_response>> responses;
-        const uint64_t last_primary_shard_seq_no = SHARD_SEQ(lcl_id.seq_no, ledger::PRIMARY_SHARD_SIZE);
-        for (const auto &[ordered_hash, cand_inp] : ctx.candidate_user_inputs)
-        {
-            const std::string input_hash = std::string(util::get_string_suffix(ordered_hash, BLAKE3_OUT_LEN));
-            std::optional<ledger::ledger_user_input> input;
-            std::optional<ledger::ledger_record> ledger;
-            if (ledger::query::get_input_by_hash(last_primary_shard_seq_no, input_hash, input, ledger) != -1 && input)
-                responses[cand_inp.user_pubkey].push_back(usr::input_status_response{input_hash, NULL, input->ledger_seq_no, *(util::h32 *)ledger->ledger_hash.data()});
-        }
-        usr::send_input_status_responses(responses);
-
-        return 0;
-    }
-
     /**
      * Performs the consensus finalalization activities with the provided consensused information.
      * @param cons_prop The proposal which reached consensus.
@@ -263,12 +242,21 @@ namespace consensus
      */
     int commit_consensus_results(const p2p::proposal &cons_prop, const consensus::consensed_user_map &consensed_users, const util::h32 &patch_hash)
     {
+        // Creating a ledger while sync ongoing happens when we discover that our ledger votes are in sync at stage 2 or 3. At this point,
+        // we can create the ledger with majority votes. However we dont't have the raw contract outputs we should have had in the previous ledger
+        // (because we were syncing the ledger and didn't execute the contract). So after this ledger creation we will most probably get a raw ledger
+        // desync again because our raw outputs were different from other nodes. Therefore we don't consider this a proper/synced ledger creation until
+        // we are fully out of the sync cycle. Hence we pass the sync_ongoing flag to indicate whether we are still inside a sync cycle or not.
+        // Sync cycle is considered trully complete after the raw ledger is synced again and we discover in next round Stage 1 that our ledger votes
+        // are in sync.
+
         // Persist the new ledger with the consensus results.
-        if (ledger::update_ledger(cons_prop, consensed_users, ctx.sync_recovery_pending) == -1)
+        if (ledger::update_ledger(cons_prop, consensed_users, ctx.sync_ongoing) == -1)
             return -1;
 
         util::sequence_hash lcl_id = ledger::ctx.get_lcl_id();
-        if (!ctx.sync_recovery_pending)
+
+        if (!ctx.sync_ongoing)
             LOG_INFO << "****Ledger created**** (lcl:" << lcl_id << " state:" << cons_prop.state_hash << " patch:" << cons_prop.patch_hash << ")";
 
         // Now that there's a new ledger, prune any newly-expired candidate inputs.
@@ -508,7 +496,7 @@ namespace consensus
         // However, do not perform the safety matching check if we have just completed a sync cycle as we will not possess the outputs
         // generated during the previous ledger.
         {
-            if (ctx.sync_recovery_pending || cons_prop.output_hash == ctx.user_outputs_hashtree.root_hash())
+            if (ctx.sync_ongoing || cons_prop.output_hash == ctx.user_outputs_hashtree.root_hash())
             {
                 for (const auto &[hash, gen_output] : ctx.generated_user_outputs)
                 {
@@ -1233,6 +1221,39 @@ namespace consensus
         }
 
         cleanup_output_collections();
+    }
+
+    /**
+     * Dispatches any input responses corresponsing to candidate inputs that we have been holding during while syncing.
+     */
+    void dispatch_synced_ledger_input_statuses(const util::sequence_hash &lcl_id)
+    {
+        // Find out any inputs we were holding that may have made their way into the ledger while we were syncing,
+        // and reply with 'accepted' input statuses if the user is conencted to us.
+        std::unordered_map<std::string, std::vector<usr::input_status_response>> responses;
+        auto itr = ctx.candidate_user_inputs.begin();
+        while (itr != ctx.candidate_user_inputs.end())
+        {
+            std::string_view ordered_hash = itr->first;
+            const std::string input_hash = std::string(util::get_string_suffix(ordered_hash, BLAKE3_OUT_LEN));
+            std::optional<ledger::ledger_user_input> input;
+            std::optional<ledger::ledger_record> ledger;
+            if (ledger::query::get_input_by_hash(lcl_id.seq_no, input_hash, input, ledger) != -1 && input)
+            {
+                // Each 'accepted' status response must be associated with the ledger seqno/hash that contained the input.
+                responses[itr->second.user_pubkey].push_back(usr::input_status_response{
+                    input_hash, NULL, input->ledger_seq_no, *(util::h32 *)ledger->ledger_hash.data()});
+
+                // Erase the candidate input since we no longer need to hold it.
+                ctx.candidate_user_inputs.erase(itr++);
+            }
+            else
+            {
+                ++itr;
+            }
+        }
+
+        usr::send_input_status_responses(responses);
     }
 
     /**

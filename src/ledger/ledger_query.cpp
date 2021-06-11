@@ -285,33 +285,41 @@ namespace ledger::query
         return 0;
     }
 
-    int get_input_by_hash(const uint64_t last_primary_shard_seq_no, std::string_view hash, std::optional<ledger::ledger_user_input> &input, std::optional<ledger::ledger_record> &ledger)
+    /**
+     * Attempts to find the provided input hash by scanning all the shards starting with the latest shard.
+     * @param lcl_seq_no Latest ledger seq no. used to determine latest shard.
+     * @param hash Input hash to find.
+     * @param input Popualted input data, if found.
+     * @param ledger Popualted ledger data which contains the input, if input found.
+     * @return 0 on successful attempt. -1 on error.
+     */
+    int get_input_by_hash(const uint64_t lcl_seq_no, std::string_view hash, std::optional<ledger::ledger_user_input> &input, std::optional<ledger::ledger_record> &ledger)
     {
         const char *session_name = "input_by_hash";
         if (ledger_fs.start_ro_session(session_name, false) == -1)
             return -1;
 
         // Search all the shards starting with last shard for the input hash.
-        uint64_t shard_seq_no = last_primary_shard_seq_no;
-        while (shard_seq_no >= 0 && !input)
+        uint64_t raw_shard = SHARD_SEQ(lcl_seq_no, ledger::RAW_SHARD_SIZE);
+        while (raw_shard >= 0 && !input)
         {
-            const std::string shard_path = ledger::ledger_fs.physical_path(session_name, std::string(ledger::RAW_DIR) + "/" + std::to_string(shard_seq_no) + "/");
+            const std::string shard_path = ledger::ledger_fs.physical_path(session_name, std::string(ledger::RAW_DIR) + "/" + std::to_string(raw_shard) + "/");
             const std::string db_path = shard_path + RAW_DB;
 
             if (!util::is_file_exists(db_path))
-                return 0; // Not found.
+                return 0; // Shard not found. So we abandon the search.
 
             sqlite3 *db = NULL;
             if (sqlite::open_db(db_path, &db) == -1)
             {
-                LOG_ERROR << errno << ": Error openning the raw shard database to find input hash, shard: " << shard_seq_no;
+                LOG_ERROR << errno << ": Error openning the raw shard database to find input hash, shard: " << raw_shard;
                 ledger_fs.stop_ro_session(session_name);
                 return -1;
             }
 
             if (sqlite::get_user_input_by_hash(db, hash, input) == -1)
             {
-                LOG_ERROR << errno << ": Error finding input hash in shard " << shard_seq_no;
+                LOG_ERROR << errno << ": Error finding input hash in shard " << raw_shard;
                 sqlite::close_db(&db);
                 ledger_fs.stop_ro_session(session_name);
                 return -1;
@@ -319,10 +327,11 @@ namespace ledger::query
 
             sqlite::close_db(&db);
 
-            if (shard_seq_no == 0)
+            if (raw_shard == 0)
                 break;
 
-            shard_seq_no--;
+            // Keep scanning shards backwards.
+            raw_shard--;
         }
 
         if (input)
@@ -343,7 +352,7 @@ namespace ledger::query
             ledger::ledger_record rec;
             if (sqlite::get_ledger_by_seq_no(db, input->ledger_seq_no, rec) != 1)
             {
-                LOG_ERROR << errno << ": Error getting ledger for input in shard " << shard_seq_no;
+                LOG_ERROR << errno << ": Error getting ledger for input in shard " << raw_shard;
                 sqlite::close_db(&db);
                 ledger_fs.stop_ro_session(session_name);
                 return -1;

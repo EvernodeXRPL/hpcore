@@ -31,7 +31,7 @@ namespace ledger::query
     int get_ledger_inputs(sqlite3 *db, std::vector<ledger_user_input> &inputs, const uint64_t seq_no, const std::string &shard_path, std::string_view user_pubkey, const std::string &fs_sess_name);
     int get_ledger_outputs(sqlite3 *db, std::vector<ledger_user_output> &outputs, const uint64_t seq_no, const std::string &shard_path, std::string_view user_pubkey, const std::string &fs_sess_name);
     int get_input_users_from_ledger(const uint64_t seq_no, std::vector<std::string> &users, std::vector<ledger_user_input> &inputs);
-    int get_input_by_hash(const uint64_t last_primary_shard_seq_no, std::string_view hash, std::optional<ledger::ledger_user_input> &input, std::optional<ledger::ledger_record> &ledger);
+    int get_input_by_hash(const uint64_t lcl_seq_no, std::string_view hash, std::optional<ledger::ledger_user_input> &input, std::optional<ledger::ledger_record> &ledger);
 }
 
 #endif
