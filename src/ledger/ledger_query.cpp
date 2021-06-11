@@ -307,7 +307,10 @@ namespace ledger::query
             const std::string db_path = shard_path + RAW_DB;
 
             if (!util::is_file_exists(db_path))
+            {
+                ledger_fs.stop_ro_session(session_name);
                 return 0; // Shard not found. So we abandon the search.
+            }
 
             sqlite3 *db = NULL;
             if (sqlite::open_db(db_path, &db) == -1)
