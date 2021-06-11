@@ -107,7 +107,7 @@ namespace consensus
 
         // Throughout consensus, we continously update and prune the candidate proposals for newly
         // arived ones and expired ones.
-        revise_candidate_proposals(ctx.sync_status == 0);
+        revise_candidate_proposals(ctx.vote_status == VOTES_SYNCED);
 
         // Get current lcl, state, patch, primary shard and raw shard info.
         util::sequence_hash lcl_id = ledger::ctx.get_lcl_id();
@@ -147,23 +147,23 @@ namespace consensus
             {
                 int new_sync_status = check_sync_status(unl_count, votes, lcl_id);
 
-                if (ctx.sync_status != 0 && new_sync_status == 0)
+                if (ctx.vote_status != VOTES_SYNCED && new_sync_status == VOTES_UNRELIABLE)
                 {
-                    // If we are just becoming 'in-sync' after being out-of-sync, check the sync status again after the proper
+                    // If we are just becoming 'in-sync' after being out-of-sync, check the vote status again after the proper
                     // pruning of candidate proposals. This is because we relax the proposal pruning rules when we are not in sync,
-                    // and we need to make the final sync status check after proper pruning rules are applied.
+                    // and we need to make the final vote status check after proper pruning rules are applied.
 
-                    LOG_DEBUG << "Rechecking sync status after becoming in-sync.";
+                    LOG_DEBUG << "Rechecking vote status after becoming in-sync.";
                     revise_candidate_proposals(true);
                     new_sync_status = check_sync_status(unl_count, votes, lcl_id);
                 }
 
-                // Update the sync status if we went from in-sync to not-in-sync. We will report back as being in-sync only when we hit stage 3.
-                if (ctx.sync_status == 0 && new_sync_status != 0)
+                // Update the node's status if we went from in-sync to not-in-sync. We will report back as being in-sync only when ledger is created.
+                if (ctx.vote_status == VOTES_SYNCED && new_sync_status != VOTES_SYNCED)
                     status::sync_status_changed(false);
 
                 // This marks entering into a new sync cycle.
-                if (new_sync_status == -1 && !ctx.sync_ongoing)
+                if (new_sync_status == VOTES_DESYNC && !ctx.sync_ongoing)
                 {
                     // Cleanup any unconsensed contract outputs we may have had before the sync cycle began because those are going to be
                     // irrelavant after the sync.
@@ -172,13 +172,13 @@ namespace consensus
                 }
 
                 // If we just bacame in-sync after being in desync, we need to restore consensus context information from the synced ledger.
-                if (ctx.sync_status != 0 && new_sync_status == 0 && ctx.sync_ongoing)
+                if (ctx.vote_status != VOTES_SYNCED && new_sync_status == VOTES_SYNCED && ctx.sync_ongoing)
                     dispatch_synced_ledger_input_statuses(lcl_id);
 
-                ctx.sync_status = new_sync_status;
+                ctx.vote_status = new_sync_status;
             }
 
-            if (ctx.sync_status == -2) // Unreliable votes.
+            if (ctx.vote_status == VOTES_UNRELIABLE)
             {
                 ctx.unreliable_votes_attempts++;
 
@@ -195,7 +195,7 @@ namespace consensus
                 ctx.unreliable_votes_attempts = 0;
             }
 
-            if (ctx.sync_status == 0)
+            if (ctx.vote_status == VOTES_SYNCED)
             {
                 // If we are in sync, vote and broadcast the winning votes to next stage.
                 const p2p::proposal p = create_stage123_proposal(votes, unl_count, state_hash, patch_hash, last_primary_shard_id, last_raw_shard_id);
@@ -364,16 +364,14 @@ namespace consensus
 
             // Proceed further only if last primary shard, last raw shard, state and patch hashes are in sync with majority.
             if (!is_last_primary_shard_desync && !is_last_raw_shard_desync && !is_state_desync && !is_patch_desync)
-            {
-                return 0;
-            }
+                return VOTES_SYNCED;
 
             // Last primary shard hash, last raw shard hash, patch or state desync.
-            return -1;
+            return VOTES_DESYNC;
         }
 
         // Majority last primary shard hash couldn't be detected reliably.
-        return -2;
+        return VOTES_UNRELIABLE;
     }
 
     /**
