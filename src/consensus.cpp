@@ -163,8 +163,11 @@ namespace consensus
                     status::sync_status_changed(false);
 
                 // The moment we enter into a syncing cycle, we need to remember to recover local context after the sync is complete.
-                if (new_sync_status == -1)
+                if (new_sync_status == -1 && !ctx.sync_recovery_pending)
+                {
+                    cleanup_output_collections(); // Cleanup any outputs we may have had before the sync cycle began.
                     ctx.sync_recovery_pending = true;
+                }
 
                 // If we just bacame in-sync after being in desync, we need to restore consensus context information from the synced ledger.
                 if (ctx.sync_status != 0 && new_sync_status == 0 && ctx.sync_recovery_pending)
@@ -247,9 +250,6 @@ namespace consensus
                 responses[cand_inp.user_pubkey].push_back(usr::input_status_response{input_hash});
         }
         usr::send_input_status_responses(responses);
-
-        // Cleanup any outputs we may have had before the sync cycle began.
-        cleanup_output_collections();
 
         return 0;
     }

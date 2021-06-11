@@ -292,7 +292,8 @@ namespace ledger::query
             return -1;
 
         // Search all the shards starting with last shard for the input hash.
-        for (uint64_t shard_seq_no = last_primary_shard_seq_no; shard_seq_no >= 0 && !input; shard_seq_no--)
+        uint64_t shard_seq_no = last_primary_shard_seq_no;
+        while (shard_seq_no >= 0 && !input)
         {
             const std::string shard_path = ledger::ledger_fs.physical_path(session_name, std::string(ledger::RAW_DIR) + "/" + std::to_string(shard_seq_no) + "/");
             const std::string db_path = shard_path + RAW_DB;
@@ -317,6 +318,11 @@ namespace ledger::query
             }
 
             sqlite::close_db(&db);
+
+            if (shard_seq_no == 0)
+                break;
+
+            shard_seq_no--;
         }
 
         ledger_fs.stop_ro_session(session_name);
