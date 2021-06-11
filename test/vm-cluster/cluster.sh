@@ -38,7 +38,7 @@ if [ "$mode" = "info" ] || [ "$mode" = "select" ] ||
     echo "mode: $mode"
 else
     echo "Invalid command."
-    echo " Expected: info | select | new | updatebin <N> | updateconfig [N] | reconfig" \
+    echo " Expected: info | select | new | updatebin [N] | updateconfig [N] | reconfig" \
         " | start [N] | stop [N] | check [N] | log <N> | kill [N] | reboot <N> | ssh <N>or<command>" \
         " | ssl <email>or<N> <email> | lcl | pubkey [N]"
     echo " <N>: Required node no.   [N]: Optional node no."
