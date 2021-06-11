@@ -507,7 +507,7 @@ namespace consensus
             }
             else
             {
-                LOG_WARNING << "Consenses output hash didn't match our output hash.";
+                LOG_WARNING << "Consensus output hash didn't match our output hash.";
                 ret = -1;
             }
         }
