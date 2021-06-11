@@ -74,7 +74,9 @@ namespace usr
     struct input_status_response
     {
         const std::string input_hash;
-        const char *reject_reason;
+        const char *reject_reason = NULL;
+        const uint64_t ledger_seq_no = 0;
+        const util::h32 ledger_hash = util::h32_empty;
     };
 
     extern connected_context ctx;

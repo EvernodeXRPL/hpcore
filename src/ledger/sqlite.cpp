@@ -594,7 +594,7 @@ namespace ledger::sqlite
             return 0;
         }
 
-        LOG_ERROR << "Error when querying ledger inputs by seq no. from db. " << sqlite3_errmsg(db);
+        LOG_ERROR << "Error when querying ledger users by seq no. from db. " << sqlite3_errmsg(db);
         sqlite3_finalize(stmt);
         return -1;
     }
@@ -642,7 +642,7 @@ namespace ledger::sqlite
         sqlite3_stmt *stmt;
 
         if (sqlite3_prepare_v2(db, SELECT_INPUT_BY_HASH, -1, &stmt, 0) == SQLITE_OK && stmt != NULL &&
-            BIND_H32_BLOB(2, hash) == SQLITE_OK)
+            BIND_H32_BLOB(1, hash))
         {
             if (sqlite3_step(stmt) == SQLITE_ROW)
                 input = populate_user_input_from_sql_record(stmt);
@@ -651,7 +651,7 @@ namespace ledger::sqlite
             return 0;
         }
 
-        LOG_ERROR << "Error when querying ledger inputs by seq no. from db. " << sqlite3_errmsg(db);
+        LOG_ERROR << "Error when querying ledger inputs by hash. from db. " << sqlite3_errmsg(db);
         sqlite3_finalize(stmt);
         return -1;
     }

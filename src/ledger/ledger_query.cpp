@@ -285,7 +285,7 @@ namespace ledger::query
         return 0;
     }
 
-    int get_input_by_hash(const uint64_t last_primary_shard_seq_no, std::string_view hash, std::optional<ledger::ledger_user_input> &input)
+    int get_input_by_hash(const uint64_t last_primary_shard_seq_no, std::string_view hash, std::optional<ledger::ledger_user_input> &input, std::optional<ledger::ledger_record> &ledger)
     {
         const char *session_name = "input_by_hash";
         if (ledger_fs.start_ro_session(session_name, false) == -1)
@@ -304,7 +304,7 @@ namespace ledger::query
             sqlite3 *db = NULL;
             if (sqlite::open_db(db_path, &db) == -1)
             {
-                LOG_ERROR << errno << ": Error openning the shard database to find input hash, shard: " << shard_seq_no;
+                LOG_ERROR << errno << ": Error openning the raw shard database to find input hash, shard: " << shard_seq_no;
                 ledger_fs.stop_ro_session(session_name);
                 return -1;
             }
@@ -323,6 +323,35 @@ namespace ledger::query
                 break;
 
             shard_seq_no--;
+        }
+
+        if (input)
+        {
+            // Find the ledger containing the input.
+            const uint64_t primary_shard = SHARD_SEQ(input->ledger_seq_no, ledger::PRIMARY_SHARD_SIZE);
+            const std::string shard_path = ledger::ledger_fs.physical_path(session_name, std::string(ledger::PRIMARY_DIR) + "/" + std::to_string(primary_shard) + "/");
+            const std::string db_path = shard_path + PRIMARY_DB;
+
+            sqlite3 *db = NULL;
+            if (sqlite::open_db(db_path, &db) == -1)
+            {
+                LOG_ERROR << errno << ": Error openning the primary database to find ledger hash for input, shard: " << primary_shard;
+                ledger_fs.stop_ro_session(session_name);
+                return -1;
+            }
+
+            ledger::ledger_record rec;
+            if (sqlite::get_ledger_by_seq_no(db, input->ledger_seq_no, rec) != 1)
+            {
+                LOG_ERROR << errno << ": Error getting ledger for input in shard " << shard_seq_no;
+                sqlite::close_db(&db);
+                ledger_fs.stop_ro_session(session_name);
+                return -1;
+            }
+
+            ledger = std::move(rec);
+
+            sqlite::close_db(&db);
         }
 
         ledger_fs.stop_ro_session(session_name);

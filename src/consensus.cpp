@@ -238,16 +238,17 @@ namespace consensus
 
     int perform_sync_recovery(const util::sequence_hash &lcl_id)
     {
-        // Find out any inputs we are holding that may have made their way into the ledger and reply with input statuses
-        // if the user is conencted to us.
+        // Find out any inputs we were holding that may have made their way into the ledger while we were syncing,
+        // and reply with input statuses if the user is conencted to us.
         std::unordered_map<std::string, std::vector<usr::input_status_response>> responses;
         const uint64_t last_primary_shard_seq_no = SHARD_SEQ(lcl_id.seq_no, ledger::PRIMARY_SHARD_SIZE);
         for (const auto &[ordered_hash, cand_inp] : ctx.candidate_user_inputs)
         {
             const std::string input_hash = std::string(util::get_string_suffix(ordered_hash, BLAKE3_OUT_LEN));
             std::optional<ledger::ledger_user_input> input;
-            if (ledger::query::get_input_by_hash(last_primary_shard_seq_no, input_hash, input) != -1 && input)
-                responses[cand_inp.user_pubkey].push_back(usr::input_status_response{input_hash});
+            std::optional<ledger::ledger_record> ledger;
+            if (ledger::query::get_input_by_hash(last_primary_shard_seq_no, input_hash, input, ledger) != -1 && input)
+                responses[cand_inp.user_pubkey].push_back(usr::input_status_response{input_hash, NULL, input->ledger_seq_no, *(util::h32 *)ledger->ledger_hash.data()});
         }
         usr::send_input_status_responses(responses);
 

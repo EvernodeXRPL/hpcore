@@ -318,8 +318,8 @@ namespace usr
                                           resp.reject_reason == NULL ? msg::usrmsg::STATUS_ACCEPTED : msg::usrmsg::STATUS_REJECTED,
                                           resp.reject_reason == NULL ? "" : resp.reject_reason,
                                           resp.input_hash,
-                                          ledger_seq_no,
-                                          ledger_hash);
+                                          resp.ledger_seq_no == 0 ? ledger_seq_no : resp.ledger_seq_no,
+                                          resp.ledger_hash == util::h32_empty ? ledger_hash : resp.ledger_hash);
                     }
                 }
             }
