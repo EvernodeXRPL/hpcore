@@ -5,15 +5,15 @@ RUN apt-get install -y sqlite3
 
 # Install shared libraries.
 # Copy shared libraries and register it.
-COPY ./test/bin/libfuse3.so.3 /usr/local/lib/
-COPY ./test/bin/libblake3.so /usr/local/lib/
+COPY ./libfuse3.so.3 /usr/local/lib/
+COPY ./libblake3.so /usr/local/lib/
 RUN ldconfig
-COPY ./test/bin/fusermount3 /usr/local/bin/
+COPY ./fusermount3 /usr/local/bin/
 
 # hpcore binary is copied to /hp directory withtin the docker image.
 WORKDIR /hp
-COPY ./build/hpcore .
-COPY ./test/bin/hpfs .
-COPY ./test/bin/hpws .
+COPY ./hpcore .
+COPY ./hpfs .
+COPY ./hpws .
 
 ENTRYPOINT ["/hp/hpcore"]
