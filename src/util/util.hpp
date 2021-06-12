@@ -9,6 +9,7 @@
 
 #define MAX(a, b) ((a > b) ? a : b)
 #define MIN(a, b) ((a < b) ? a : b)
+#define SHARD_SEQ(seq_no, shard_size) (MAX(seq_no, 1) - 1) / shard_size
 
 namespace util
 {

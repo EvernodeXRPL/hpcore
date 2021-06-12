@@ -105,14 +105,14 @@ namespace ledger
      * @param consensed_users Users and their raw inputs/outputs received in this consensus round.
      * @return Returns 0 on success -1 on error.
      */
-    int update_ledger(const p2p::proposal &proposal, const consensus::consensed_user_map &consensed_users)
+    int update_ledger(const p2p::proposal &proposal, const consensus::consensed_user_map &consensed_users, const bool sync_recovery_pending)
     {
         // Acquire hpfs rw session before writing into shards.
         if (ledger_fs.acquire_rw_session() == -1)
             return -1;
 
         util::sequence_hash lcl_id;
-        if (update_primary_ledger(proposal, consensed_users, lcl_id) == -1 ||
+        if (update_primary_ledger(proposal, consensed_users, sync_recovery_pending, lcl_id) == -1 ||
             update_ledger_raw_data(proposal, consensed_users, lcl_id) == -1)
         {
             ledger_fs.release_rw_session();
@@ -129,7 +129,7 @@ namespace ledger
      * @param new_lcl_id The new ledger seq no. and hash.
      * @return 0 on success. -1 on failure.
      */
-    int update_primary_ledger(const p2p::proposal &proposal, const consensus::consensed_user_map &consensed_users, util::sequence_hash &new_lcl_id)
+    int update_primary_ledger(const p2p::proposal &proposal, const consensus::consensed_user_map &consensed_users, const bool sync_recovery_pending, util::sequence_hash &new_lcl_id)
     {
         const util::sequence_hash lcl_id = ctx.get_lcl_id();
         new_lcl_id.seq_no = lcl_id.seq_no + 1;
@@ -169,8 +169,9 @@ namespace ledger
             if (shard_res == 1)
                 remove_old_shards(new_lcl_id.seq_no, PRIMARY_SHARD_SIZE, conf::cfg.node.history_config.max_primary_shards, PRIMARY_DIR);
 
-            // Update the node's status.
-            status::ledger_created(new_lcl_id, ledger);
+            // Update the node's status if we are not inside a sync recovery cycle.
+            if (!sync_recovery_pending)
+                status::ledger_created(new_lcl_id, ledger);
 
             return 0;
         }

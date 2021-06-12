@@ -28,9 +28,10 @@ namespace ledger::sqlite
     constexpr const char *AND = " AND ";
     constexpr const char *SELECT_LAST_LEDGER = "SELECT * FROM ledger ORDER BY seq_no DESC LIMIT 1";
     constexpr const char *SELECT_LEDGER_BY_SEQ_NO = "SELECT * FROM ledger WHERE seq_no=? LIMIT 1";
-
+    constexpr const char *SELECT_USERS_BY_SEQ_NO = "SELECT * FROM users WHERE ledger_seq_no=?";
     constexpr const char *SELECT_INPUTS_BY_SEQ_NO = "SELECT * FROM inputs WHERE ledger_seq_no=?";
     constexpr const char *SELECT_OUTPUTS_BY_SEQ_NO = "SELECT * FROM outputs WHERE ledger_seq_no=?";
+    constexpr const char *SELECT_INPUT_BY_HASH = "SELECT * FROM inputs WHERE hash=?";
 
     constexpr const char *INSERT_INTO_LEDGER = "INSERT INTO ledger("
                                                "seq_no, time, ledger_hash, prev_ledger_hash, data_hash,"
@@ -579,6 +580,25 @@ namespace ledger::sqlite
         return -1;
     }
 
+    int get_users_by_seq_no(sqlite3 *db, const uint64_t seq_no, std::vector<std::string> &users)
+    {
+        sqlite3_stmt *stmt;
+
+        if (sqlite3_prepare_v2(db, SELECT_USERS_BY_SEQ_NO, -1, &stmt, 0) == SQLITE_OK && stmt != NULL &&
+            sqlite3_bind_int64(stmt, 1, seq_no) == SQLITE_OK)
+        {
+            while (sqlite3_step(stmt) == SQLITE_ROW)
+                users.push_back(GET_PUBKEY_BLOB(1));
+
+            sqlite3_finalize(stmt);
+            return 0;
+        }
+
+        LOG_ERROR << "Error when querying ledger users by seq no. from db. " << sqlite3_errmsg(db);
+        sqlite3_finalize(stmt);
+        return -1;
+    }
+
     int get_user_inputs_by_seq_no(sqlite3 *db, const uint64_t seq_no, std::vector<ledger::ledger_user_input> &inputs)
     {
         sqlite3_stmt *stmt;
@@ -613,6 +633,25 @@ namespace ledger::sqlite
         }
 
         LOG_ERROR << "Error when querying ledger outputs by seq no. from db. " << sqlite3_errmsg(db);
+        sqlite3_finalize(stmt);
+        return -1;
+    }
+
+    int get_user_input_by_hash(sqlite3 *db, std::string_view hash, std::optional<ledger::ledger_user_input> &input)
+    {
+        sqlite3_stmt *stmt;
+
+        if (sqlite3_prepare_v2(db, SELECT_INPUT_BY_HASH, -1, &stmt, 0) == SQLITE_OK && stmt != NULL &&
+            BIND_H32_BLOB(1, hash))
+        {
+            if (sqlite3_step(stmt) == SQLITE_ROW)
+                input = populate_user_input_from_sql_record(stmt);
+
+            sqlite3_finalize(stmt);
+            return 0;
+        }
+
+        LOG_ERROR << "Error when querying ledger inputs by hash. from db. " << sqlite3_errmsg(db);
         sqlite3_finalize(stmt);
         return -1;
     }

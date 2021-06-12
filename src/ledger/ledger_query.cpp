@@ -44,6 +44,9 @@ namespace ledger::query
                 // Fill raw data if required.
                 if (seq_q.inputs || seq_q.outputs)
                 {
+                    // Do not return other users' blobs if consensus is private.
+                    const std::string filter_user = conf::cfg.contract.is_consensus_public ? "" : std::string(user_pubkey);
+
                     for (ledger_record &ledger : ledgers)
                     {
                         if (seq_q.inputs)
@@ -52,7 +55,7 @@ namespace ledger::query
                             ledger.outputs = std::vector<ledger::ledger_user_output>();
 
                         // No need to actually query raw data for genesis ledger.
-                        if (seq_q.seq_no == 0 || get_ledger_raw_data(ledger, user_pubkey, fs_sess_name) != -1)
+                        if (seq_q.seq_no == 0 || get_ledger_raw_data(ledger, filter_user, fs_sess_name) != -1)
                             res = ledgers;
                     }
                 }
@@ -84,7 +87,7 @@ namespace ledger::query
         }
 
         // Construct shard path based on provided ledger seq no.
-        const uint64_t shard_seq_no = (q.seq_no - 1) / ledger::PRIMARY_SHARD_SIZE;
+        const uint64_t shard_seq_no = SHARD_SEQ(q.seq_no, ledger::PRIMARY_SHARD_SIZE);
         const std::string db_vpath = std::string(ledger::PRIMARY_DIR) + "/" + std::to_string(shard_seq_no) + "/" + ledger::PRIMARY_DB;
         const std::string db_path = ledger::ledger_fs.physical_path(fs_sess_name, db_vpath);
 
@@ -103,7 +106,7 @@ namespace ledger::query
     /**
      * Retrieve user inputs and outputs by ledger seq no. If consensus is private, this only fills blobs of the requesting user.
      * @param ledger Ledger record to populate with inputs and outputs.
-     * @param user_pubkey Binary pubkey of the user executing the query.
+     * @param user_pubkey Binary user pubkey. If not empty, include raw data only for this user.
      * @param fs_sess_name The ledger hosting fs session name.
      * @returns 0 on success. -1 on failure.
      */
@@ -113,7 +116,7 @@ namespace ledger::query
         if (!ledger.inputs && !ledger.outputs)
             return 0;
 
-        const uint64_t shard_seq_no = (ledger.seq_no - 1) / ledger::RAW_SHARD_SIZE;
+        const uint64_t shard_seq_no = SHARD_SEQ(ledger.seq_no, ledger::RAW_SHARD_SIZE);
         const std::string shard_path = ledger::ledger_fs.physical_path(fs_sess_name, std::string(ledger::RAW_DIR) + "/" + std::to_string(shard_seq_no) + "/");
         const std::string db_path = shard_path + RAW_DB;
 
@@ -141,7 +144,7 @@ namespace ledger::query
      * @param inputs User input collection to populate.
      * @param seq_no Ledger seq no. to query.
      * @param shard_path The shard physical path.
-     * @param user_pubkey Binary pubkey of the user executing the query.
+     * @param user_pubkey Binary user pubkey. If not empty, include raw data only for this user.
      * @param fs_sess_name The ledger hosting fs session name.
      * @returns 0 on success. -1 on failure.
      */
@@ -163,8 +166,8 @@ namespace ledger::query
 
         for (ledger_user_input &inp : inputs)
         {
-            // Do not return other users' blobs if consensus is private.
-            if (!conf::cfg.contract.is_consensus_public && inp.pubkey != user_pubkey)
+            // Apply user filter.
+            if (!user_pubkey.empty() && inp.pubkey != user_pubkey)
                 continue;
 
             inp.blob.resize(inp.blob_size);
@@ -185,7 +188,7 @@ namespace ledger::query
      * @param outputs User output collection to populate.
      * @param seq_no Ledger seq no. to query.
      * @param shard_path The shard physical path.
-     * @param user_pubkey Binary pubkey of the user executing the query.
+     * @param user_pubkey Binary user pubkey. If not empty, include raw data only for this user.
      * @param fs_sess_name The ledger hosting fs session name.
      * @returns 0 on success. -1 on failure.
      */
@@ -208,8 +211,8 @@ namespace ledger::query
         // Loop through each user's blob groups.
         for (ledger_user_output &user : outputs)
         {
-            // Do not return other users' blobs if consensus is private.
-            if (!conf::cfg.contract.is_consensus_public && user.pubkey != user_pubkey)
+            // Apply user filter.
+            if (!user_pubkey.empty() && user.pubkey != user_pubkey)
                 continue;
 
             // Output blobs for each user are grouped. Group header contains all individual blob offsets and sizes
@@ -244,6 +247,126 @@ namespace ledger::query
         }
 
         close(fd);
+        return 0;
+    }
+
+    /**
+     * Loads inputs and connected users from the specified ledger.
+     */
+    int get_input_users_from_ledger(const uint64_t seq_no, std::vector<std::string> &users, std::vector<ledger_user_input> &inputs)
+    {
+        const char *session_name = "input_users";
+        if (ledger_fs.start_ro_session(session_name, false) == -1)
+            return -1;
+
+        const uint64_t shard_seq_no = SHARD_SEQ(seq_no, ledger::RAW_SHARD_SIZE);
+        const std::string shard_path = ledger::ledger_fs.physical_path(session_name, std::string(ledger::RAW_DIR) + "/" + std::to_string(shard_seq_no) + "/");
+        const std::string db_path = shard_path + RAW_DB;
+
+        sqlite3 *db = NULL;
+        if (sqlite::open_db(db_path, &db) == -1)
+        {
+            LOG_ERROR << errno << ": Error openning the shard database for input_users, shard: " << shard_seq_no;
+            ledger_fs.stop_ro_session(session_name);
+            return -1;
+        }
+
+        if (sqlite::get_users_by_seq_no(db, seq_no, users) == -1 ||
+            sqlite::get_user_inputs_by_seq_no(db, seq_no, inputs) == -1)
+        {
+            LOG_ERROR << errno << ": Error querying ledger input_users, seq_no: " << seq_no;
+            sqlite::close_db(&db);
+            ledger_fs.stop_ro_session(session_name);
+            return -1;
+        }
+
+        sqlite::close_db(&db);
+        ledger_fs.stop_ro_session(session_name);
+        return 0;
+    }
+
+    /**
+     * Attempts to find the provided input hash by scanning all the shards starting with the latest shard.
+     * @param lcl_seq_no Latest ledger seq no. used to determine latest shard.
+     * @param hash Input hash to find.
+     * @param input Popualted input data, if found.
+     * @param ledger Popualted ledger data which contains the input, if input found.
+     * @return 0 on successful attempt. -1 on error.
+     */
+    int get_input_by_hash(const uint64_t lcl_seq_no, std::string_view hash, std::optional<ledger::ledger_user_input> &input, std::optional<ledger::ledger_record> &ledger)
+    {
+        const char *session_name = "input_by_hash";
+        if (ledger_fs.start_ro_session(session_name, false) == -1)
+            return -1;
+
+        // Search all the shards starting with last shard for the input hash.
+        uint64_t raw_shard = SHARD_SEQ(lcl_seq_no, ledger::RAW_SHARD_SIZE);
+        while (raw_shard >= 0 && !input)
+        {
+            const std::string shard_path = ledger::ledger_fs.physical_path(session_name, std::string(ledger::RAW_DIR) + "/" + std::to_string(raw_shard) + "/");
+            const std::string db_path = shard_path + RAW_DB;
+
+            if (!util::is_file_exists(db_path))
+            {
+                ledger_fs.stop_ro_session(session_name);
+                return 0; // Shard not found. So we abandon the search.
+            }
+
+            sqlite3 *db = NULL;
+            if (sqlite::open_db(db_path, &db) == -1)
+            {
+                LOG_ERROR << errno << ": Error openning the raw shard database to find input hash, shard: " << raw_shard;
+                ledger_fs.stop_ro_session(session_name);
+                return -1;
+            }
+
+            if (sqlite::get_user_input_by_hash(db, hash, input) == -1)
+            {
+                LOG_ERROR << errno << ": Error finding input hash in shard " << raw_shard;
+                sqlite::close_db(&db);
+                ledger_fs.stop_ro_session(session_name);
+                return -1;
+            }
+
+            sqlite::close_db(&db);
+
+            if (raw_shard == 0)
+                break;
+
+            // Keep scanning shards backwards.
+            raw_shard--;
+        }
+
+        if (input)
+        {
+            // Find the ledger containing the input.
+            const uint64_t primary_shard = SHARD_SEQ(input->ledger_seq_no, ledger::PRIMARY_SHARD_SIZE);
+            const std::string shard_path = ledger::ledger_fs.physical_path(session_name, std::string(ledger::PRIMARY_DIR) + "/" + std::to_string(primary_shard) + "/");
+            const std::string db_path = shard_path + PRIMARY_DB;
+
+            sqlite3 *db = NULL;
+            if (sqlite::open_db(db_path, &db) == -1)
+            {
+                LOG_ERROR << errno << ": Error openning the primary database to find ledger hash for input, shard: " << primary_shard;
+                ledger_fs.stop_ro_session(session_name);
+                return -1;
+            }
+
+            ledger::ledger_record rec;
+            if (sqlite::get_ledger_by_seq_no(db, input->ledger_seq_no, rec) != 1)
+            {
+                LOG_ERROR << errno << ": Error getting ledger for input in shard " << raw_shard;
+                sqlite::close_db(&db);
+                ledger_fs.stop_ro_session(session_name);
+                return -1;
+            }
+
+            ledger = std::move(rec);
+
+            sqlite::close_db(&db);
+        }
+
+        ledger_fs.stop_ro_session(session_name);
         return 0;
     }
 }

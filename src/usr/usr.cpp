@@ -288,6 +288,11 @@ namespace usr
 
     /**
      * Sends multiple user input responses grouped by user.
+     * @param responses The collection of status responses to be sent out.
+     * @param ledger_seq_no The ledger seq no to indicate in accepted responses. Ignored for 'rejected' responses or for
+     *                      individual responses having their own ledger information.
+     * @param ledger_hash The ledger hash to indicate in accepted responses. Ignored for 'rejected' responses or for
+     *                      individual responses having their own ledger information.
      */
     void send_input_status_responses(const std::unordered_map<std::string, std::vector<input_status_response>> &responses,
                                      const uint64_t ledger_seq_no, const util::h32 &ledger_hash)
@@ -318,8 +323,9 @@ namespace usr
                                           resp.reject_reason == NULL ? msg::usrmsg::STATUS_ACCEPTED : msg::usrmsg::STATUS_REJECTED,
                                           resp.reject_reason == NULL ? "" : resp.reject_reason,
                                           resp.input_hash,
-                                          ledger_seq_no,
-                                          ledger_hash);
+                                          // Give priority ledger seq no/hash contained in individual responses.
+                                          resp.ledger_seq_no == 0 ? ledger_seq_no : resp.ledger_seq_no,
+                                          resp.ledger_hash == util::h32_empty ? ledger_hash : resp.ledger_hash);
                     }
                 }
             }
