@@ -1,3 +1,5 @@
+# Ubuntu 20.04 + HotPocket
+
 FROM ubuntu:focal
 
 RUN apt-get update
