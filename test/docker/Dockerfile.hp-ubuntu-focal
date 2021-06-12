@@ -1,0 +1,18 @@
+FROM ubuntu:focal
+
+RUN apt-get install -y sqlite3
+
+# Install shared libraries.
+# Copy shared libraries and register it.
+COPY ./bin/libfuse3.so.3 /usr/local/lib/
+COPY ./bin/libblake3.so /usr/local/lib/
+RUN ldconfig
+COPY ./bin/fusermount3 /usr/local/bin/
+
+# hpcore binary is copied to /hp directory withtin the docker image.
+WORKDIR /hp
+COPY ./bin/hpcore .
+COPY ./bin/hpfs .
+COPY ./bin/hpws .
+
+ENTRYPOINT ["/hp/hpcore"]
