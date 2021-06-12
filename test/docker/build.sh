@@ -1,3 +1,4 @@
 #!/bin/bash
 
-docker build -t my-web-app -f ./Dockerfile.hp-ubuntu-focal
+hpcoredir=$(realpath ../..)
+docker build -t hpcore:focal -f ./Dockerfile.hp-ubuntu-focal $hpcoredir
