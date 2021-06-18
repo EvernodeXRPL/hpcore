@@ -94,11 +94,18 @@ namespace conf
         size_t proc_ofd_count = 0;    // Max no. of open file descriptors the contract process can allocate.
     };
 
+    struct contract_log_config
+    {
+        bool enable = false;            // Whether to log stdout/err of the contract process.
+        size_t max_mbytes_per_file = 0; // Max MB size of a single log file.
+        size_t max_file_count = 0;      // Max no. of log files to keep.
+    };
+
     struct contract_config
     {
         std::string id;                        // Contract guid.
         bool execute = false;                  // Whether or not to execute the contract on the node.
-        bool log_output = false;               // Whether to log stdout/err of the contract process.
+        contract_log_config log;               // Contract log related settings.
         std::string version;                   // Contract version string.
         std::set<std::string> unl;             // Unique node list (list of binary public keys).
         std::string bin_path;                  // Full path to the contract binary.
