@@ -114,7 +114,7 @@ namespace sc
                     st_stdout.st_size >= max_sc_log_size_bytes &&
                     rename_and_cleanup_contract_log_files(prefix, STDOUT_LOG) == -1)
                 {
-                    LOG_ERROR << "Cleanup and renaming contract log files for stdout failed";
+                    LOG_ERROR << "Failed cleaning up and renaming contract stdout log files.";
                     return -1;
                 }
 
@@ -125,7 +125,7 @@ namespace sc
                     st_stderr.st_size >= max_sc_log_size_bytes &&
                     rename_and_cleanup_contract_log_files(prefix, STDERR_LOG) == -1)
                 {
-                    LOG_ERROR << "Cleanup and renaming contract log files for stderr failed";
+                    LOG_ERROR << "Failed cleaning up and renaming contract stderr log files.";
                     return -1;
                 }
             }
