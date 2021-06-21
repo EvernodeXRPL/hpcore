@@ -91,6 +91,8 @@ namespace sc
         // Setup contract output log file paths.
         if (conf::cfg.contract.log.enable)
         {
+            // For consensus execution, we keep appending logs to the same out/err files (Rollout log files are maintained according to the hp config settings).
+            // For read request executions, independent log files are created based on read request session names.
             if (ctx.args.readonly)
             {
                 const time_t epoch = util::get_epoch_milliseconds() / 1000;
@@ -98,8 +100,6 @@ namespace sc
                 now_ss << std::put_time(std::localtime(&epoch), "%Y%m%dT%H%M%S");
                 const std::string now = now_ss.str();
 
-                // For consensus execution, we keep appending logs to the same out/err files.
-                // For read request executions, independent log files are created based on read request session names.
                 const std::string prefix = ctx.args.hpfs_session_name + "_" + now;
                 ctx.stdout_file = conf::ctx.contract_log_dir + "/" + prefix + STDOUT_LOG;
                 ctx.stderr_file = conf::ctx.contract_log_dir + "/" + prefix + STDERR_LOG;
@@ -110,31 +110,23 @@ namespace sc
                 ctx.stdout_file = conf::ctx.contract_log_dir + "/" + prefix + STDOUT_LOG;
 
                 struct stat st_stdout;
-                if (stat(ctx.stdout_file.data(), &st_stdout) != -1)
+                if (stat(ctx.stdout_file.data(), &st_stdout) != -1 &&
+                    st_stdout.st_size >= max_sc_log_size_bytes &&
+                    rename_and_cleanup_contract_log_files(prefix, STDOUT_LOG) == -1)
                 {
-                    if (st_stdout.st_size >= max_sc_log_size_bytes)
-                    {
-                        if (rename_and_cleanup_contract_log_files(prefix, STDOUT_LOG) == -1)
-                        {
-                            LOG_ERROR << "Cleanup and renaming contract log files for stdout failed";
-                            return -1;
-                        }
-                    }
+                    LOG_ERROR << "Cleanup and renaming contract log files for stdout failed";
+                    return -1;
                 }
 
                 ctx.stderr_file = conf::ctx.contract_log_dir + "/" + prefix + STDERR_LOG;
 
                 struct stat st_stderr;
-                if (stat(ctx.stderr_file.data(), &st_stderr) != -1)
+                if (stat(ctx.stderr_file.data(), &st_stderr) != -1 &&
+                    st_stderr.st_size >= max_sc_log_size_bytes &&
+                    rename_and_cleanup_contract_log_files(prefix, STDERR_LOG) == -1)
                 {
-                    if (st_stderr.st_size >= max_sc_log_size_bytes)
-                    {
-                        if (rename_and_cleanup_contract_log_files(prefix, STDERR_LOG) == -1)
-                        {
-                            LOG_ERROR << "Cleanup and renaming contract log files for stderr failed";
-                            return -1;
-                        }
-                    }
+                    LOG_ERROR << "Cleanup and renaming contract log files for stderr failed";
+                    return -1;
                 }
             }
         }
