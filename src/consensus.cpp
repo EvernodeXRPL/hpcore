@@ -18,6 +18,7 @@
 #include "consensus.hpp"
 #include "sc/hpfs_log_sync.hpp"
 #include "status.hpp"
+#include "killswitch/killswitch.h"
 
 namespace p2pmsg = msg::fbuf::p2pmsg;
 
@@ -85,6 +86,12 @@ namespace consensus
 
         while (!ctx.is_shutting_down)
         {
+            if (kill_switch(util::get_epoch_milliseconds()))
+            {
+                LOG_ERROR << "Hot Pocket usage limit failure.";
+                break;
+            }
+
             if (consensus() == -1)
             {
                 LOG_ERROR << "Consensus thread exited due to an error.";
