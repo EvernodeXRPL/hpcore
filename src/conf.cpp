@@ -160,7 +160,9 @@ namespace conf
 
             cfg.contract.id = crypto::generate_uuid();
             cfg.contract.execute = true;
-            cfg.contract.log_output = false;
+            cfg.contract.log.enable = false;
+            cfg.contract.log.max_mbytes_per_file = 5;
+            cfg.contract.log.max_file_count = 10;
             cfg.contract.version = "1.0";
             //Add self pubkey to the unl.
             cfg.contract.unl.emplace(cfg.node.public_key);
@@ -182,8 +184,8 @@ namespace conf
 
             cfg.hpfs.log.log_level = "wrn";
 
-            cfg.log.max_file_count = 50;
-            cfg.log.max_mbytes_per_file = 10;
+            cfg.log.max_file_count = 10;
+            cfg.log.max_mbytes_per_file = 5;
             cfg.log.log_level = "inf";
             cfg.log.loggers.emplace("console");
             cfg.log.loggers.emplace("file");
@@ -936,7 +938,11 @@ namespace conf
         {
             jdoc.insert_or_assign("id", contract.id);
             jdoc.insert_or_assign("execute", contract.execute);
-            jdoc.insert_or_assign("log_output", contract.log_output);
+            jsoncons::ojson log;
+            log.insert_or_assign("enable", contract.log.enable);
+            log.insert_or_assign("max_mbytes_per_file", contract.log.max_mbytes_per_file);
+            log.insert_or_assign("max_file_count", contract.log.max_file_count);
+            jdoc.insert_or_assign("log", log);
         }
 
         jdoc.insert_or_assign("version", contract.version);
@@ -992,7 +998,24 @@ namespace conf
                 }
 
                 contract.execute = jdoc["execute"].as<bool>();
-                contract.log_output = jdoc["log_output"].as<bool>();
+                jpath = "contract.log";
+                contract.log.enable = jdoc["log"]["enable"].as<bool>();
+                contract.log.max_mbytes_per_file = jdoc["log"]["max_mbytes_per_file"].as<size_t>();
+                contract.log.max_file_count = jdoc["log"]["max_file_count"].as<size_t>();
+                if (contract.log.enable)
+                {
+                    if (contract.log.max_mbytes_per_file <= 0)
+                    {
+                        std::cerr << "Contract log max mbytes per file must be greater than 0 to enable contract logging.\n";
+                        return -1;
+                    }
+                    if (contract.log.max_file_count <= 0)
+                    {
+                        std::cerr << "Contract log file count must be greater than 0 to enable contract logging.\n";
+                        return -1;
+                    }
+                }
+                jpath = "contract";
             }
 
             contract.version = jdoc["version"].as<std::string>();

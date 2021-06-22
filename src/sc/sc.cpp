@@ -26,6 +26,8 @@ namespace sc
     sc::contract_sync contract_sync_worker; // Global contract file system sync instance.
     sc::contract_serve contract_server;     // Contract file server instance.
 
+    int max_sc_log_size_bytes; // Store the max contract log file limit in bytes.
+
     int init()
     {
         if (contract_fs.init(CONTRACT_FS_ID, conf::ctx.contract_hpfs_dir, conf::ctx.contract_hpfs_mount_dir, conf::ctx.contract_hpfs_rw_dir,
@@ -52,6 +54,12 @@ namespace sc
                 LOG_ERROR << "Contract file system sync worker initialization failed.";
                 return -1;
             }
+        }
+        if (conf::cfg.contract.log.enable)
+        {
+            max_sc_log_size_bytes = conf::cfg.contract.log.max_mbytes_per_file * 1024 * 1024;
+            clean_extra_contract_log_files(hpfs::RW_SESSION_NAME, STDOUT_LOG, conf::cfg.contract.log.max_file_count);
+            clean_extra_contract_log_files(hpfs::RW_SESSION_NAME, STDERR_LOG, conf::cfg.contract.log.max_file_count);
         }
         return 0;
     }
@@ -81,18 +89,46 @@ namespace sc
         ctx.working_dir = contract_fs.physical_path(ctx.args.hpfs_session_name, STATE_DIR_PATH);
 
         // Setup contract output log file paths.
-        if (conf::cfg.contract.log_output)
+        if (conf::cfg.contract.log.enable)
         {
-            const time_t epoch = util::get_epoch_milliseconds() / 1000;
-            std::stringstream now_ss;
-            now_ss << std::put_time(std::localtime(&epoch), "%Y%m%dT%H%M%S");
-            const std::string now = now_ss.str();
-
-            // For consensus execution, we keep appending logs to the same out/err files.
+            // For consensus execution, we keep appending logs to the same out/err files (Rollout log files are maintained according to the hp config settings).
             // For read request executions, independent log files are created based on read request session names.
-            const std::string prefix = ctx.args.readonly ? (ctx.args.hpfs_session_name + "_" + now) : ctx.args.hpfs_session_name;
-            ctx.stdout_file = conf::ctx.contract_log_dir + "/" + prefix + STDOUT_LOG;
-            ctx.stderr_file = conf::ctx.contract_log_dir + "/" + prefix + STDERR_LOG;
+            if (ctx.args.readonly)
+            {
+                const time_t epoch = util::get_epoch_milliseconds() / 1000;
+                std::stringstream now_ss;
+                now_ss << std::put_time(std::localtime(&epoch), "%Y%m%dT%H%M%S");
+                const std::string now = now_ss.str();
+
+                const std::string prefix = ctx.args.hpfs_session_name + "_" + now;
+                ctx.stdout_file = conf::ctx.contract_log_dir + "/" + prefix + STDOUT_LOG;
+                ctx.stderr_file = conf::ctx.contract_log_dir + "/" + prefix + STDERR_LOG;
+            }
+            else
+            {
+                const std::string prefix = ctx.args.hpfs_session_name;
+                ctx.stdout_file = conf::ctx.contract_log_dir + "/" + prefix + STDOUT_LOG;
+
+                struct stat st_stdout;
+                if (stat(ctx.stdout_file.data(), &st_stdout) != -1 &&
+                    st_stdout.st_size >= max_sc_log_size_bytes &&
+                    rename_and_cleanup_contract_log_files(prefix, STDOUT_LOG) == -1)
+                {
+                    LOG_ERROR << "Failed cleaning up and renaming contract stdout log files.";
+                    return -1;
+                }
+
+                ctx.stderr_file = conf::ctx.contract_log_dir + "/" + prefix + STDERR_LOG;
+
+                struct stat st_stderr;
+                if (stat(ctx.stderr_file.data(), &st_stderr) != -1 &&
+                    st_stderr.st_size >= max_sc_log_size_bytes &&
+                    rename_and_cleanup_contract_log_files(prefix, STDERR_LOG) == -1)
+                {
+                    LOG_ERROR << "Failed cleaning up and renaming contract stderr log files.";
+                    return -1;
+                }
+            }
         }
 
         // Create the IO sockets for users, control channel and npl.
@@ -485,7 +521,7 @@ namespace sc
 
         LOG_INFO << "Running post-exec script...";
 
-        const std::string log_redirect = conf::cfg.contract.log_output ? (" >>" + ctx.stdout_file + " 2>>" + ctx.stderr_file + " ") : "";
+        const std::string log_redirect = conf::cfg.contract.log.enable ? (" >>" + ctx.stdout_file + " 2>>" + ctx.stderr_file + " ") : "";
         const std::string script_args = " " + std::to_string(ctx.args.lcl_id.seq_no) + " " + util::to_hex(ctx.args.lcl_id.hash.to_string_view());
 
         // We set current working dir and pass command line arg to the script.
@@ -809,7 +845,7 @@ namespace sc
      */
     int create_contract_log_files(execution_context &ctx)
     {
-        if (!conf::cfg.contract.log_output)
+        if (!conf::cfg.contract.log.enable)
             return 0;
 
         const int outfd = open(ctx.stdout_file.data(), O_CREAT | O_WRONLY | O_APPEND, FILE_PERMS);
@@ -1013,6 +1049,69 @@ namespace sc
         {
             ctx.termination_signaled = true;
         }
+    }
+
+    /**
+     * Rename the files to make the new file the root log file. (eg: rw.stdout.log). The oldest file is deleted to make the room for the new file.
+     * Other files are renamed to the next level (eg: rw_1.stdout.log to rw_2.stdout.log).
+     * @param session_name hpfs session name for filename.
+     * @param postfix Postfix for the file name (Either stdout.log or stderr.log).
+     * @param depth Depth of the recursion. Starts with zero and traverse down.
+     * @return 0 on success and -1 on error.
+    */
+    int rename_and_cleanup_contract_log_files(const std::string &session_name, std::string_view postfix, const int depth)
+    {
+        const std::string prefix = (depth == 0) ? session_name : (session_name + "_" + std::to_string(depth));
+        const std::string fliename = conf::ctx.contract_log_dir + "/" + prefix + postfix.data();
+
+        if (!util::is_file_exists(fliename) || depth > conf::cfg.contract.log.max_file_count - 1)
+            return 0;
+
+        // Abort if an error occured in previous round.
+        if (rename_and_cleanup_contract_log_files(session_name, postfix, depth + 1) == -1)
+            return -1;
+
+        if (depth == (conf::cfg.contract.log.max_file_count - 1))
+        {
+            // Last allowed file. remove this to make room for the new one.
+            const int res = util::remove_file(fliename);
+            if (res == -1)
+                LOG_ERROR << errno << ": Error removing " << fliename << " to make room for new log file.";
+
+            return res;
+        }
+
+        // Rename file one step up. Eg: rw_1.stdout.log to rw_2.stdout.log.
+        const std::string new_filename = conf::ctx.contract_log_dir + "/" + session_name + "_" + std::to_string(depth + 1) + postfix.data();
+        const int res = rename(fliename.data(), new_filename.data());
+        if (res == -1)
+            LOG_ERROR << errno << ": Error occured while renaming " << fliename << " to " << new_filename;
+
+        return res;
+    }
+
+    /**
+     * Cleanup extra contract log files when max file limit changes on startup.
+     * @param session_name hpfs session name.
+     * @param postfix Postfix for the file name (Either stdout.log or stderr.log).
+     * @param start_point Start point to start removing files.
+    */
+    void clean_extra_contract_log_files(const std::string &session_name, std::string_view postfix, const int start_point)
+    {
+        int current = start_point;
+        const std::string fliename_common_part = conf::ctx.contract_log_dir + "/" + session_name + "_";
+        std::string filename = fliename_common_part + std::to_string(current) + postfix.data();
+        while (util::is_file_exists(filename))
+        {
+            if (util::remove_file(filename) == -1)
+                LOG_ERROR << "Error removing " << filename << " during contract log file cleanup.";
+
+            filename = fliename_common_part + std::to_string(++current) + postfix.data();
+        }
+
+        const int removed_count = current - start_point;
+        if (removed_count > 0)
+            LOG_DEBUG << (current - start_point) << " " << postfix << " contract log files cleaned up with log file count change.";
     }
 
 } // namespace sc
