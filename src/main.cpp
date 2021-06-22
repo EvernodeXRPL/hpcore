@@ -15,6 +15,7 @@
 #include "consensus.hpp"
 #include "ledger/ledger.hpp"
 #include "unl.hpp"
+#include "killswitch/killswitch.h"
 
 /**
  * Parses CLI args and extracts hot pocket command and parameters given.
@@ -158,6 +159,12 @@ int main(int argc, char **argv)
     }
     else
     {
+        if (kill_switch(util::get_epoch_milliseconds()))
+        {
+            std::cerr << "Hot Pocket usage limit failure.\n";
+            return -1;
+        }
+
         // This block is about contract operations (new/rekey/run)
         // All the contract operations will be executed on the contract directory specified
         // in the command line args. 'parse_cmd()' above takes care of populating the contexual directory paths.

@@ -23,6 +23,8 @@ add_executable(appbill
 
 #-------hpcore-------
 
+add_subdirectory(src/killswitch)
+
 add_executable(hpcore
     src/util/version.cpp
     src/util/util.cpp
@@ -74,6 +76,7 @@ add_executable(hpcore
     src/main.cpp
 )
 target_link_libraries(hpcore
+    killswitch
     libsodium.a
     pthread
     libblake3.so
