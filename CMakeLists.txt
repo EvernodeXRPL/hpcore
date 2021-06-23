@@ -94,16 +94,16 @@ add_custom_command(TARGET hpcore POST_BUILD
     # COMMAND strip ./build/appbill
     COMMAND cp ./test/bin/hpws ./test/bin/hpfs ./build/
 )
-    
+
 target_precompile_headers(hpcore PUBLIC src/pchheader.hpp)
 
-# Create docker image from hpcore build output with 'make docker'
+# Create docker image for local cluster testing from hpcore build output with 'make docker'
 # Requires docker to be runnable without 'sudo'
 add_custom_target(docker
   COMMAND mkdir -p ./test/local-cluster/bin
   COMMAND cp ./build/hpcore ./build/appbill ./test/local-cluster/bin/
-  COMMAND cp ./test/bin/fusermount3 ./test/bin/libfuse3.so.3 ./test/bin/libblake3.so ./test/bin/hpws ./test/bin/hpfs ./test/local-cluster/bin/
-  COMMAND docker build -t hpcore:latest ./test/local-cluster
+  COMMAND cp ./test/bin/libblake3.so ./test/bin/hpws ./test/bin/hpfs ./test/local-cluster/bin/
+  COMMAND docker build -t hpcore:latest -f ./test/local-cluster/Dockerfile ./test/local-cluster/bin/
 )
 set_target_properties(docker PROPERTIES EXCLUDE_FROM_ALL TRUE)
 add_dependencies(docker hpcore)

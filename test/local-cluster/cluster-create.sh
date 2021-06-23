@@ -33,13 +33,13 @@ elif [ "$CONTRACT" = "nodefile" ]; then # nodejs file contract (uses BSON protoc
     npm install
     popd > /dev/null 2>&1
     copyfiles="$hpcore/examples/nodejs_contract/{node_modules,package.json,hp-contract-lib.js,file_contract.js}"
-    binary="/usr/local/bin/node"
+    binary="/usr/bin/node"
     binargs="file_contract.js"
 
 else # nodejs echo contract (default)
     echo "Using nodejs echo contract."
     copyfiles="$hpcore/examples/nodejs_contract/{package.json,hp-contract-lib.js,echo_contract.js}"
-    binary="/usr/local/bin/node"
+    binary="/usr/bin/node"
     binargs="echo_contract.js"
 fi
 
