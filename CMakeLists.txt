@@ -101,9 +101,9 @@ target_precompile_headers(hpcore PUBLIC src/pchheader.hpp)
 # Requires docker to be runnable without 'sudo'
 add_custom_target(docker
   COMMAND mkdir -p ./test/local-cluster/bin
-  COMMAND cp ./build{hpcore,appbill} ./test/local-cluster/bin/
-  COMMAND cp ./test/bin/{libblake3.so,hpws,hpfs} ./test/local-cluster/bin/
-  COMMAND docker build -t hpcore:latest ./test/local-cluster/Dockerfile ./test/local-cluster/bin/
+  COMMAND cp ./build/hpcore ./build/appbill ./test/local-cluster/bin/
+  COMMAND cp ./test/bin/libblake3.so ./test/bin/hpws ./test/bin/hpfs ./test/local-cluster/bin/
+  COMMAND docker build -t hpcore:latest -f ./test/local-cluster/Dockerfile ./test/local-cluster/bin/
 )
 set_target_properties(docker PROPERTIES EXCLUDE_FROM_ALL TRUE)
 add_dependencies(docker hpcore)
