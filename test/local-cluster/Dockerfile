@@ -6,4 +6,6 @@ COPY hpcore hpfs hpws appbill /usr/local/bin/hotpocket/
 ENTRYPOINT ["/usr/local/bin/hotpocket/hpcore"]
 
 # Run with valgrind
-# ENTRYPOINT ["valgrind", "/hp/hpcore"]
+
+# RUN apt-get install -y gdb valgrind
+# ENTRYPOINT ["valgrind", "/usr/local/bin/hotpocket/hpcore"]
