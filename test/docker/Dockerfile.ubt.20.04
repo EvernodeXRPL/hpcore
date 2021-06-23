@@ -2,20 +2,13 @@
 
 FROM ubuntu:focal
 
-RUN apt-get update
-RUN apt-get install -y libssl1.1 sqlite3
+COPY libblake3.so /usr/local/lib/
+RUN apt-get update && apt-get install -y \
+    libssl1.1 \
+    sqlite3 \
+    fuse3
+    
+RUN mkdir /usr/local/bin/hotpocket
+COPY hpcore hpfs hpws /usr/local/bin/hotpocket/
 
-# Install shared libraries.
-# Copy shared libraries and register it.
-COPY ./libfuse3.so.3 /usr/local/lib/
-COPY ./libblake3.so /usr/local/lib/
-RUN ldconfig
-COPY ./fusermount3 /usr/local/bin/
-
-# hpcore binary is copied to /hp directory withtin the docker image.
-WORKDIR /hp
-COPY ./hpcore .
-COPY ./hpfs .
-COPY ./hpws .
-
-ENTRYPOINT ["/hp/hpcore"]
+ENTRYPOINT ["/usr/local/bin/hotpocket/hpcore"]
