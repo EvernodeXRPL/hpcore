@@ -26,4 +26,4 @@ docker run --rm -t -i --network=hpnet --name=node${n} \
     -p ${peerport}:${peerport} \
     --device /dev/fuse --cap-add SYS_ADMIN --security-opt apparmor:unconfined \
     --mount type=bind,source=${clusterloc}/node${n},target=/contract \
-    hotpocketdev/hotpocket:ubt.20.04 run /contract
+    hpcore:latest run /contract
