@@ -10,6 +10,7 @@
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include "json.h"
+#include <fcntl.h>
 
 // Private constants.
 #define __HP_MMAP_BLOCK_SIZE 4096
@@ -277,6 +278,7 @@ int hp_deinit_contract()
     // Send termination control message.
     __hp_write_control_msg("{\"type\":\"contract_end\"}", 23);
     close(__hpc.control_fd);
+    return 0;
 }
 
 const struct hp_contract_context *hp_get_context()
@@ -546,7 +548,7 @@ int hp_update_config(const struct hp_config *config)
  */
 void hp_set_config_string(char **config_str, const char *value, const size_t value_size)
 {
-    *config_str = realloc(*config_str, value_size);
+    *config_str = (char *)realloc(*config_str, value_size);
     strncpy(*config_str, value, value_size);
 }
 
@@ -559,7 +561,7 @@ void hp_set_config_string(char **config_str, const char *value, const size_t val
 void hp_set_config_unl(struct hp_config *config, const struct hp_unl_node *new_unl, const size_t new_unl_count)
 {
     const size_t mem_size = sizeof(struct hp_unl_node) * new_unl_count;
-    config->unl.list = realloc(config->unl.list, mem_size);
+    config->unl.list = (struct hp_unl_node *)realloc(config->unl.list, mem_size);
     memcpy(config->unl.list, new_unl, mem_size);
     config->unl.count = new_unl_count;
 }
