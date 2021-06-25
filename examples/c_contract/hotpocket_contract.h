@@ -277,6 +277,7 @@ int hp_deinit_contract()
     // Send termination control message.
     __hp_write_control_msg("{\"type\":\"contract_end\"}", 23);
     close(__hpc.control_fd);
+    return 0;
 }
 
 const struct hp_contract_context *hp_get_context()
