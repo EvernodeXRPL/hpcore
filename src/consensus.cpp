@@ -161,6 +161,8 @@ namespace consensus
                     // and we need to make the final vote status check after proper pruning rules are applied.
 
                     LOG_DEBUG << "Rechecking vote status after becoming in-sync.";
+                    // Reset the voter for the new votes.
+                    votes.reset();
                     revise_candidate_proposals(true);
                     new_sync_status = check_sync_status(unl_count, votes, lcl_id);
                 }
@@ -995,9 +997,13 @@ namespace consensus
             }
         }
 
-        // If winning last primary shard hash is not matched with our last primary shard hash, that means we are not on the consensus ledger.
-        // If that's the case we should request shards straight away.
-        if (ledger::ctx.get_last_primary_shard_id() != majority_primary_shard_id)
+        const uint32_t min_wins_required = ceil(MAJORITY_THRESHOLD * ctx.candidate_proposals.size());
+        if (winning_votes < min_wins_required)
+        {
+            LOG_INFO << "No consensus on last shard hash. Possible fork condition. won:" << winning_votes << " needed:" << min_wins_required;
+            return false;
+        }
+        else if (ledger::ctx.get_last_primary_shard_id() != majority_primary_shard_id)
         {
             LOG_INFO << "We are not on the consensus ledger, we must request history from a peer.";
             is_desync = true;
@@ -1005,19 +1011,9 @@ namespace consensus
         }
         else
         {
-            // Check wheher there are enough winning votes for the last shard to be reliable.
-            const uint32_t min_wins_required = ceil(MAJORITY_THRESHOLD * ctx.candidate_proposals.size());
-            if (winning_votes < min_wins_required)
-            {
-                LOG_INFO << "No consensus on last shard hash. Possible fork condition. won:" << winning_votes << " needed:" << min_wins_required;
-                return false;
-            }
-            else
-            {
-                // Reaching here means we have reliable amount of winning last shard hash votes and our last shard hash matches with majority last shard hash.
-                is_desync = false;
-                return true;
-            }
+            // Reaching here means we have reliable amount of winning last shard hash votes and our last shard hash matches with majority last shard hash.
+            is_desync = false;
+            return true;
         }
     }
 

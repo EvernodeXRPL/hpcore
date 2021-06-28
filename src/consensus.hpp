@@ -146,6 +146,20 @@ namespace consensus
         std::map<util::h32, uint32_t> patch_hash;
         std::map<util::sequence_hash, uint32_t> last_ledger_primary_shard;
         std::map<util::sequence_hash, uint32_t> last_ledger_raw_shard;
+
+        void reset()
+        {
+            time.clear();
+            nonce.clear();
+            lcl.clear();
+            users.clear();
+            inputs.clear();
+            output_hash.clear();
+            state_hash.clear();
+            patch_hash.clear();
+            last_ledger_primary_shard.clear();
+            last_ledger_raw_shard.clear();
+        }
     };
 
     extern std::atomic<bool> is_patch_update_pending; // Keep track whether the patch file is changed by the SC and is not yet applied to runtime.
