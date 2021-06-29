@@ -131,6 +131,7 @@ namespace hpfs
             // hpfs process.
             util::fork_detach();
 
+            const std::string ugid_arg = "ugid=" + conf::cfg.contract.run_as.to_string();
             const std::string trace_arg = "trace=" + conf::cfg.hpfs.log.log_level;
 
             // Fill process args.
@@ -141,6 +142,7 @@ namespace hpfs
                 (char *)mount_dir.data(),
                 // In full history mode, we disable log merge of hpfs.
                 (char *)(is_full_history ? "merge=false" : "merge=true"),
+                (char *)ugid_arg.data(),
                 (char *)trace_arg.data(),
                 NULL};
 

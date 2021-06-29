@@ -51,7 +51,7 @@ if [ "$roundtime" = "" ]; then
 fi
 
 # Delete and recreate 'hpcluster' directory.
-rm -rf hpcluster > /dev/null 2>&1
+sudo rm -rf hpcluster > /dev/null 2>&1
 mkdir hpcluster
 clusterloc="./hpcluster"
 
