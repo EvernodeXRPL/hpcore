@@ -168,6 +168,19 @@ namespace sc
 
             // Set up the process environment and overlay the contract binary program with execv().
 
+            // Set user execution user/group if specified (Must set gid before setting uid).
+            if (!conf::cfg.contract.run_as.empty() && (setgid(conf::cfg.contract.run_as.gid) == -1 || setuid(conf::cfg.contract.run_as.uid) == -1))
+            {
+                std::cerr << errno << ": Contract process setgid/uid failed." << (ctx.args.readonly ? " (rdonly)" : "") << "\n";
+                exit(1);
+            }
+
+            if (create_contract_log_files(ctx) == -1)
+            {
+                std::cerr << errno << ": Contract process output redirection failed." << (ctx.args.readonly ? " (rdonly)" : "") << "\n";
+                exit(1);
+            }
+
             // Set process resource limits.
             if (set_process_rlimits() == -1)
             {
@@ -204,12 +217,6 @@ namespace sc
             execv_args[len - 1] = NULL;
 
             chdir(ctx.working_dir.c_str());
-
-            if (create_contract_log_files(ctx) == -1)
-            {
-                std::cerr << errno << ": Contract process output redirection failed." << (ctx.args.readonly ? " (rdonly)" : "") << "\n";
-                exit(1);
-            }
 
             execv(execv_args[0], execv_args);
             std::cerr << errno << ": Contract process execv failed." << (ctx.args.readonly ? " (rdonly)" : "") << "\n";
