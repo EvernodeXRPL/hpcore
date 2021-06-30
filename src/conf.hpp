@@ -2,6 +2,7 @@
 #define _HP_CONF_
 
 #include "pchheader.hpp"
+#include "util/util.hpp"
 
 /**
  * Manages the central config and context structs.
@@ -37,6 +38,45 @@ namespace conf
         const std::string to_string() const
         {
             return host_address + ":" + std::to_string(port);
+        }
+    };
+
+    struct ugid
+    {
+        uid_t uid = 0;
+        gid_t gid = 0;
+
+        bool empty() const
+        {
+            return uid <= 0 && gid <= 0;
+        }
+
+        int from_string(std::string_view str)
+        {
+            if (str.empty())
+                return 0;
+
+            std::vector<std::string> ids;
+            util::split_string(ids, str, ":");
+            if (ids.size() == 2)
+            {
+                const int _uid = atoi(ids[0].c_str());
+                const int _gid = atoi(ids[1].c_str());
+
+                if (_uid > 0 && _gid > 0)
+                {
+                    uid = _uid;
+                    gid = _gid;
+                    return 0;
+                }
+            }
+
+            return -1;
+        }
+
+        const std::string to_string() const
+        {
+            return (uid == 0 && gid == 0) ? "" : (std::to_string(uid) + ":" + std::to_string(gid));
         }
     };
 
@@ -103,9 +143,11 @@ namespace conf
 
     struct contract_config
     {
-        std::string id;                        // Contract guid.
-        bool execute = false;                  // Whether or not to execute the contract on the node.
-        contract_log_config log;               // Contract log related settings.
+        std::string id;          // Contract guid.
+        bool execute = false;    // Whether or not to execute the contract on the node.
+        ugid run_as;             // The user/groups id to execute the contract as.
+        contract_log_config log; // Contract log related settings.
+
         std::string version;                   // Contract version string.
         std::set<std::string> unl;             // Unique node list (list of binary public keys).
         std::string bin_path;                  // Full path to the contract binary.

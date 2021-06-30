@@ -938,6 +938,7 @@ namespace conf
         {
             jdoc.insert_or_assign("id", contract.id);
             jdoc.insert_or_assign("execute", contract.execute);
+            jdoc.insert_or_assign("run_as", contract.run_as.to_string());
             jsoncons::ojson log;
             log.insert_or_assign("enable", contract.log.enable);
             log.insert_or_assign("max_mbytes_per_file", contract.log.max_mbytes_per_file);
@@ -998,6 +999,12 @@ namespace conf
                 }
 
                 contract.execute = jdoc["execute"].as<bool>();
+                if (contract.run_as.from_string(jdoc["run_as"].as<std::string>()) == -1)
+                {
+                    std::cerr << "Invalid format for contract run as config (\"uid>0:gid>0\" expected).\n";
+                    return -1;
+                }
+
                 jpath = "contract.log";
                 contract.log.enable = jdoc["log"]["enable"].as<bool>();
                 contract.log.max_mbytes_per_file = jdoc["log"]["max_mbytes_per_file"].as<size_t>();

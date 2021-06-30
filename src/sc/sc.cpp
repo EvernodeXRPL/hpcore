@@ -31,7 +31,7 @@ namespace sc
     int init()
     {
         if (contract_fs.init(CONTRACT_FS_ID, conf::ctx.contract_hpfs_dir, conf::ctx.contract_hpfs_mount_dir, conf::ctx.contract_hpfs_rw_dir,
-                             conf::cfg.node.history == conf::HISTORY::FULL) == -1)
+                             conf::cfg.contract.run_as.to_string(), conf::cfg.node.history == conf::HISTORY::FULL) == -1)
         {
             LOG_ERROR << "Contract file system initialization failed.";
             return -1;
@@ -168,6 +168,19 @@ namespace sc
 
             // Set up the process environment and overlay the contract binary program with execv().
 
+            // Set user execution user/group if specified (Must set gid before setting uid).
+            if (!conf::cfg.contract.run_as.empty() && (setgid(conf::cfg.contract.run_as.gid) == -1 || setuid(conf::cfg.contract.run_as.uid) == -1))
+            {
+                std::cerr << errno << ": Contract process setgid/uid failed." << (ctx.args.readonly ? " (rdonly)" : "") << "\n";
+                exit(1);
+            }
+
+            if (create_contract_log_files(ctx) == -1)
+            {
+                std::cerr << errno << ": Contract process output redirection failed." << (ctx.args.readonly ? " (rdonly)" : "") << "\n";
+                exit(1);
+            }
+
             // Set process resource limits.
             if (set_process_rlimits() == -1)
             {
@@ -203,11 +216,9 @@ namespace sc
                 execv_args[j] = conf::cfg.contract.runtime_binexec_args[i].data();
             execv_args[len - 1] = NULL;
 
-            chdir(ctx.working_dir.c_str());
-
-            if (create_contract_log_files(ctx) == -1)
+            if (chdir(ctx.working_dir.c_str()) == -1)
             {
-                std::cerr << errno << ": Contract process output redirection failed." << (ctx.args.readonly ? " (rdonly)" : "") << "\n";
+                std::cerr << errno << ": Contract process chdir failed." << (ctx.args.readonly ? " (rdonly)" : "") << "\n";
                 exit(1);
             }
 

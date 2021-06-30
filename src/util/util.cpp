@@ -4,6 +4,8 @@
 
 namespace util
 {
+    constexpr mode_t DIR_PERMS = 0755;
+
     const std::string to_hex(const std::string_view bin)
     {
         // Allocate the target string.
@@ -161,7 +163,7 @@ namespace util
             free(path2);
 
             // Create this dir.
-            if (!error_thrown && mkdir(path.data(), S_IRWXU | S_IRWXG | S_IROTH) == -1)
+            if (!error_thrown && mkdir(path.data(), DIR_PERMS) == -1)
             {
                 LOG_ERROR << errno << ": Error in recursive dir creation. " << path;
                 error_thrown = true;
@@ -259,7 +261,8 @@ namespace util
     int clear_directory(std::string_view dir_path)
     {
         return nftw(
-            dir_path.data(), [](const char *fpath, const struct stat *sb, int typeflag, struct FTW *ftwbuf) {
+            dir_path.data(), [](const char *fpath, const struct stat *sb, int typeflag, struct FTW *ftwbuf)
+            {
                 if (typeflag == FTW_F) // Is file.
                     return remove(fpath);
                 return 0;
@@ -274,9 +277,8 @@ namespace util
     int remove_directory_recursively(std::string_view dir_path)
     {
         return nftw(
-            dir_path.data(), [](const char *fpath, const struct stat *sb, int typeflag, struct FTW *ftwbuf) {
-                return remove(fpath);
-            },
+            dir_path.data(), [](const char *fpath, const struct stat *sb, int typeflag, struct FTW *ftwbuf)
+            { return remove(fpath); },
             1, FTW_DEPTH | FTW_PHYS);
     }
 

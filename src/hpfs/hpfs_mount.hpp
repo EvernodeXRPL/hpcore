@@ -48,7 +48,7 @@ namespace hpfs
         // We use this as a reference counting mechanism to cleanup RW session when no one requires it.
         uint32_t rw_consumers = 0;
         std::mutex rw_mutex;
-        int start_hpfs_process();
+        int start_hpfs_process(std::string_view ugid_specifier);
         void stop_hpfs_process();
 
     protected:
@@ -58,7 +58,8 @@ namespace hpfs
     public:
         uint32_t mount_id; // Used in hpfs serving and syncing.
         std::string rw_dir;
-        int init(const uint32_t mount_id, std::string_view fs_dir, std::string_view mount_dir, std::string_view rw_dir, const bool is_full_history);
+        int init(const uint32_t mount_id, std::string_view fs_dir, std::string_view mount_dir, std::string_view rw_dir,
+                 std::string_view ugid_specifier, const bool is_full_history);
         void deinit();
 
         int acquire_rw_session();
