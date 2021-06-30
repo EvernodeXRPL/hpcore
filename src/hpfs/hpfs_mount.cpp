@@ -31,14 +31,15 @@ namespace hpfs
     /**
      * This should be called to activate the hpfs mount process.
      */
-    int hpfs_mount::init(const uint32_t mount_id, std::string_view fs_dir, std::string_view mount_dir, std::string_view rw_dir, const bool is_full_history)
+    int hpfs_mount::init(const uint32_t mount_id, std::string_view fs_dir, std::string_view mount_dir, std::string_view rw_dir,
+                         std::string_view ugid_specifier, const bool is_full_history)
     {
         this->mount_id = mount_id;
         this->fs_dir = fs_dir;
         this->mount_dir = mount_dir;
         this->rw_dir = rw_dir;
         this->is_full_history = is_full_history;
-        if (start_hpfs_process() == -1)
+        if (start_hpfs_process(ugid_specifier) == -1)
             return -1;
 
         if (prepare_fs() == -1)
@@ -73,8 +74,9 @@ namespace hpfs
 
     /**
      * Starts the hpfs process used for all fs sessions of the mount.
+     * @param ugid_specifier User/group id specifier (uid:gid). Can be empty.
      */
-    int hpfs_mount::start_hpfs_process()
+    int hpfs_mount::start_hpfs_process(std::string_view ugid_specifier)
     {
         if (conf::cfg.hpfs.external)
             return 0;
@@ -131,7 +133,7 @@ namespace hpfs
             // hpfs process.
             util::fork_detach();
 
-            const std::string ugid_arg = "ugid=" + conf::cfg.contract.run_as.to_string();
+            const std::string ugid_arg = "ugid=" + std::string(ugid_specifier);
             const std::string trace_arg = "trace=" + conf::cfg.hpfs.log.log_level;
 
             // Fill process args.

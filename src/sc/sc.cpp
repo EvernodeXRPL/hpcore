@@ -31,7 +31,7 @@ namespace sc
     int init()
     {
         if (contract_fs.init(CONTRACT_FS_ID, conf::ctx.contract_hpfs_dir, conf::ctx.contract_hpfs_mount_dir, conf::ctx.contract_hpfs_rw_dir,
-                             conf::cfg.node.history == conf::HISTORY::FULL) == -1)
+                             conf::cfg.contract.run_as.to_string(), conf::cfg.node.history == conf::HISTORY::FULL) == -1)
         {
             LOG_ERROR << "Contract file system initialization failed.";
             return -1;

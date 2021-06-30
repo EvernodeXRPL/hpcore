@@ -60,7 +60,7 @@ namespace ledger
         }
 
         // Full history status is always set to false since this is ledger fs. Historical checkpoints are not required in ledger fs even in full history mode.
-        if (ledger_fs.init(LEDGER_FS_ID, conf::ctx.ledger_hpfs_dir, conf::ctx.ledger_hpfs_mount_dir, conf::ctx.ledger_hpfs_rw_dir, false) == -1)
+        if (ledger_fs.init(LEDGER_FS_ID, conf::ctx.ledger_hpfs_dir, conf::ctx.ledger_hpfs_mount_dir, conf::ctx.ledger_hpfs_rw_dir, "", false) == -1)
         {
             LOG_ERROR << "Ledger file system initialization failed.";
             return -1;
