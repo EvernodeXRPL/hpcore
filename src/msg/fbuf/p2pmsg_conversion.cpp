@@ -54,7 +54,11 @@ namespace msg::fbuf::p2pmsg
         return p2p::peer_message_info{p2p_msg, p2p_msg->content_type(), p2p_msg->created_on()};
     }
 
-    bool verify_proposal_msg_trust(const p2p::peer_message_info &mi)
+    /**
+     * Validate proposal signature against the hash of proposal fields.
+     * @return The proposal hash if verification success. Empty hash of verification failed.
+     */
+    const util::h32 verify_proposal_msg_trust(const p2p::peer_message_info &mi)
     {
         const auto &msg = *mi.p2p_msg->content_as_ProposalMsg();
 
@@ -64,10 +68,19 @@ namespace msg::fbuf::p2pmsg
         if (!unl::exists(std::string(pubkey)))
         {
             LOG_DEBUG << "Peer proposal message pubkey verification failed. Not in UNL.";
-            return false;
+            return util::h32_empty;
         }
 
         // Get hash of proposal data field values and verify the signature against the hash.
+        const util::h32 hash = hash_proposal_msg(msg);
+        if (crypto::verify(hash.to_string_view(), flatbuf_bytes_to_sv(msg.sig()), pubkey) == 0)
+            return hash;
+        else
+            return util::h32_empty;
+    }
+
+    const util::h32 hash_proposal_msg(const msg::fbuf::p2pmsg::ProposalMsg &msg)
+    {
         flatbuf_hasher hasher;
         hasher.add(msg.stage());
         hasher.add(msg.time());
@@ -81,8 +94,7 @@ namespace msg::fbuf::p2pmsg
         hasher.add(msg.patch_hash());
         hasher.add(msg.last_primary_shard_id());
         hasher.add(msg.last_raw_shard_id());
-
-        return crypto::verify(hasher.hash(), flatbuf_bytes_to_sv(msg.sig()), pubkey) == 0;
+        return hasher.hash();
     }
 
     bool verify_npl_msg_trust(const p2p::peer_message_info &mi)
@@ -103,7 +115,8 @@ namespace msg::fbuf::p2pmsg
         hasher.add(msg.data());
         hasher.add(msg.lcl_id());
 
-        return crypto::verify(hasher.hash(), flatbuf_bytes_to_sv(msg.sig()), pubkey) == 0;
+        const util::h32 hash = hasher.hash();
+        return crypto::verify(hash.to_string_view(), flatbuf_bytes_to_sv(msg.sig()), pubkey) == 0;
     }
 
     const p2p::peer_challenge create_peer_challenge_from_msg(const p2p::peer_message_info &mi)
@@ -125,12 +138,15 @@ namespace msg::fbuf::p2pmsg
             std::string(flatbuf_bytes_to_sv(msg.pubkey()))};
     }
 
-    const p2p::proposal create_proposal_from_msg(const p2p::peer_message_info &mi)
+    const p2p::proposal create_proposal_from_msg(const p2p::peer_message_info &mi, const util::h32 &hash)
     {
         const auto &msg = *mi.p2p_msg->content_as_ProposalMsg();
 
         p2p::proposal p;
         p.pubkey = flatbuf_bytes_to_sv(msg.pubkey());
+        p.root_hash = hash;
+        p.from_self = p.pubkey == conf::cfg.node.public_key;
+
         p.sent_timestamp = mi.originated_on;
         p.recv_timestamp = util::get_epoch_milliseconds();
         p.time = msg.time();
@@ -331,7 +347,7 @@ namespace msg::fbuf::p2pmsg
         hasher.add(p.last_primary_shard_id);
         hasher.add(p.last_raw_shard_id);
 
-        return crypto::sign(hasher.hash(), conf::cfg.node.private_key);
+        return crypto::sign(hasher.hash().to_string_view(), conf::cfg.node.private_key);
     }
 
     const std::string generate_npl_signature(std::string_view data, const util::sequence_hash &lcl_id)
@@ -340,7 +356,7 @@ namespace msg::fbuf::p2pmsg
         hasher.add(data);
         hasher.add(lcl_id);
 
-        return crypto::sign(hasher.hash(), conf::cfg.node.private_key);
+        return crypto::sign(hasher.hash().to_string_view(), conf::cfg.node.private_key);
     }
 
     void create_p2p_msg(flatbuffers::FlatBufferBuilder &builder, const msg::fbuf::p2pmsg::P2PMsgContent content_type, const flatbuffers::Offset<void> content)

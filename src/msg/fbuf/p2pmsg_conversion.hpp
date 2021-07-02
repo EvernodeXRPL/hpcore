@@ -14,7 +14,9 @@ namespace msg::fbuf::p2pmsg
 
     const p2p::peer_message_info get_peer_message_info(std::string_view message, const p2p::peer_comm_session *session = NULL);
 
-    bool verify_proposal_msg_trust(const p2p::peer_message_info &mi);
+    const util::h32 verify_proposal_msg_trust(const p2p::peer_message_info &mi);
+
+    const util::h32 hash_proposal_msg(const msg::fbuf::p2pmsg::ProposalMsg &msg);
 
     bool verify_npl_msg_trust(const p2p::peer_message_info &mi);
 
@@ -22,7 +24,7 @@ namespace msg::fbuf::p2pmsg
 
     const p2p::peer_challenge_response create_peer_challenge_response_from_msg(const p2p::peer_message_info &mi);
 
-    const p2p::proposal create_proposal_from_msg(const p2p::peer_message_info &mi);
+    const p2p::proposal create_proposal_from_msg(const p2p::peer_message_info &mi, const util::h32 &hash);
 
     const p2p::npl_message create_npl_from_msg(const p2p::peer_message_info &mi);
 

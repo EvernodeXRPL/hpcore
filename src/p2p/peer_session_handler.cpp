@@ -174,14 +174,15 @@ namespace p2p
         }
         else if (mi.type == p2pmsg::P2PMsgContent_ProposalMsg)
         {
-            if (!p2pmsg::verify_proposal_msg_trust(mi))
+            const util::h32 hash = p2pmsg::verify_proposal_msg_trust(mi);
+            if (hash == util::h32_empty)
             {
                 session.increment_metric(comm::SESSION_THRESHOLDS::MAX_BADSIGMSGS_PER_MINUTE, 1);
                 LOG_DEBUG << "Proposal rejected due to trust failure. " << session.display_name();
                 return 0;
             }
 
-            handle_proposal_message(p2pmsg::create_proposal_from_msg(mi));
+            handle_proposal_message(p2pmsg::create_proposal_from_msg(mi, hash));
         }
         else if (mi.type == p2pmsg::P2PMsgContent_NplMsg)
         {
@@ -298,7 +299,7 @@ namespace p2p
         const peer_message_info mi = p2pmsg::get_peer_message_info(message);
 
         if (mi.type == p2pmsg::P2PMsgContent_ProposalMsg)
-            handle_proposal_message(p2pmsg::create_proposal_from_msg(mi));
+            handle_proposal_message(p2pmsg::create_proposal_from_msg(mi, hash_proposal_msg(*mi.p2p_msg->content_as_ProposalMsg())));
         else if (mi.type == p2pmsg::P2PMsgContent_NonUnlProposalMsg)
             handle_nonunl_proposal_message(p2pmsg::create_nonunl_proposal_from_msg(mi));
         else if (mi.type == p2pmsg::P2PMsgContent_NplMsg)
