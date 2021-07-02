@@ -241,7 +241,7 @@ namespace consensus
         const auto itr = ctx.candidate_proposals.find(conf::cfg.node.public_key);
         if (itr == ctx.candidate_proposals.end() || itr->second.stage != 3)
         {
-            LOG_INFO << "We haven't proposed to close any ledger.";
+            LOG_DEBUG << "We haven't proposed to close any ledger.";
             return;
         }
 
@@ -272,7 +272,7 @@ namespace consensus
 
         if (self_prop.root_hash != majority_hash)
         {
-            LOG_INFO << "Cannot close ledger. Our hash does not match with majority.";
+            LOG_INFO << "Cannot close ledger. Our proposal:" << self_prop.root_hash << " does not match with majority:" << majority_hash;
             return;
         }
 
@@ -283,7 +283,7 @@ namespace consensus
         if (prepare_consensed_users(consensed_users, self_prop) == -1 ||
             commit_consensus_results(self_prop, consensed_users) == -1)
         {
-            LOG_ERROR << "Error occured when closing ledger.";
+            LOG_ERROR << "Error occured when closing ledger";
 
             // Cleanup obsolete information before next round starts.
             cleanup_output_collections();
@@ -492,18 +492,26 @@ namespace consensus
                                                           (from_same_round && ctx.stage >= cp.stage && (ctx.stage - cp.stage) <= 1)
                                                     : from_same_round;
 
-                LOG_DEBUG << (keep_candidate ? "Prop--->" : "Erased")
-                          << " [s" << std::to_string(cp.stage)
-                          << "-" << cp.root_hash
-                          << "] u/i/t:" << cp.users.size()
-                          << "/" << cp.input_ordered_hashes.size()
-                          << "/" << cp.time
-                          << " s:" << cp.state_hash
-                          << " p:" << cp.patch_hash
-                          << " ps:" << cp.last_primary_shard_id
-                          << " rs:" << cp.last_raw_shard_id
-                          << " [frm:" << (cp.from_self ? "self" : util::to_hex(cp.pubkey).substr(2, 10)) << "]"
-                          << "(" << (cp.recv_timestamp > cp.sent_timestamp ? (cp.recv_timestamp - cp.sent_timestamp) : 0) << "ms)";
+                if (keep_candidate)
+                {
+                    LOG_DEBUG << "[s" << std::to_string(cp.stage)
+                              << "-" << cp.root_hash
+                              << "] u/i/t:" << cp.users.size()
+                              << "/" << cp.input_ordered_hashes.size()
+                              << "/" << cp.time
+                              << " s:" << cp.state_hash
+                              << " p:" << cp.patch_hash
+                              << " ps:" << cp.last_primary_shard_id
+                              << " rs:" << cp.last_raw_shard_id
+                              << " [frm:" << (cp.from_self ? "self" : util::to_hex(cp.pubkey).substr(2, 8))
+                              << "<" << (cp.recv_timestamp > cp.sent_timestamp ? (cp.recv_timestamp - cp.sent_timestamp) : 0) << "ms]";
+                }
+                else
+                {
+                    LOG_DEBUG << "Erased [s" << std::to_string(cp.stage)
+                              << "-" << cp.root_hash
+                              << "] [frm:" << (cp.from_self ? "self" : util::to_hex(cp.pubkey).substr(2, 8)) << "]";
+                }
 
                 if (keep_candidate)
                     ++itr;
@@ -741,13 +749,14 @@ namespace consensus
         p2pmsg::create_msg_from_proposal(fbuf, p);
         p2p::broadcast_message(fbuf, true, false, !conf::cfg.contract.is_consensus_public, 1); // Use high priority send.
 
-        LOG_DEBUG << "Proposed <s" << std::to_string(p.stage) << "> u/i:" << p.users.size()
+        LOG_DEBUG << "Proposed-s" << std::to_string(p.stage)
+                  << " u/i/t:" << p.users.size()
                   << "/" << p.input_ordered_hashes.size()
-                  << " ts:" << p.time
-                  << " state:" << p.state_hash
-                  << " patch:" << p.patch_hash
-                  << " lps:" << p.last_primary_shard_id
-                  << " lrs:" << p.last_raw_shard_id;
+                  << "/" << p.time
+                  << " s:" << p.state_hash
+                  << " p:" << p.patch_hash
+                  << " ps:" << p.last_primary_shard_id
+                  << " rs:" << p.last_raw_shard_id;
     }
 
     /**
