@@ -116,6 +116,10 @@ namespace consensus
         // arived ones and expired ones.
         revise_candidate_proposals(ctx.vote_status == VOTES_SYNCED);
 
+        // Attempt to close the ledger after scanning last round stage 3 proposals.
+        if (ctx.stage == 0)
+            attempt_ledger_close();
+
         // Get current lcl, state, patch, primary shard and raw shard info.
         util::sequence_hash lcl_id = ledger::ctx.get_lcl_id();
         util::h32 state_hash = sc::contract_fs.get_parent_hash(sc::STATE_DIR_PATH);
@@ -210,28 +214,13 @@ namespace consensus
                 const p2p::proposal p = create_stage123_proposal(votes, unl_count, state_hash, patch_hash, last_primary_shard_id, last_raw_shard_id);
                 broadcast_proposal(p);
 
-                // This marks the moment we finish a sync cycle. We are in stage 1 and we ditect that our votes are in sync.
+                // This marks the moment we finish a sync cycle. We are in stage 1 and we detect that our votes are in sync.
                 if (ctx.stage == 1 && ctx.sync_ongoing)
                 {
                     // Clear any sync recovery pending state if we enter stage 1 while being in sync.
                     ctx.sync_ongoing = false;
                     status::sync_status_changed(true);
                     LOG_DEBUG << "Sync recovery completed.";
-                }
-                else if (ctx.stage == 3)
-                {
-                    // Upon successful consensus at stage 3, update the ledger and execute the contract using the consensus proposal.
-
-                    consensed_user_map consensed_users;
-                    if (prepare_consensed_users(consensed_users, p) == -1 ||
-                        commit_consensus_results(p, consensed_users, patch_hash) == -1)
-                    {
-                        LOG_ERROR << "Error occured in Stage 3 consensus execution.";
-
-                        // Cleanup obsolete information before next round starts.
-                        cleanup_output_collections();
-                        cleanup_consensed_user_inputs(consensed_users);
-                    }
                 }
             }
 
@@ -243,13 +232,71 @@ namespace consensus
         return 0;
     }
 
+    void attempt_ledger_close()
+    {
+        std::map<util::h32, uint32_t> hash_votes;
+        util::h32 self_hash = util::h32_empty;
+        util::h32 majority_hash = util::h32_empty;
+
+        const auto itr = ctx.candidate_proposals.find(conf::cfg.node.public_key);
+        if (itr == ctx.candidate_proposals.end() || itr->second.stage != 3)
+        {
+            LOG_INFO << "We haven't proposed to close any ledger.";
+            return;
+        }
+
+        const p2p::proposal self_prop = itr->second;
+
+        for (const auto &[pubkey, cp] : ctx.candidate_proposals)
+        {
+            if (cp.stage == 3)
+                increment(hash_votes, cp.root_hash);
+        }
+
+        uint32_t winning_votes = 0;
+        for (const auto [hash, votes] : hash_votes)
+        {
+            if (votes > winning_votes)
+            {
+                winning_votes = votes;
+                majority_hash = hash;
+            }
+        }
+
+        const uint32_t min_votes_required = ceil(MAJORITY_THRESHOLD * unl::count());
+        if (winning_votes < min_votes_required)
+        {
+            LOG_INFO << "Cannot close ledger. Possible fork condition. won:" << winning_votes << " needed:" << min_votes_required;
+            return;
+        }
+
+        if (self_prop.root_hash != majority_hash)
+        {
+            LOG_INFO << "Cannot close ledger. Our hash does not match with majority.";
+            return;
+        }
+
+        LOG_DEBUG << "Closing ledger with proposal:" << self_prop.root_hash;
+
+        // Upon successful ledger close condition, update the ledger and execute the contract using the consensus proposal.
+        consensed_user_map consensed_users;
+        if (prepare_consensed_users(consensed_users, self_prop) == -1 ||
+            commit_consensus_results(self_prop, consensed_users) == -1)
+        {
+            LOG_ERROR << "Error occured when closing ledger.";
+
+            // Cleanup obsolete information before next round starts.
+            cleanup_output_collections();
+            cleanup_consensed_user_inputs(consensed_users);
+        }
+    }
+
     /**
      * Performs the consensus finalalization activities with the provided consensused information.
      * @param cons_prop The proposal which reached consensus.
      * @param consensed_users Set of consensed users and their consensed inputs and outputs.
-     * @param patch_hash The current config patch hash.
      */
-    int commit_consensus_results(const p2p::proposal &cons_prop, const consensus::consensed_user_map &consensed_users, const util::h32 &patch_hash)
+    int commit_consensus_results(const p2p::proposal &cons_prop, const consensus::consensed_user_map &consensed_users)
     {
         // Creating a ledger while sync ongoing happens when we discover that our ledger votes are in sync at stage 2 or 3. At this point,
         // we can create the ledger with majority votes. However we dont't have the raw contract outputs we should have had in the previous ledger
@@ -278,6 +325,7 @@ namespace consensus
         dispatch_consensed_user_outputs(consensed_users, lcl_id);
 
         // Apply consensed config patch file changes to the hpcore runtime and hp.cfg.
+        const util::h32 patch_hash = sc::contract_fs.get_parent_hash(sc::PATCH_FILE_PATH);
         if (apply_consensed_patch_file_changes(cons_prop.patch_hash, patch_hash) == -1)
             return -1;
 
@@ -436,20 +484,25 @@ namespace consensus
             {
                 const p2p::proposal &cp = itr->second;
 
-                // If we are in sync, only consider this round's proposals which are from current or previous stage.
+                // If we are in sync, only consider proposals which are from current or previous stage.
                 // Otherwise consider all proposals as long as they are from the same round.
-                const bool stage_valid = in_sync ? (ctx.stage >= cp.stage && (ctx.stage - cp.stage) <= 1) : true;
-                const bool keep_candidate = (ctx.round_start_time == cp.time) && stage_valid;
+                const bool from_prev_round = ctx.round_start_time > cp.time && (ctx.round_start_time - cp.time) <= conf::cfg.contract.roundtime;
+                const bool from_same_round = ctx.round_start_time == cp.time;
+                const bool keep_candidate = in_sync ? (from_prev_round && ctx.stage == 0 && cp.stage == 3) ||
+                                                          (from_same_round && ctx.stage >= cp.stage && (ctx.stage - cp.stage) <= 1)
+                                                    : from_same_round;
+
                 LOG_DEBUG << (keep_candidate ? "Prop--->" : "Erased")
                           << " [s" << std::to_string(cp.stage)
-                          << "] u/i:" << cp.users.size()
+                          << "-" << cp.root_hash
+                          << "] u/i/t:" << cp.users.size()
                           << "/" << cp.input_ordered_hashes.size()
-                          << " ts:" << cp.time
-                          << " state:" << cp.state_hash
-                          << " patch:" << cp.patch_hash
-                          << " lps:" << cp.last_primary_shard_id
-                          << " lrs:" << cp.last_raw_shard_id
-                          << " [from:" << ((cp.pubkey == conf::cfg.node.public_key) ? "self" : util::to_hex(cp.pubkey).substr(2, 10)) << "]"
+                          << "/" << cp.time
+                          << " s:" << cp.state_hash
+                          << " p:" << cp.patch_hash
+                          << " ps:" << cp.last_primary_shard_id
+                          << " rs:" << cp.last_raw_shard_id
+                          << " [frm:" << (cp.from_self ? "self" : util::to_hex(cp.pubkey).substr(2, 10)) << "]"
                           << "(" << (cp.recv_timestamp > cp.sent_timestamp ? (cp.recv_timestamp - cp.sent_timestamp) : 0) << "ms)";
 
                 if (keep_candidate)
@@ -980,10 +1033,10 @@ namespace consensus
         }
 
         // Check whether we have received enough votes in total.
-        const uint32_t min_required = ceil(MAJORITY_THRESHOLD * unl_count);
-        if (total_ledger_primary_hash_votes < min_required)
+        const uint32_t min_votes_required = ceil(MAJORITY_THRESHOLD * unl_count);
+        if (total_ledger_primary_hash_votes < min_votes_required)
         {
-            LOG_INFO << "Not enough peers proposing to perform consensus. votes:" << total_ledger_primary_hash_votes << " needed:" << min_required;
+            LOG_INFO << "Not enough peers proposing to perform consensus. votes:" << total_ledger_primary_hash_votes << " needed:" << min_votes_required;
             return false;
         }
 
@@ -997,10 +1050,9 @@ namespace consensus
             }
         }
 
-        const uint32_t min_wins_required = ceil(MAJORITY_THRESHOLD * ctx.candidate_proposals.size());
-        if (winning_votes < min_wins_required)
+        if (winning_votes < min_votes_required)
         {
-            LOG_INFO << "No consensus on last shard hash. Possible fork condition. won:" << winning_votes << " needed:" << min_wins_required;
+            LOG_INFO << "No consensus on last shard hash. Possible fork condition. won:" << winning_votes << " needed:" << min_votes_required;
             return false;
         }
         else if (ledger::ctx.get_last_primary_shard_id() != majority_primary_shard_id)

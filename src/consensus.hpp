@@ -174,7 +174,9 @@ namespace consensus
 
     int consensus();
 
-    int commit_consensus_results(const p2p::proposal &cons_prop, const consensus::consensed_user_map &consensed_users, const util::h32 &patch_hash);
+    void attempt_ledger_close();
+
+    int commit_consensus_results(const p2p::proposal &cons_prop, const consensus::consensed_user_map &consensed_users);
 
     int check_sync_status(const size_t unl_count, vote_counter &votes, const util::sequence_hash &lcl_id);
 
