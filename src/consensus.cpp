@@ -677,7 +677,7 @@ namespace consensus
         }
         else
         {
-            const uint64_t stage_start = ctx.round_start_time + (ctx.stage * ctx.stage_time);
+            const uint64_t stage_start = ctx.round_start_time + conf::cfg.contract.roundtime - ((4 - ctx.stage) * ctx.stage_time);
 
             // Compute stage time wait.
             // Node wait between stages to collect enough proposals from previous stages from other nodes.
@@ -1436,7 +1436,7 @@ namespace consensus
             conf::cfg.contract.stage_slice = majority_time_config - (conf::cfg.contract.roundtime * 100);
         }
 
-        // We allocate configured stage slice for stages 0, 1, 2. Stage 3 gets the entire remaining time from the round window.
+        // We allocate configured stage slice for stages 1, 2, 3. Stage 0 gets the entire remaining time from the round window.
         ctx.stage_time = conf::cfg.contract.roundtime * conf::cfg.contract.stage_slice / 100;
         ctx.stage_reset_wait_threshold = conf::cfg.contract.roundtime / 10;
 
