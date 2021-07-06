@@ -113,7 +113,8 @@ namespace consensus
 
         uint8_t stage = 1;
         uint64_t round_start_time = 0;
-        uint32_t stage_time = 0;                 // Time allocated to a consensus stage.
+        uint32_t stage0_duration = 0;            // Time allocated to a consensus stage 0.
+        uint32_t stage123_duration = 0;          // Time allocated to each consensus stage 1,2,3.
         uint32_t stage_reset_wait_threshold = 0; // Minimum stage wait time to reset the stage.
         uint64_t round_boundry_offset = 0;       // Time window boundry offset based on contract id.
         uint16_t unreliable_votes_attempts = 0;  // No. of times we failed to get reliable votes continously.
@@ -218,7 +219,7 @@ namespace consensus
 
     uint64_t get_ledger_time_resolution(const uint64_t time);
 
-    uint64_t get_stage_time_resolution(const uint64_t time);
+    uint64_t get_stage_duration_resolution(const uint64_t time);
 
     int execute_contract(const uint64_t time, const consensed_user_map &consensed_users, const util::sequence_hash &lcl_id);
 

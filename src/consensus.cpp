@@ -105,6 +105,8 @@ namespace consensus
     int consensus()
     {
         // A consensus round consists of 4 stages (0,1,2,3).
+        // In stage 0 we perform closing of ledger based on previous round stage 3 votes. In stages 1,2,3
+        // we progressively narrow down the votes based on increasing majority thresholds.
         // For a given stage, this function may get visited multiple times due to time-wait conditions.
 
         if (!wait_and_proceed_stage())
@@ -158,7 +160,7 @@ namespace consensus
             {
                 int new_sync_status = check_sync_status(unl_count, votes, lcl_id);
 
-                if (ctx.vote_status != VOTES_SYNCED && new_sync_status == VOTES_UNRELIABLE)
+                if (ctx.vote_status != VOTES_SYNCED && new_sync_status == VOTES_SYNCED)
                 {
                     // If we are just becoming 'in-sync' after being out-of-sync, check the vote status again after the proper
                     // pruning of candidate proposals. This is because we relax the proposal pruning rules when we are not in sync,
@@ -232,27 +234,32 @@ namespace consensus
         return 0;
     }
 
+    /**
+     * Scan the stage 3 proposals from last round and create the ledger if all majority critertia are met.
+     */
     void attempt_ledger_close()
     {
-        std::map<util::h32, uint32_t> hash_votes;
+        std::map<util::h32, uint32_t> hash_votes; // Votes on the proposal hash.
         util::h32 self_hash = util::h32_empty;
         util::h32 majority_hash = util::h32_empty;
 
+        // Find the stage 3 proposal that we have made.
         const auto itr = ctx.candidate_proposals.find(conf::cfg.node.public_key);
         if (itr == ctx.candidate_proposals.end() || itr->second.stage != 3)
         {
             LOG_DEBUG << "We haven't proposed to close any ledger.";
             return;
         }
-
         const p2p::proposal self_prop = itr->second;
 
+        // Count votes of all stage 3 proposal hashes.
         for (const auto &[pubkey, cp] : ctx.candidate_proposals)
         {
             if (cp.stage == 3)
                 increment(hash_votes, cp.root_hash);
         }
 
+        // Find the winning hash and no. of votes for it.
         uint32_t winning_votes = 0;
         for (const auto [hash, votes] : hash_votes)
         {
@@ -484,13 +491,20 @@ namespace consensus
             {
                 const p2p::proposal &cp = itr->second;
 
-                // If we are in sync, only consider proposals which are from current or previous stage.
-                // Otherwise consider all proposals as long as they are from the same round.
-                const bool from_prev_round = ctx.round_start_time > cp.time && (ctx.round_start_time - cp.time) <= conf::cfg.contract.roundtime;
-                const bool from_same_round = ctx.round_start_time == cp.time;
-                const bool keep_candidate = in_sync ? (from_prev_round && ctx.stage == 0 && cp.stage == 3) ||
-                                                          (from_same_round && ctx.stage >= cp.stage && (ctx.stage - cp.stage) <= 1)
-                                                    : from_same_round;
+                // Drop all proposals which are older than previous round.
+                // If we are not in sync, consider all remaining proposals.
+                // If we are in sync, consider proposals from previous stage only.
+
+                bool keep_candidate = false;
+                if (ctx.round_start_time >= cp.time && (ctx.round_start_time - cp.time) <= conf::cfg.contract.roundtime)
+                {
+                    if (!in_sync)
+                        keep_candidate = true;
+                    else
+                        keep_candidate = ctx.round_start_time == cp.time
+                                             ? ctx.stage >= cp.stage && (ctx.stage - cp.stage) <= 1 // This round previous stage.
+                                             : ctx.stage == 0 && cp.stage == 3;                     // Previous round stage 3.
+                }
 
                 if (keep_candidate)
                 {
@@ -677,7 +691,9 @@ namespace consensus
         }
         else
         {
-            const uint64_t stage_start = ctx.round_start_time + conf::cfg.contract.roundtime - ((4 - ctx.stage) * ctx.stage_time);
+            // Stage start time is calculated based on the duration each stage gets. Stages 1,2,3 gets equal duration as configured
+            // by stage slice. Stage 0 gets entire remaining time out of the round window.
+            const uint64_t stage_start = ctx.round_start_time + ctx.stage0_duration + ((ctx.stage - 1) * ctx.stage123_duration);
 
             // Compute stage time wait.
             // Node wait between stages to collect enough proposals from previous stages from other nodes.
@@ -1437,7 +1453,8 @@ namespace consensus
         }
 
         // We allocate configured stage slice for stages 1, 2, 3. Stage 0 gets the entire remaining time from the round window.
-        ctx.stage_time = conf::cfg.contract.roundtime * conf::cfg.contract.stage_slice / 100;
+        ctx.stage123_duration = conf::cfg.contract.roundtime * conf::cfg.contract.stage_slice / 100;
+        ctx.stage0_duration = conf::cfg.contract.roundtime - (ctx.stage123_duration * 3);
         ctx.stage_reset_wait_threshold = conf::cfg.contract.roundtime / 10;
 
         // We use a time window boundry offset based on contract id to vary the window boundries between
