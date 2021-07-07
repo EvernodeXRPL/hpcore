@@ -1075,7 +1075,7 @@ namespace consensus
             }
         }
 
-        if (winning_votes < min_votes_required)
+        if (winning_votes < 2) // min_votes_required
         {
             LOG_INFO << "No consensus on last shard hash. Possible fork condition. won:" << winning_votes << " needed:" << min_votes_required;
             return false;
