@@ -1,6 +1,6 @@
-# Ubuntu 20.04 + HotPocket
+# Debian buster + HotPocket
 
-FROM ubuntu:focal
+FROM debian:buster-slim
 
 COPY libblake3.so /usr/local/lib/
 RUN apt-get update && apt-get install -y \

@@ -1,6 +1,6 @@
 # NodeJs 14.x + HotPocket
 
-FROM node:14-buster
+FROM node:14-buster-slim
 
 COPY libblake3.so /usr/local/lib/
 RUN apt-get update && apt-get install -y \
