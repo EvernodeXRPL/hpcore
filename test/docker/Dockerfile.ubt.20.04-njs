@@ -1,0 +1,6 @@
+# HotPocket (Ubuntu 20.04) + NodeJs
+
+FROM hotpocketdev/hotpocket:ubt.20.04
+
+# Copy the node binary from build context to the container image.
+COPY node /usr/bin/
