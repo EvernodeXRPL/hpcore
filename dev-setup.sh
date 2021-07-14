@@ -20,15 +20,6 @@ sudo cp -r $cmake/bin/* /usr/local/bin/
 sudo cp -r $cmake/share/* /usr/local/share/
 rm $cmake.tar.gz && rm -r $cmake
 
-# Libsodium
-wget https://download.libsodium.org/libsodium/releases/libsodium-1.0.18-stable.tar.gz
-tar -zxvf libsodium-1.0.18-stable.tar.gz
-pushd libsodium-stable > /dev/null 2>&1
-./configure && make
-sudo make install
-popd > /dev/null 2>&1
-rm libsodium-1.0.18-stable.tar.gz && rm -r libsodium-stable
-
 # Blake3
 git clone https://github.com/BLAKE3-team/BLAKE3.git
 pushd BLAKE3/c > /dev/null 2>&1
@@ -63,19 +54,6 @@ sudo chmod +x /usr/local/bin/flatc
 popd > /dev/null 2>&1
 rm v1.12.0.tar.gz && rm -r flatbuffers-1.12.0
 
-# libfuse
-sudo apt-get install -y meson ninja-build pkg-config
-wget https://github.com/libfuse/libfuse/archive/fuse-3.8.0.tar.gz
-tar -zxvf fuse-3.8.0.tar.gz
-pushd libfuse-fuse-3.8.0 > /dev/null 2>&1
-mkdir build
-pushd build > /dev/null 2>&1
-meson .. && ninja
-sudo ninja install
-popd > /dev/null 2>&1
-popd > /dev/null 2>&1
-rm fuse-3.8.0.tar.gz && rm -r libfuse-fuse-3.8.0
-
 # Reader-Writer queue
 wget https://github.com/cameron314/readerwriterqueue/archive/v1.0.3.tar.gz
 tar -zxvf v1.0.3.tar.gz
@@ -104,11 +82,12 @@ sudo cp -r include/plog /usr/local/include/
 popd > /dev/null 2>&1
 rm 1.1.5.tar.gz && rm -r plog-1.1.5
 
-# Boost stacktrace
-sudo apt-get install -y libboost-stacktrace-dev
-
-# Sqlite
-sudo apt-get install -y sqlite3 libsqlite3-dev
+# Library dependencies.
+sudo apt-get install -y \
+    libsodium-dev \
+    sqlite3 libsqlite3-dev \
+    libboost-stacktrace-dev \
+    fuse3
 
 # jq command (needed for remote cluster scripts)
 sudo apt-get install -y jq

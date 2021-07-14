@@ -7,5 +7,5 @@ ENTRYPOINT ["/usr/local/bin/hotpocket/hpcore"]
 
 # Run with valgrind
 
-# RUN apt-get install -y gdb valgrind
+# RUN apt-get install --no-install-recommends -y gdb valgrind
 # ENTRYPOINT ["valgrind", "/usr/local/bin/hotpocket/hpcore"]
