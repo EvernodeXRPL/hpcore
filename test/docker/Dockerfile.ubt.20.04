@@ -1,6 +1,6 @@
-# NodeJs 14.x + HotPocket
+# Ubuntu 20.04 + HotPocket
 
-FROM node:14-buster-slim
+FROM ubuntu:focal
 
 COPY libblake3.so /usr/local/lib/
 RUN apt-get update \
