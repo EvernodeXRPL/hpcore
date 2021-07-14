@@ -13,12 +13,10 @@ docker build -t $repo:ubt.20.04 -f ./Dockerfile.ubt.20.04 $tmp/
 rm -r $tmp/*
 
 # NodeJs image
-nodetmp=$(mktemp -d)
 # Download and place the nodejs binary in the build context.
-curl -fsSL -o $nodetmp/nodejs.tar.xz https://nodejs.org/dist/v14.17.3/node-v14.17.3-linux-x64.tar.xz
-tar -xJvf $nodetmp/nodejs.tar.xz --strip-components=1 -C $nodetmp
-cp $nodetmp/bin/node $tmp/
-rm -r $nodetmp
-docker build -t $repo:ubt.20.04-njs.14 -f ./Dockerfile.njs.14 $tmp
+curl -fsSL -o $tmp/nodejs.tar.xz https://nodejs.org/dist/v14.17.3/node-v14.17.3-linux-x64.tar.xz
+tar -xvJf $tmp/nodejs.tar.xz --strip-components=2 -C $tmp/ node-v14.17.3-linux-x64/bin/node
+rm $tmp/nodejs.tar.xz
+docker build -t $repo:ubt.20.04-njs.14 -f ./Dockerfile.ubt.20.04-njs $tmp
 
 rm -r $tmp
