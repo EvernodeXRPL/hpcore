@@ -300,7 +300,7 @@ namespace hpfs
             if (is_shutting_down)
                 return false;
 
-            const std::string from = response.first.substr(2, 10); // Sender pubkey.
+            const std::string from = response.first.substr(2, 8); // Sender pubkey.
             const p2pmsg::P2PMsg &msg = *p2pmsg::GetP2PMsg(response.second.data());
             const p2pmsg::HpfsResponseMsg &resp_msg = *msg.content_as_HpfsResponseMsg();
 
@@ -590,7 +590,7 @@ namespace hpfs
             request_state_from_peer(request.vpath, is_file, request.block_id, request.expected_hash, target_pubkey);
 
             LOG_DEBUG << "Hpfs " << name << " sync: " << (is_resubmit ? "Re-submitting" : "Submitting")
-                      << " request to [" << (target_pubkey.empty() ? "" : target_pubkey.substr(2, 10)) << "]. type:" << request.type
+                      << " request to [" << (target_pubkey.empty() ? "" : target_pubkey.substr(2, 8)) << "]. type:" << request.type
                       << " path:" << request.vpath << " block_id:" << request.block_id
                       << " hash:" << request.expected_hash;
         }

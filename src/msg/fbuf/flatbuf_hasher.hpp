@@ -76,11 +76,10 @@ namespace msg::fbuf::p2pmsg
             add(h->hash());
         }
 
-        const std::string hash()
+        const util::h32 hash()
         {
-            std::string hash;
-            hash.resize(BLAKE3_OUT_LEN);
-            blake3_hasher_finalize(&hasher, reinterpret_cast<uint8_t *>(hash.data()), hash.size());
+            util::h32 hash;
+            blake3_hasher_finalize(&hasher, reinterpret_cast<uint8_t *>(&hash), sizeof(util::h32));
             return hash;
         }
     };

@@ -33,10 +33,11 @@ namespace p2p
         int64_t weight = 0;
     };
 
-
     struct proposal
     {
         std::string pubkey;
+        util::h32 root_hash; // The proposal root hash (hash of all the proposal consensus fields). Only populated for incoming proposals.
+        bool from_self;        // Whether the proposal was sent by this node itself. Only populated for incoming proposals.
 
         uint64_t sent_timestamp = 0; // The timestamp of the sender when this proposal was sent.
         uint64_t recv_timestamp = 0; // The timestamp when we received the proposal. (used for network statistics)
@@ -88,7 +89,7 @@ namespace p2p
     // Represents an NPL message sent by a peer.
     struct npl_message
     {
-        std::string pubkey;        // Peer binary pubkey.
+        std::string pubkey;         // Peer binary pubkey.
         util::sequence_hash lcl_id; // lcl of the peer.
         std::string data;
     };

@@ -65,7 +65,7 @@ namespace util
         output << std::hex;
 
         const uint8_t *buf = reinterpret_cast<const uint8_t *>(&h);
-        for (int i = 0; i < 5; i++) // Only print first 5 bytes in hex.
+        for (int i = 0; i < 4; i++) // Only print first 4 bytes in hex.
             output << std::setfill('0') << std::setw(2) << (int)buf[i];
 
         // Reset the ostream flags because we set std::hex at the begining.

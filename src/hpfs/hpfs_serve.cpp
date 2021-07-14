@@ -113,7 +113,7 @@ namespace hpfs
                         }
                     }
 
-                    LOG_DEBUG << "Hpfs " << name << " serve: Sent " << fbufs.size() << " replies to [" << util::to_hex(session_id).substr(2, 10) << "]";
+                    LOG_DEBUG << "Hpfs " << name << " serve: Sent " << fbufs.size() << " replies to [" << util::to_hex(session_id).substr(2, 8) << "]";
                 }
 
                 fs_mount->release_rw_session();
