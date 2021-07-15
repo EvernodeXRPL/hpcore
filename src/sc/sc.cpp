@@ -168,13 +168,6 @@ namespace sc
 
             // Set up the process environment and overlay the contract binary program with execv().
 
-            // Set user execution user/group if specified (Must set gid before setting uid).
-            if (!conf::cfg.contract.run_as.empty() && (setgid(conf::cfg.contract.run_as.gid) == -1 || setuid(conf::cfg.contract.run_as.uid) == -1))
-            {
-                std::cerr << errno << ": Contract process setgid/uid failed." << (ctx.args.readonly ? " (rdonly)" : "") << "\n";
-                exit(1);
-            }
-
             if (create_contract_log_files(ctx) == -1)
             {
                 std::cerr << errno << ": Contract process output redirection failed." << (ctx.args.readonly ? " (rdonly)" : "") << "\n";
@@ -219,6 +212,14 @@ namespace sc
             if (chdir(ctx.working_dir.c_str()) == -1)
             {
                 std::cerr << errno << ": Contract process chdir failed." << (ctx.args.readonly ? " (rdonly)" : "") << "\n";
+                exit(1);
+            }
+
+            // Just before we execv the contract binary, we set user execution user/group if specified in hp config.
+            // (Must set gid before setting uid)
+            if (!conf::cfg.contract.run_as.empty() && (setgid(conf::cfg.contract.run_as.gid) == -1 || setuid(conf::cfg.contract.run_as.uid) == -1))
+            {
+                std::cerr << errno << ": Contract process setgid/uid failed." << (ctx.args.readonly ? " (rdonly)" : "") << "\n";
                 exit(1);
             }
 
