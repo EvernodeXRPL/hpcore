@@ -524,7 +524,7 @@ namespace sc
     /**
      * Runs the contract post execution script if exists.
      */
-    int run_post_exec_script(const execution_context &ctx)
+    int run_post_exec_script(execution_context &ctx)
     {
         // Check whether the post-exec script exists within contract state dir.
         const std::string script_path = ctx.working_dir + "/" + POST_EXEC_SCRIPT;
@@ -532,25 +532,45 @@ namespace sc
             return 0;
 
         LOG_INFO << "Running post-exec script...";
-
-        const std::string log_redirect = conf::cfg.contract.log.enable ? (" >>" + ctx.stdout_file + " 2>>" + ctx.stderr_file + " ") : "";
-        const std::string script_args = " " + std::to_string(ctx.args.lcl_id.seq_no) + " " + util::to_hex(ctx.args.lcl_id.hash.to_string_view());
-
-        // We set current working dir and pass command line arg to the script.
-        const std::string command = "(cd " + ctx.working_dir + " && ./" + POST_EXEC_SCRIPT + " " + script_args + log_redirect + ")";
-
-        const int ret = system(command.c_str());
-        if (ret == -1)
+        const pid_t pid = fork();
+        if (pid == 0)
         {
-            LOG_ERROR << errno << ": Could not run post-exec script " << script_path;
-            return -1;
+            // Child process.
+            util::fork_detach();
+
+            if (create_contract_log_files(ctx, false) == -1)
+            {
+                std::cerr << errno << ": Post-exec script output redirection failed." << (ctx.args.readonly ? " (rdonly)" : "") << "\n";
+                exit(1);
+            }
+            const std::string script_args = std::to_string(ctx.args.lcl_id.seq_no) + " " + util::to_hex(ctx.args.lcl_id.hash.to_string_view());
+
+            // We set current working dir and pass command line arg to the script.
+            char *argv[] = {(char *)POST_EXEC_SCRIPT, (char *)script_args.data(), (char *)NULL};
+            if (chdir(ctx.working_dir.c_str()) == -1)
+            {
+                std::cerr << errno << ": Post-exec script chdir failed." << (ctx.args.readonly ? " (rdonly)" : "") << "\n";
+                exit(1);
+            }
+            // Set user execution user/group if specified (Must set gid before setting uid).
+            if (!conf::cfg.contract.run_as.empty() && (setgid(conf::cfg.contract.run_as.gid) == -1 || setuid(conf::cfg.contract.run_as.uid) == -1))
+            {
+                std::cerr << errno << ": Post-exec script setgid/uid failed." << (ctx.args.readonly ? " (rdonly)" : "") << "\n";
+                exit(1);
+            }
+            execv(argv[0], argv);
+            std::cerr << errno << ": Post-exec script execv failed." << (ctx.args.readonly ? " (rdonly)" : "") << "\n";
+            exit(1);
         }
-        else
+        else if (pid > 0)
         {
+            // Hot Pocket process.
+            int status = 0;
+            waitpid(pid, &status, 0); //todo: check error conditions here
             // If the script returns a code 0 or 3 to 125 we consider it a successful execition.
             // If the script returns code 0, we consider script lifetime is over and delete the file. Otherwise we retain the file.
-            const int exit_code = WEXITSTATUS(ret);
-            if (WIFEXITED(ret) && (exit_code == 0 || (exit_code > 2 && exit_code < 126)))
+            const int exit_code = WEXITSTATUS(status);
+            if (WIFEXITED(status) && (exit_code == 0 || (exit_code > 2 && exit_code < 126)))
             {
                 LOG_INFO << "Post-exec script executed successfully. Exit code:" << exit_code;
                 // Exit code 0 means post-execution script can be deleted.
@@ -563,10 +583,16 @@ namespace sc
             else
             {
                 LOG_ERROR << "Post-exec script ended prematurely. Exit code:" << exit_code;
+                return -1;
             }
-
-            return 0;
         }
+        else
+        {
+            // Fork failed.
+            LOG_ERROR << "Fork failed while running post-exec script.";
+            return -1;
+        }
+        return 0;
     }
 
     /**
@@ -854,8 +880,10 @@ namespace sc
 
     /**
      * Create contract stdout/err log files. (Called from the contract process)
+     * @param ctx The contract execution context.
+     * @param add_delimiter Whether to add a delimiter line.
      */
-    int create_contract_log_files(execution_context &ctx)
+    int create_contract_log_files(execution_context &ctx, const bool add_delimiter)
     {
         if (!conf::cfg.contract.log.enable)
             return 0;
@@ -877,7 +905,7 @@ namespace sc
 
         // Because consensus executions append logs to same files, we need to insert a demarkation line
         // to mark the start of each execution.
-        if (!ctx.args.readonly)
+        if (!ctx.args.readonly && add_delimiter)
         {
             const std::string header = "Execution lcl " + ctx.args.lcl_id.to_string() + "\n";
             if (write(outfd, header.data(), header.size()) == -1 ||

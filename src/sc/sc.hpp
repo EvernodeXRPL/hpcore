@@ -171,7 +171,7 @@ namespace sc
 
     void contract_monitor_loop(execution_context &ctx);
 
-    int run_post_exec_script(const execution_context &ctx);
+    int run_post_exec_script(execution_context &ctx);
 
     int write_control_inputs(execution_context &ctx);
 
@@ -191,7 +191,7 @@ namespace sc
 
     int read_contract_fdmap_outputs(contract_fdmap_t &fdmap, pollfd *pfds, contract_bufmap_t &bufmap);
 
-    int create_contract_log_files(execution_context &ctx);
+    int create_contract_log_files(execution_context &ctx, const bool add_delimiter = true);
 
     int create_iosockets(fd_pair &fds, const int socket_type);
 
