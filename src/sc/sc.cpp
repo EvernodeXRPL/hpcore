@@ -566,7 +566,11 @@ namespace sc
         {
             // Hot Pocket process.
             int status = 0;
-            waitpid(pid, &status, 0); //todo: check error conditions here
+            if (waitpid(pid, &status, 0) == -1)
+            {
+                LOG_ERROR << errno << ": waitpid after post-exec script execv failed.";
+                return -1;
+            }
             // If the script returns a code 0 or 3 to 125 we consider it a successful execition.
             // If the script returns code 0, we consider script lifetime is over and delete the file. Otherwise we retain the file.
             const int exit_code = WEXITSTATUS(status);
