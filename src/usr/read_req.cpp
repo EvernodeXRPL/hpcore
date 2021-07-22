@@ -90,7 +90,7 @@ namespace read_req
                 }
             }
 
-            if (read_req_queue.size_approx() != 0 && read_req_threads.size() <= conf::cfg.user.concurrent_read_reqeuests)
+            if (read_req_queue.size_approx() != 0 && read_req_threads.size() <= conf::cfg.user.concurrent_read_requests)
             {
                 read_req_threads.push_back(std::thread(read_request_processor));
                 if (read_req_queue.size_approx() == 1)

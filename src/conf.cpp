@@ -465,7 +465,7 @@ namespace conf
                 cfg.user.max_bytes_per_msg = user["max_bytes_per_msg"].as<uint64_t>();
                 cfg.user.max_bytes_per_min = user["max_bytes_per_min"].as<uint64_t>();
                 cfg.user.max_bad_msgs_per_min = user["max_bad_msgs_per_min"].as<uint64_t>();
-                cfg.user.concurrent_read_reqeuests = user["concurrent_read_reqeuests"].as<uint64_t>();
+                cfg.user.concurrent_read_requests = user["concurrent_read_requests"].as<uint64_t>();
             }
             catch (const std::exception &e)
             {
@@ -596,7 +596,7 @@ namespace conf
             user_config.insert_or_assign("max_bad_msgs_per_min", cfg.user.max_bad_msgs_per_min);
             user_config.insert_or_assign("max_connections", cfg.user.max_connections);
             user_config.insert_or_assign("max_in_connections_per_host", cfg.user.max_in_connections_per_host);
-            user_config.insert_or_assign("concurrent_read_reqeuests", cfg.user.concurrent_read_reqeuests);
+            user_config.insert_or_assign("concurrent_read_requests", cfg.user.concurrent_read_requests);
             d.insert_or_assign("user", user_config);
         }
 
@@ -665,9 +665,9 @@ namespace conf
         }
 
         // User settings
-        if (cfg.user.concurrent_read_reqeuests > CONCURRENT_READ_REQUEST_MAX_LIMIT)
+        if (cfg.user.concurrent_read_requests > CONCURRENT_READ_REQUEST_MAX_LIMIT)
         {
-            std::cerr << "User concurrent_read_reqeuests cannot exceed " << CONCURRENT_READ_REQUEST_MAX_LIMIT << "\n";
+            std::cerr << "User concurrent_read_requests cannot exceed " << CONCURRENT_READ_REQUEST_MAX_LIMIT << "\n";
             return -1;
         }
 
