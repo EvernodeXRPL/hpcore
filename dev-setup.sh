@@ -64,7 +64,7 @@ cmake ..
 sudo make install
 popd > /dev/null 2>&1
 popd > /dev/null 2>&1
-rm v1.0.3.tar.gz && rm -r readerwriterqueue-1.0.3
+rm v1.0.3.tar.gz && sudo rm -r readerwriterqueue-1.0.3
 
 # Concurrent queue
 wget https://github.com/cameron314/concurrentqueue/archive/1.0.2.tar.gz
@@ -91,6 +91,12 @@ sudo apt-get install -y \
 
 # jq command (needed for remote cluster scripts)
 sudo apt-get install -y jq
+
+# NodeJs
+curl -fsSL https://deb.nodesource.com/setup_14.x | sudo -E bash -
+sudo apt-get install -y nodejs
+# ncc build utility for nodejs compiled builds.
+npm i -g @vercel/ncc
 
 # Update linker library cache.
 sudo ldconfig

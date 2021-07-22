@@ -15,10 +15,6 @@ then
    sudo swapon /swapfile  
 fi
 
-# Getting updates if any
-echo "Checking for updates..."
-sudo apt-get update
-
 if [ -x "$(command -v node)" ]; then
    echo "NodeJs already installed."
 else
@@ -29,14 +25,13 @@ else
    sudo apt-get install -y nodejs
 fi
 
-if [ -x "$(command -v fusermount3)" ]; then
+if [ -x "$(command -v fusermount)" ]; then
    echo "FUSE already installed."
 else
    echo "Installing FUSE and other shared libraries..."
-   sudo apt-get -y install libgomp1 libssl-dev
-   sudo cp $basedir/$hpfiles/bin/{libfuse3.so.3,libblake3.so} /usr/local/lib/
+   sudo apt-get -y install libgomp1 libssl-dev fuse3
+   sudo cp $basedir/$hpfiles/bin/libblake3.so /usr/local/lib/
    sudo ldconfig
-   sudo cp $basedir/$hpfiles/bin/fusermount3 /usr/local/bin/
 fi
 
 if [ -x "$(command -v sqlite3)" ]; then
@@ -59,11 +54,6 @@ if [ -f $basedir/$hpfiles/ssl/tlscert.pem ]; then
 fi
 
 if [ $mode = "new" ] || [ $mode = "reconfig" ]; then
-   # npm install to support nodejs contract
-   pushd $basedir/$hpfiles/nodejs_contract > /dev/null 2>&1
-   npm install
-   popd > /dev/null 2>&1
-
    # Create getpid script (gets process ids belonging to this contract dir)
    echo "pids=\$(pidof \$*) && [ ! -z \"\$pids\" ] && ps -fp \$pids | grep -w $contdir | awk '{print \$2}' | tr '\n' ' '" > $contdir/getpid.sh
    sudo chmod +x $contdir/getpid.sh

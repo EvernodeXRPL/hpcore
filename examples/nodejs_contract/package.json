@@ -1,4 +1,8 @@
 {
+    "scripts": {
+        "build-echo": "ncc build echo_contract.js -o dist/echo-contract",
+        "build-file": "ncc build file_contract.js -o dist/file-contract"
+    },
     "dependencies": {
         "bson": "4.0.4"
     }
