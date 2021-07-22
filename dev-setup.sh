@@ -64,7 +64,7 @@ cmake ..
 sudo make install
 popd > /dev/null 2>&1
 popd > /dev/null 2>&1
-rm v1.0.3.tar.gz && rm -r readerwriterqueue-1.0.3
+rm v1.0.3.tar.gz && sudo rm -r readerwriterqueue-1.0.3
 
 # Concurrent queue
 wget https://github.com/cameron314/concurrentqueue/archive/1.0.2.tar.gz
