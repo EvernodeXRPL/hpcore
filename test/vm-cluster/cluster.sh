@@ -337,12 +337,15 @@ if [ $mode = "new" ] || [ $mode = "updatebin" ]; then
     strip $hpcore/build/hpcore
     strip $hpcore/build/appbill
     cp $hpcore/build/{hpcore,hpfs,hpws} $hpfiles/bin/
-    cp $hpcore/examples/nodejs_contract/{package.json,echo_contract.js,hp-contract-lib.js} \
-        $hpfiles/nodejs_contract/
+    pushd $hpcore/examples/nodejs_contract/ > /dev/null 2>&1
+    npm install
+    npm run build-echo
+    popd > /dev/null 2>&1
+    cp $hpcore/examples/nodejs_contract/dist/echo-contract/index.js $hpfiles/nodejs_contract/
 fi
 
 if [ $mode = "new" ]; then
-    cp ../bin/{libfuse3.so.3,libblake3.so,fusermount3,hpws,hpfs} $hpfiles/bin/
+    cp ../bin/{libblake3.so,hpws,hpfs} $hpfiles/bin/
     cp ./setup-hp.sh $hpfiles/
 fi
 
@@ -438,7 +441,7 @@ if [ $mode = "new" ] || [ $mode = "reconfig" ]; then
 
         # Merge json contents to produce final config.
         echo "$(cat ./cfg/node$n.cfg)" \
-            '{"contract": {"id": "3c349abe-4d70-4f50-9fa6-018f1f2530ab", "bin_path": "/usr/bin/node", "bin_args": "'$basedir'/'$hpfiles'/nodejs_contract/echo_contract.js", "unl": '${myunl}'}}'\
+            '{"contract": {"id": "3c349abe-4d70-4f50-9fa6-018f1f2530ab", "bin_path": "/usr/bin/node", "bin_args": "'$basedir'/'$hpfiles'/nodejs_contract/index.js", "unl": '${myunl}'}}'\
             '{"mesh": {"known_peers": '${mypeers}'}}'\
             $contconfig \
             | jq --slurp 'reduce .[] as $item ({}; . * $item)' > ./cfg/node$n-merged.cfg

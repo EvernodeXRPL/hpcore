@@ -31,16 +31,21 @@ elif [ "$CONTRACT" = "nodefile" ]; then # nodejs file contract (uses BSON protoc
     echo "Using nodejs file contract."
     pushd $hpcore/examples/nodejs_contract/ > /dev/null 2>&1
     npm install
+    npm run build-file
     popd > /dev/null 2>&1
-    copyfiles="$hpcore/examples/nodejs_contract/{node_modules,package.json,hp-contract-lib.js,file_contract.js}"
+    copyfiles="$hpcore/examples/nodejs_contract/dist/file-contract/index.js"
     binary="/usr/bin/node"
-    binargs="file_contract.js"
+    binargs="index.js"
 
 else # nodejs echo contract (default)
     echo "Using nodejs echo contract."
-    copyfiles="$hpcore/examples/nodejs_contract/{package.json,hp-contract-lib.js,echo_contract.js}"
+    pushd $hpcore/examples/nodejs_contract/ > /dev/null 2>&1
+    npm install
+    npm run build-echo
+    popd > /dev/null 2>&1
+    copyfiles="$hpcore/examples/nodejs_contract/dist/echo-contract/index.js"
     binary="/usr/bin/node"
-    binargs="echo_contract.js"
+    binargs="index.js"
 fi
 
 if [ "$loglevel" = "" ]; then

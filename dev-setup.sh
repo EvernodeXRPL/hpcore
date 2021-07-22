@@ -92,6 +92,12 @@ sudo apt-get install -y \
 # jq command (needed for remote cluster scripts)
 sudo apt-get install -y jq
 
+# NodeJs
+curl -fsSL https://deb.nodesource.com/setup_14.x | sudo -E bash -
+sudo apt-get install -y nodejs
+# ncc build utility for nodejs compiled builds.
+npm i -g @vercel/ncc
+
 # Update linker library cache.
 sudo ldconfig
 
