@@ -174,7 +174,7 @@ namespace conf
         uint64_t max_bad_msgs_per_min = 0;        // User bad messages per minute
         uint16_t max_connections = 0;             // Max inbound user connections
         uint16_t max_in_connections_per_host = 0; // Max inbound user connections per remote host (IP).
-        uint64_t concurrent_read_reqeuests = 4;   // Supported concurrent read requests count.
+        uint64_t concurrent_read_requests = 4;    // Supported concurrent read requests count.
     };
 
     struct peer_discovery_config

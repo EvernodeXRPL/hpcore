@@ -51,7 +51,7 @@ namespace msg::usrmsg::bson
         encoder.key(msg::usrmsg::FLD_CONTARCT_EXECUTION_ENABLED);
         encoder.bool_value(conf::cfg.contract.execute);
         encoder.key(msg::usrmsg::FLD_READ_REQUESTS_ENABLED);
-        encoder.bool_value(conf::cfg.user.concurrent_read_reqeuests != 0);
+        encoder.bool_value(conf::cfg.user.concurrent_read_requests != 0);
         encoder.key(msg::usrmsg::FLD_IS_FULL_HISTORY_NODE);
         encoder.bool_value(conf::cfg.node.history == conf::HISTORY::FULL);
 

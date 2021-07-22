@@ -185,7 +185,7 @@ namespace msg::usrmsg::json
         msg += SEP_COMMA_NOQUOTE;
         msg += msg::usrmsg::FLD_READ_REQUESTS_ENABLED;
         msg += SEP_COLON_NOQUOTE;
-        msg += conf::cfg.user.concurrent_read_reqeuests != 0 ? STR_TRUE : STR_FALSE;
+        msg += conf::cfg.user.concurrent_read_requests != 0 ? STR_TRUE : STR_FALSE;
         msg += SEP_COMMA_NOQUOTE;
         msg += msg::usrmsg::FLD_IS_FULL_HISTORY_NODE;
         msg += SEP_COLON_NOQUOTE;
