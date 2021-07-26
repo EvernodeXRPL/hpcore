@@ -155,7 +155,8 @@ int main(int argc, char **argv)
     if (conf::ctx.command == "version")
     {
         // Print the version
-        std::cout << "HotPocket " << version::HP_VERSION << " (ledger version " << version::LEDGER_VERSION << ")" << std::endl;
+        std::cout << version::HP_VERSION << " \nLedger version: " << version::LEDGER_VERSION << "\n";
+        return 0;
     }
     else
     {
