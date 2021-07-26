@@ -3,6 +3,8 @@
 
 hpcoredir=$(realpath ../..)
 img=hotpocketdev/hotpocket
+basefile="Dockerfile.ubt.20.04"
+njsfile="Dockerfile.ubt.20.04-njs"
 
 # Prepare build context
 tmp=$(mktemp -d)
@@ -14,7 +16,7 @@ hpversion=$($tmp/hpcore version | head -n 1)
 imgversion=$(echo "${hpversion%.*}")
 
 # Ubuntu base image
-docker build -t $img:$imgversion-ubt.20.04 -f ./Dockerfile.ubt.20.04 $tmp/
+docker build -t $img:$imgversion-ubt.20.04 -f ./$basefile $tmp/
 rm -r $tmp/*
 
 # NodeJs image
@@ -22,6 +24,8 @@ rm -r $tmp/*
 curl -fsSL -o $tmp/nodejs.tar.xz https://nodejs.org/dist/v14.17.3/node-v14.17.3-linux-x64.tar.xz
 tar -xvJf $tmp/nodejs.tar.xz --strip-components=2 -C $tmp/ node-v14.17.3-linux-x64/bin/node
 rm $tmp/nodejs.tar.xz
-docker build -t $img:$imgversion-ubt.20.04-njs.14 -f ./Dockerfile.ubt.20.04-njs $tmp
+cp ./$njsfile $tmp/
+sed -i "s/%ver%/$imgversion/g" $tmp/$njsfile
+docker build -t $img:$imgversion-ubt.20.04-njs.14 -f $tmp/$njsfile $tmp
 
 rm -r $tmp
