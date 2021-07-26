@@ -1,6 +1,8 @@
 const fs = require('fs');
 const tty = require('tty');
 
+// Hot Pocket contract library version 0.5.0
+
 const MAX_SEQ_PACKET_SIZE = 128 * 1024;
 const controlMessages = {
     contractEnd: "contract_end",

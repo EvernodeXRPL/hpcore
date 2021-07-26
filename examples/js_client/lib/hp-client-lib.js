@@ -1,5 +1,6 @@
 /**
  * Hot Pocket javascript client library (for NodeJs and Browser)
+ * Version 0.5.0
  * NodeJs: const HotPocket = require("./hp-client-lib")
  * Browser: window.HotPocket
  */
