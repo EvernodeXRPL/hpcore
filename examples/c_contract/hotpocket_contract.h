@@ -1,6 +1,8 @@
 #ifndef __HOTPOCKET_CONTRACT_LIB_C__
 #define __HOTPOCKET_CONTRACT_LIB_C__
 
+// Hot Pocket contract library version 0.5.0
+
 #include <stdio.h>
 #include <unistd.h>
 #include <string.h>
