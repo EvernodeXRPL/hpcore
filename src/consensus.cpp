@@ -239,24 +239,29 @@ namespace consensus
      */
     void attempt_ledger_close()
     {
-        std::map<util::h32, uint32_t> hash_votes; // Votes on the proposal hash.
-        util::h32 self_hash = util::h32_empty;
+        std::map<util::h32, uint32_t> hash_votes;              // Votes on the proposal hash.
+        std::map<util::h32, const p2p::proposal> cp_root_hash; // Stores one of proposal to match its root hash.
         util::h32 majority_hash = util::h32_empty;
 
-        // Find the stage 3 proposal that we have made.
-        const auto itr = ctx.candidate_proposals.find(conf::cfg.node.public_key);
-        if (itr == ctx.candidate_proposals.end() || itr->second.stage != 3)
-        {
-            LOG_DEBUG << "We haven't proposed to close any ledger.";
-            return;
-        }
-        const p2p::proposal self_prop = itr->second;
+        int stage3_prop_count = 0; // Keep track of the number of stage 3 proposals received.
 
         // Count votes of all stage 3 proposal hashes.
         for (const auto &[pubkey, cp] : ctx.candidate_proposals)
         {
             if (cp.stage == 3)
+            {
+                stage3_prop_count++;
                 increment(hash_votes, cp.root_hash);
+                if (!cp_root_hash.count(cp.root_hash))
+                    cp_root_hash.try_emplace(cp.root_hash, cp);
+            }
+        }
+        const uint32_t min_votes_required = ceil(MAJORITY_THRESHOLD * unl::count());
+        if (stage3_prop_count < min_votes_required)
+        {
+            // We don't have enough stage 3 proposals to create a ledger.
+            LOG_DEBUG << "Not enough stage 3 proposals to create a ledger. received:" << stage3_prop_count << " needed:" << min_votes_required;
+            return;
         }
 
         // Find the winning hash and no. of votes for it.
@@ -270,25 +275,26 @@ namespace consensus
             }
         }
 
-        const uint32_t min_votes_required = ceil(MAJORITY_THRESHOLD * unl::count());
         if (winning_votes < min_votes_required)
         {
             LOG_INFO << "Cannot close ledger. Possible fork condition. won:" << winning_votes << " needed:" << min_votes_required;
             return;
         }
 
-        if (self_prop.root_hash != majority_hash)
+        const auto itr = cp_root_hash.find(majority_hash);
+        if (itr == cp_root_hash.end())
         {
-            LOG_INFO << "Cannot close ledger. Our proposal:" << self_prop.root_hash << " does not match with majority:" << majority_hash;
+            LOG_ERROR << "No proposal matching the majority hash found.";
             return;
         }
+        const p2p::proposal &majority_prop = itr->second;
 
-        LOG_DEBUG << "Closing ledger with proposal:" << self_prop.root_hash;
+        LOG_DEBUG << "Closing ledger with proposal:" << majority_prop.root_hash;
 
         // Upon successful ledger close condition, update the ledger and execute the contract using the consensus proposal.
         consensed_user_map consensed_users;
-        if (prepare_consensed_users(consensed_users, self_prop) == -1 ||
-            commit_consensus_results(self_prop, consensed_users) == -1)
+        if (prepare_consensed_users(consensed_users, majority_prop) == -1 ||
+            commit_consensus_results(majority_prop, consensed_users) == -1)
         {
             LOG_ERROR << "Error occured when closing ledger";
 
