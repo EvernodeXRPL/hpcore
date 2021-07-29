@@ -287,7 +287,7 @@ namespace consensus
             LOG_ERROR << "No proposal matching the majority hash found.";
             return;
         }
-        const p2p::proposal majority_prop = itr->second;
+        const p2p::proposal &majority_prop = itr->second;
 
         LOG_DEBUG << "Closing ledger with proposal:" << majority_prop.root_hash;
 
