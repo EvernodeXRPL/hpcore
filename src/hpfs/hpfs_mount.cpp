@@ -136,8 +136,6 @@ namespace hpfs
             const std::string ugid_arg = std::string(ugid_specifier);
             const std::string trace_arg = conf::cfg.hpfs.log.log_level;
 
-            std::cout << fs_dir << std::endl;
-
             // Fill process args.
             char *execv_args[] = {
                 conf::ctx.hpfs_exe_path.data(),
