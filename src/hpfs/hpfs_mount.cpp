@@ -133,22 +133,28 @@ namespace hpfs
             // hpfs process.
             util::fork_detach();
 
-            const std::string ugid_arg = "ugid=" + std::string(ugid_specifier);
-            const std::string trace_arg = "trace=" + conf::cfg.hpfs.log.log_level;
+            const std::string ugid_arg = std::string(ugid_specifier);
+            const std::string trace_arg = conf::cfg.hpfs.log.log_level;
 
             // Fill process args.
             char *execv_args[] = {
                 conf::ctx.hpfs_exe_path.data(),
                 (char *)"fs",
+                (char *)("-f"),
                 (char *)fs_dir.data(),
+                (char *)("-m"),
                 (char *)mount_dir.data(),
                 // In full history mode, we disable log merge of hpfs.
-                (char *)(is_full_history ? "merge=false" : "merge=true"),
+                (char *)("-g"),
+                (char *)(is_full_history ? "false" : "true"),
+                (char *)("-u"),
                 (char *)ugid_arg.data(),
+                (char *)("-t"),
                 (char *)trace_arg.data(),
                 NULL};
 
             const int ret = execv(execv_args[0], execv_args);
+
             std::cerr << errno << ": hpfs process execv failed at mount " << mount_dir << ".\n";
             exit(1);
         }
