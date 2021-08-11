@@ -144,13 +144,12 @@ namespace hpfs
                 (char *)fs_dir.data(),
                 (char *)("-m"),
                 (char *)mount_dir.data(),
-                // In full history mode, we disable log merge of hpfs.
-                (char *)("-g"),
-                (char *)(is_full_history ? "false" : "true"),
                 (char *)("-u"),
                 (char *)ugid_arg.data(),
                 (char *)("-t"),
                 (char *)trace_arg.data(),
+                // In full history mode, we disable log merge of hpfs.
+                (char *)(is_full_history ? NULL : "-g"),
                 NULL};
 
             const int ret = execv(execv_args[0], execv_args);
