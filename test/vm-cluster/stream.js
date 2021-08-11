@@ -87,6 +87,7 @@ function eventDispatcher(hostname, path) {
                 obj[cluster] = data.splice(0);
             }
         }
+        // Break the loop if there is no event data remaining.
         if (Object.keys(obj).length == 0)
             break;
 
