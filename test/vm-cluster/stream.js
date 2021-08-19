@@ -2,6 +2,7 @@ const HotPocket = require('../../examples/js_client/lib/hp-client-lib');
 const azure = require('azure-storage');
 const fs = require('fs');
 const https = require('https');
+const fetch = require('node-fetch');
 
 const dispatchInterval = process.env.DISPATCH || 1000;
 const stateUploadInterval = process.env.STATEUPLOAD || 10000;
@@ -264,35 +265,19 @@ async function reportEvent(node, ev) {
 
 function getVultrHosts(group) {
 
-    return new Promise(resolve => {
+    return new Promise(async (resolve) => {
 
         if (!group || group.trim().length == 0)
             resolve([]);
 
-        const req = https.request({
-            hostname: 'api.vultr.com',
-            port: 443,
-            path: `/v2/instances?tag=${group}`,
+        const resp = await fetch(`https://api.vultr.com/v2/instances?tag=${group}`, {
             method: 'GET',
             headers: { "Authorization": `Bearer ${vultrApiKey}` }
-        }, res => {
-            if (res.statusCode >= 200 && res.statusCode < 300)
-                res.on('data', d => {
-                    // Sort vms by label.
-                    const vms = JSON.parse(d).instances;
-                    const ips = vms.sort((a, b) => (a.label < b.label) ? -1 : 1).map(i => i.main_ip);
-                    resolve(ips)
-                });
-            else
-                resolve([]);
-        })
-
-        req.on('error', error => {
-            console.error(error);
-            resolve([]);
-        })
-
-        req.end();
+        });
+        
+        const vms = (await resp.json()).instances;
+        const ips = vms.sort((a, b) => (a.label < b.label) ? -1 : 1).map(i => i.main_ip);
+        resolve(ips);
     })
 }
 
