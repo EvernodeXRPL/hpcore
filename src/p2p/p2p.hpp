@@ -16,11 +16,11 @@ namespace p2p
 {
     constexpr uint16_t PROPOSAL_LIST_CAP = 128;        // Maximum proposal count.
     constexpr uint16_t NONUNL_PROPOSAL_LIST_CAP = 128; // Maximum nonunl proposal count.
-    constexpr uint16_t HPFS_REQ_LIST_CAP = 64;         // Maximum state request count.
-    constexpr uint16_t HPFS_RES_LIST_CAP = 64;         // Maximum state response count.
+    constexpr uint16_t HPFS_REQ_LIST_CAP = 255;        // Maximum state request count.
+    constexpr uint16_t HPFS_RES_LIST_CAP = 255;        // Maximum state response count.
     constexpr uint16_t PEER_LIST_CAP = 128;            // Maximum peer count.
-    constexpr uint16_t LOG_RECORD_REQ_LIST_CAP = 64;   // Maximum log record request count.
-    constexpr uint16_t LOG_RECORD_RES_LIST_CAP = 64;   // Maximum log record response count.
+    constexpr uint16_t LOG_RECORD_REQ_LIST_CAP = 255;  // Maximum log record request count.
+    constexpr uint16_t LOG_RECORD_RES_LIST_CAP = 255;  // Maximum log record response count.
 
     // Struct to represent information about a peer.
     // Initially available capacity is set to -1 and timestamp is set to 0.
@@ -37,7 +37,7 @@ namespace p2p
     {
         std::string pubkey;
         util::h32 root_hash; // The proposal root hash (hash of all the proposal consensus fields). Only populated for incoming proposals.
-        bool from_self;        // Whether the proposal was sent by this node itself. Only populated for incoming proposals.
+        bool from_self;      // Whether the proposal was sent by this node itself. Only populated for incoming proposals.
 
         uint64_t sent_timestamp = 0; // The timestamp of the sender when this proposal was sent.
         uint64_t recv_timestamp = 0; // The timestamp when we received the proposal. (used for network statistics)
