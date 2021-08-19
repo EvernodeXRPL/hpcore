@@ -12,8 +12,8 @@
  */
 namespace read_req
 {
-    constexpr uint16_t LOOP_WAIT = 100;     // Milliseconds.
-    constexpr uint16_t MAX_QUEUE_SIZE = 64; // Maximum read request queue size, The size passed is rounded up to the next multiple of the block size (32).
+    constexpr uint16_t LOOP_WAIT = 100;      // Milliseconds.
+    constexpr uint16_t MAX_QUEUE_SIZE = 254; // Maximum read request queue size, The size passed is rounded up to the next multiple of the block size (32).
 
     bool is_shutting_down = false;
     bool init_success = false;
@@ -229,7 +229,8 @@ namespace read_req
     */
     void remove_thread(const pthread_t id)
     {
-        const auto iter = std::find_if(read_req_threads.begin(), read_req_threads.end(), [=](std::thread &t) { return (t.native_handle() == id); });
+        const auto iter = std::find_if(read_req_threads.begin(), read_req_threads.end(), [=](std::thread &t)
+                                       { return (t.native_handle() == id); });
         if (iter != read_req_threads.end())
         {
             iter->join();
