@@ -3,6 +3,7 @@
         "azure-storage": "2.10.4",
         "blake3": "2.1.4",
         "libsodium-wrappers": "0.7.6",
-        "ws": "7.1.2"
+        "ws": "7.1.2",
+        "node-fetch": "2.6.1"
     }
 }
