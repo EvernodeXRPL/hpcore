@@ -121,9 +121,15 @@ namespace p2p
         // Update global known remote count when new connections are made.
         known_remote_count = known_remotes.size();
 
-        std::scoped_lock<std::mutex> lock(req_known_remotes_mutex);
+        // We copy the required known peer list to a local list within a mutex.
+        // This avoids the need for a long-lived mutex lock while all connections are attempted.
+        std::vector<peer_properties> peer_check_list;
+        {
+            std::scoped_lock<std::mutex> lock(req_known_remotes_mutex);
+            peer_check_list = req_known_remotes;
+        }
 
-        for (const auto &peer : req_known_remotes)
+        for (const auto &peer : peer_check_list)
         {
             if (is_shutting_down)
                 break;
