@@ -1,6 +1,6 @@
 {
     "scripts": {
-        "merge-browser": "rm -r dist ; mkdir -p dist && cp lib/bson-browser.js dist/hp-client-lib.js && cat lib/hp-client-lib.js >> dist/hp-client-lib.js",
+        "merge-browser": "rm -f -r dist ; mkdir -p dist && cp lib/bson-browser.js dist/hp-client-lib.js && cat lib/hp-client-lib.js >> dist/hp-client-lib.js",
         "minify-browser": "terser --compress --mangle reserved=['Binary','Buffer'] -- dist/hp-client-lib.js > dist/hp-client-lib.min.js && rm dist/hp-client-lib.js",
         "build-browser": "npm run merge-browser && npm run minify-browser",
         "build-nodejs": "ncc build lib/hp-client-lib.js -o dist/hp-client"

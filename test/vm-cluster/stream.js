@@ -8,7 +8,7 @@ const dispatchInterval = process.env.DISPATCH || 1000;
 const stateUploadInterval = process.env.STATEUPLOAD || 10000;
 const metricsTrackInterval = process.env.METRICSTRACK || 10000;
 const backoffDelayMax = process.env.BACKOFFMAX || 60000;
-const eventsBatchSize = process.env.EVENTBATCH || 10;
+const eventsBatchSize = process.env.EVENTBATCH || 20;
 const stateBatchSize = process.env.STATEBATCH || 20;
 
 let keys = null;
@@ -274,7 +274,7 @@ function getVultrHosts(group) {
             method: 'GET',
             headers: { "Authorization": `Bearer ${vultrApiKey}` }
         });
-        
+
         const vms = (await resp.json()).instances;
         const ips = vms.sort((a, b) => (a.label < b.label) ? -1 : 1).map(i => i.main_ip);
         resolve(ips);
