@@ -1,6 +1,6 @@
 const HotPocket = require('../../examples/js_client/lib/hp-client-lib');
 const azure = require('azure-storage');
-const fs = require('fs');
+const fs = require('fs').promises;
 const https = require('https');
 const fetch = require('node-fetch');
 
@@ -27,7 +27,7 @@ async function main() {
     console.log('My public key is: ' + pkhex);
 
     // Load cluster config.
-    const config = JSON.parse(fs.readFileSync("config.json"));
+    const config = JSON.parse(await fs.readFile("config.json"));
     vultrApiKey = config.vultr.api_key;
 
     // Create Azure table service.
@@ -248,6 +248,7 @@ async function reportEvent(node, ev) {
     }
     else if (ev.event == 'sync_status') {
         node.status = ev.inSync ? 'in_sync' : 'desync';
+        fs.appendFile("syncops.txt", `${ts}, Node${node.idx}, ${node.uri}, ${node.status}`);
     }
     else if (ev.event == 'online') {
         node.status = 'online';
