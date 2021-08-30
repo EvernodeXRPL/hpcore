@@ -248,7 +248,7 @@ async function reportEvent(node, ev) {
     }
     else if (ev.event == 'sync_status') {
         node.status = ev.inSync ? 'in_sync' : 'desync';
-        fs.appendFile("syncops.txt", `${ts}, Node${node.idx}, ${node.uri}, ${node.status}`);
+        await fs.appendFile("syncops.txt", `${new Date(ts).toUTCString()}, Node${node.idx}, ${node.uri}, ${node.status}, at ${node.lastLedger.seqNo}\n`);
     }
     else if (ev.event == 'online') {
         node.status = 'online';
