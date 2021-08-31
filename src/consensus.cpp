@@ -119,7 +119,7 @@ namespace consensus
         revise_candidate_proposals(ctx.vote_status == VOTES_SYNCED);
 
         // Attempt to close the ledger after scanning last round stage 3 proposals.
-        if (ctx.stage == 0)
+        if (ctx.stage == 0 && ctx.vote_status == VOTES_SYNCED)
             attempt_ledger_close();
 
         // Get current lcl, state, patch, primary shard and raw shard info.
