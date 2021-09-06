@@ -21,6 +21,8 @@ namespace status
     std::shared_mutex peers_mutex;
     std::set<conf::peer_ip_port> peers; // Known ip:port pairs for connection verified peers.
 
+    std::atomic<bool> weakly_connected = false;
+
     //----- Ledger status
 
     void init_ledger(const util::sequence_hash &ledger_id, const ledger::ledger_record &ledger)
@@ -99,6 +101,22 @@ namespace status
     {
         std::unique_lock lock(peers_mutex);
         return peers;
+    }
+
+    const size_t get_peers_count()
+    {
+        std::unique_lock lock(peers_mutex);
+        return peers.size();
+    }
+
+    void set_weakly_connected(const bool is_weakly_connected)
+    {
+        weakly_connected = is_weakly_connected;
+    }
+
+    const bool get_weakly_connected()
+    {
+        return weakly_connected.load();
     }
 
 } // namespace status

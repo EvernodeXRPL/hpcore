@@ -41,6 +41,9 @@ namespace status
 
     void set_peers(const std::set<conf::peer_ip_port> &updated_peers);
     const std::set<conf::peer_ip_port> get_peers();
+    const size_t get_peers_count();
+    void set_weakly_connected(const bool is_weakly_connected);
+    const bool get_weakly_connected();
 
 } // namespace status
 
