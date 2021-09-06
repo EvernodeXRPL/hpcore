@@ -609,6 +609,24 @@ namespace usr
                     }
                 }
             }
+            else if (ev.index() == 3) // Health events. Broadcast for subscribed users.
+            {
+                std::scoped_lock<std::mutex> lock(ctx.users_mutex);
+                for (auto &[sid, user] : ctx.users)
+                {
+                    if (user.subscriptions[NOTIFICATION_CHANNEL::HEALTH_STAT])
+                    {
+                        std::vector<uint8_t> &msg = protocol_msgs[user.protocol];
+                        if (msg.empty()) // Construct the message with relevant protocol if not done so already.
+                        {
+                            msg::usrmsg::usrmsg_parser parser(user.protocol);
+                            const status::health_event &health_ev = std::get<status::health_event>(ev);
+                            parser.create_health_notification(msg, health_ev);
+                        }
+                        user.session.send(msg);
+                    }
+                }
+            }
         }
     }
 

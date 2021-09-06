@@ -316,6 +316,59 @@ namespace msg::usrmsg::bson
     }
 
     /**
+     * Constructs health stat message.
+     * @param msg Buffer to construct the generated bson message into.
+     *            Message format:
+     *            {
+     *              "type": "health_event",
+     *              "proposals": {
+     *                "comm_latency": {min:0, max:0, avg:0},
+     *                "read_latency": {min:0, max:0, avg:0}
+     *                "batch_size": 0
+     *              },
+     *              "peer_count": 0,
+     *              "weakly_connected": true | false
+     *            }
+     * @param ev Current health information.
+     */
+    void create_health_notification(std::vector<uint8_t> &msg, const status::health_event &ev)
+    {
+        jsoncons::bson::bson_bytes_encoder encoder(msg);
+        encoder.begin_object();
+        encoder.key(msg::usrmsg::FLD_TYPE);
+        encoder.string_value(msg::usrmsg::MSGTYPE_HEALTH_EVENT);
+        encoder.key(msg::usrmsg::FLD_PROPOSALS);
+        encoder.begin_object();
+        encoder.key(msg::usrmsg::FLD_COMM_LATENCY);
+        encoder.begin_object();
+        encoder.key(msg::usrmsg::FLD_MIN);
+        encoder.uint64_value(ev.phealth.comm_latency_min);
+        encoder.key(msg::usrmsg::FLD_MAX);
+        encoder.uint64_value(ev.phealth.comm_latency_max);
+        encoder.key(msg::usrmsg::FLD_AVG);
+        encoder.uint64_value(ev.phealth.comm_latency_avg);
+        encoder.end_object();
+        encoder.key(msg::usrmsg::FLD_READ_LATENCY);
+        encoder.begin_object();
+        encoder.key(msg::usrmsg::FLD_MIN);
+        encoder.uint64_value(ev.phealth.read_latency_min);
+        encoder.key(msg::usrmsg::FLD_MAX);
+        encoder.uint64_value(ev.phealth.read_latency_max);
+        encoder.key(msg::usrmsg::FLD_AVG);
+        encoder.uint64_value(ev.phealth.read_latency_avg);
+        encoder.end_object();
+        encoder.key(msg::usrmsg::FLD_BATCH_SIZE);
+        encoder.uint64_value(ev.phealth.batch_size);
+        encoder.end_object();
+        encoder.key(msg::usrmsg::FLD_PEER_COUNT);
+        encoder.uint64_value(ev.peer_count);
+        encoder.key(msg::usrmsg::FLD_WEAKLY_CONNECTED);
+        encoder.bool_value(ev.is_weakly_connected);
+        encoder.end_object();
+        encoder.flush();
+    }
+
+    /**
      * Constructs a ledger query response.
      * @param msg Buffer to construct the generated bson message string into.
      *            Message format:
@@ -532,6 +585,10 @@ namespace msg::usrmsg::bson
         else if (d[msg::usrmsg::FLD_CHANNEL] == msg::usrmsg::MSGTYPE_UNL_CHANGE)
         {
             channel = usr::NOTIFICATION_CHANNEL::UNL_CHANGE;
+        }
+        else if (d[msg::usrmsg::FLD_CHANNEL] == msg::usrmsg::MSGTYPE_HEALTH_EVENT)
+        {
+            channel = usr::NOTIFICATION_CHANNEL::HEALTH_STAT;
         }
         else
         {

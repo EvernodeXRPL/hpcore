@@ -36,7 +36,7 @@ namespace usr
         size_t collected_input_size = 0;
 
         // User's notification subscription toggles.
-        bool subscriptions[2];
+        bool subscriptions[3];
 
         // Holds the websocket session of this user.
         // We don't need to own the session object since the lifetime of user and session are coupled.
@@ -55,6 +55,7 @@ namespace usr
             // Default subscriptions.
             subscriptions[NOTIFICATION_CHANNEL::UNL_CHANGE] = false;
             subscriptions[NOTIFICATION_CHANNEL::LEDGER_EVENT] = false;
+            subscriptions[NOTIFICATION_CHANNEL::HEALTH_STAT] = false;
         }
     };
 

@@ -2,6 +2,7 @@
 #include "util/sequence_hash.hpp"
 #include "ledger/ledger_common.hpp"
 #include "conf.hpp"
+#include "p2p/p2p.hpp"
 
 namespace status
 {
@@ -20,8 +21,11 @@ namespace status
 
     std::shared_mutex peers_mutex;
     std::set<conf::peer_ip_port> peers; // Known ip:port pairs for connection verified peers.
+    std::atomic<size_t> peers_count = 0;
 
     std::atomic<bool> weakly_connected = false;
+
+    proposal_health phealth = {};
 
     //----- Ledger status
 
@@ -95,6 +99,7 @@ namespace status
     {
         std::unique_lock lock(peers_mutex);
         peers = std::move(updated_peers);
+        peers_count = peers.size();
     }
 
     const std::set<conf::peer_ip_port> get_peers()
@@ -105,8 +110,7 @@ namespace status
 
     const size_t get_peers_count()
     {
-        std::unique_lock lock(peers_mutex);
-        return peers.size();
+        return peers_count.load();
     }
 
     void set_weakly_connected(const bool is_weakly_connected)
@@ -117,6 +121,55 @@ namespace status
     const bool get_weakly_connected()
     {
         return weakly_connected.load();
+    }
+
+    //----- Node health
+
+    void report_proposal_batch(const std::list<p2p::proposal> &proposals)
+    {
+        phealth.comm_latency_min = UINT64_MAX;
+        phealth.comm_latency_max = 0;
+        phealth.comm_latency_avg = 0;
+        phealth.read_latency_min = UINT64_MAX;
+        phealth.read_latency_max = 0;
+        phealth.read_latency_avg = 0;
+        phealth.batch_size = proposals.size();
+
+        if (phealth.batch_size == 0)
+            return;
+
+        const uint64_t now = util::get_epoch_milliseconds();
+        uint64_t total_comm_latency = 0;
+        uint64_t total_read_latency = 0;
+
+        for (const p2p::proposal &p : proposals)
+        {
+            const uint64_t comm_latency = (p.sent_timestamp < p.recv_timestamp) ? (p.recv_timestamp - p.sent_timestamp) : 0;
+            const uint64_t read_latency = now - p.recv_timestamp;
+
+            total_comm_latency += comm_latency;
+            total_read_latency += read_latency;
+
+            if (comm_latency < phealth.comm_latency_min)
+                phealth.comm_latency_min = comm_latency;
+
+            if (comm_latency > phealth.comm_latency_max)
+                phealth.comm_latency_max = comm_latency;
+
+            if (read_latency < phealth.read_latency_min)
+                phealth.read_latency_min = read_latency;
+
+            if (read_latency > phealth.read_latency_max)
+                phealth.read_latency_max = read_latency;
+        }
+
+        phealth.comm_latency_avg = total_comm_latency / phealth.batch_size;
+        phealth.read_latency_avg = total_read_latency / phealth.batch_size;
+    }
+
+    void emit_health_stats()
+    {
+        event_queue.try_enqueue(health_event{phealth, peers_count.load(), weakly_connected.load()});
     }
 
 } // namespace status

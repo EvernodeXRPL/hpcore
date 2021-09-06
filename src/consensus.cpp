@@ -18,7 +18,6 @@
 #include "consensus.hpp"
 #include "sc/hpfs_log_sync.hpp"
 #include "status.hpp"
-#include "health.hpp"
 #include "killswitch/killswitch.h"
 
 namespace p2pmsg = msg::fbuf::p2pmsg;
@@ -94,7 +93,7 @@ namespace consensus
             }
 
             if (ctx.stage == 0)
-                health::emit_health_stats();
+                status::emit_health_stats();
 
             if (consensus() == -1)
             {
@@ -464,7 +463,7 @@ namespace consensus
             collected_proposals.splice(collected_proposals.end(), p2p::ctx.collected_msgs.proposals);
         }
 
-        health::report_proposal_batch(collected_proposals);
+        status::report_proposal_batch(collected_proposals);
 
         // Prune incoming proposals if they are older than existing proposal from same node.
         {

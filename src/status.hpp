@@ -5,9 +5,21 @@
 #include "util/sequence_hash.hpp"
 #include "ledger/ledger_common.hpp"
 #include "conf.hpp"
+#include "p2p/p2p.hpp"
 
 namespace status
 {
+    struct proposal_health
+    {
+        uint64_t comm_latency_min = 0;
+        uint64_t comm_latency_max = 0;
+        uint64_t comm_latency_avg = 0;
+        uint64_t read_latency_min = 0;
+        uint64_t read_latency_max = 0;
+        uint64_t read_latency_avg = 0;
+        uint64_t batch_size = 0;
+    };
+
     struct unl_change_event
     {
         std::set<std::string> unl;
@@ -23,8 +35,15 @@ namespace status
         bool in_sync = false;
     };
 
+    struct health_event
+    {
+        proposal_health phealth;
+        size_t peer_count = 0;
+        bool is_weakly_connected = false;
+    };
+
     // Represents any kind of change that has happened in the node.
-    typedef std::variant<unl_change_event, ledger_created_event, sync_status_change_event> change_event;
+    typedef std::variant<unl_change_event, ledger_created_event, sync_status_change_event, health_event> change_event;
 
     extern moodycamel::ConcurrentQueue<change_event> event_queue;
 
@@ -44,6 +63,9 @@ namespace status
     const size_t get_peers_count();
     void set_weakly_connected(const bool is_weakly_connected);
     const bool get_weakly_connected();
+
+    void report_proposal_batch(const std::list<p2p::proposal> &proposals);
+    void emit_health_stats();
 
 } // namespace status
 

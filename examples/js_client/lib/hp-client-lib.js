@@ -52,14 +52,16 @@
         contractReadResponse: "contract_read_response",
         connectionChange: "connection_change",
         unlChange: "unl_change",
-        ledgerEvent: "ledger_event"
+        ledgerEvent: "ledger_event",
+        healthEvent: "health_event"
     }
     Object.freeze(events);
 
     /*--- Included in public interface. ---*/
     const notificationChannels = {
         unlChange: "unl_change",
-        ledgerEvent: "ledger_event"
+        ledgerEvent: "ledger_event",
+        healthEvent: "health_event"
     }
     Object.freeze(notificationChannels);
 
@@ -181,6 +183,7 @@
         // Subscribe for unl changes if we have to maintain the trusted server key checks.
         subscriptions[notificationChannels.unlChange] = trustedKeysLookup ? true : false;
         subscriptions[notificationChannels.ledgerEvent] = false;
+        subscriptions[notificationChannels.healthEvent] = false;
 
         let status = 0; //0:none, 1:connected, 2:closed
 
@@ -691,6 +694,10 @@
                     ev.inSync = m.in_sync;
                 emitter.emit(events.ledgerEvent, ev);
             }
+            else if (m.type == "health_event") {
+                const ev = msgHelper.deserializeHealthEvent(m);
+                emitter.emit(events.healthEvent, ev);
+            }
             else if (m.type == "ledger_query_result") {
                 const resolver = ledgerQueryResolvers[m.reply_for];
                 if (resolver) {
@@ -1140,6 +1147,18 @@
                 userHash: this.deserializeValue(l.user_hash),
                 inputHash: this.deserializeValue(l.input_hash),
                 outputHash: this.deserializeValue(l.output_hash)
+            }
+        }
+
+        this.deserializeHealthEvent = (m) => {
+            return {
+                proposals: {
+                    commLatency: m.proposals.comm_latency,
+                    readLatency: m.proposals.read_latency,
+                    batchSize: m.proposals.batch_size
+                },
+                peerCount: m.peer_count,
+                weaklyConnected: m.weakly_connected
             }
         }
     }

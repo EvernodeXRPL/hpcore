@@ -547,6 +547,85 @@ namespace msg::usrmsg::json
     }
 
     /**
+     * Constructs health stat message.
+     * @param msg Buffer to construct the generated json message string into.
+     *            Message format:
+     *            {
+     *              "type": "health_event",
+     *              "proposals": {
+     *                "comm_latency": {min:0, max:0, avg:0},
+     *                "read_latency": {min:0, max:0, avg:0}
+     *                "batch_size": 0
+     *              },
+     *              "peer_count": 0,
+     *              "weakly_connected": true | false
+     *            }
+     * @param ev Current health information.
+     */
+    void create_health_notification(std::vector<uint8_t> &msg, const status::health_event &ev)
+    {
+        msg.reserve(128);
+        msg += "{\"";
+        msg += msg::usrmsg::FLD_TYPE;
+        msg += SEP_COLON;
+        msg += msg::usrmsg::MSGTYPE_HEALTH_EVENT;
+        msg += SEP_COMMA;
+        msg += msg::usrmsg::FLD_PROPOSALS;
+        msg += SEP_COLON_NOQUOTE;
+        msg += "{\"";
+
+        msg += msg::usrmsg::FLD_COMM_LATENCY;
+        msg += SEP_COLON_NOQUOTE;
+        msg += "{\"";
+        msg += msg::usrmsg::FLD_MIN;
+        msg += SEP_COLON_NOQUOTE;
+        msg += std::to_string(ev.phealth.comm_latency_min);
+        msg += SEP_COMMA_NOQUOTE;
+        msg += msg::usrmsg::FLD_MAX;
+        msg += SEP_COLON_NOQUOTE;
+        msg += std::to_string(ev.phealth.comm_latency_max);
+        msg += SEP_COMMA_NOQUOTE;
+        msg += msg::usrmsg::FLD_AVG;
+        msg += SEP_COLON_NOQUOTE;
+        msg += std::to_string(ev.phealth.comm_latency_avg);
+        msg += "}";
+
+        msg += SEP_COMMA_NOQUOTE;
+        msg += msg::usrmsg::FLD_READ_LATENCY;
+        msg += SEP_COLON_NOQUOTE;
+        msg += "{\"";
+        msg += msg::usrmsg::FLD_MIN;
+        msg += SEP_COLON_NOQUOTE;
+        msg += std::to_string(ev.phealth.read_latency_min);
+        msg += SEP_COMMA_NOQUOTE;
+        msg += msg::usrmsg::FLD_MAX;
+        msg += SEP_COLON_NOQUOTE;
+        msg += std::to_string(ev.phealth.read_latency_max);
+        msg += SEP_COMMA_NOQUOTE;
+        msg += msg::usrmsg::FLD_AVG;
+        msg += SEP_COLON_NOQUOTE;
+        msg += std::to_string(ev.phealth.read_latency_avg);
+        msg += "}";
+
+        msg += SEP_COMMA_NOQUOTE;
+        msg += msg::usrmsg::FLD_BATCH_SIZE;
+        msg += SEP_COLON_NOQUOTE;
+        msg += std::to_string(ev.phealth.batch_size);
+
+        msg += "}";
+
+        msg += SEP_COMMA_NOQUOTE;
+        msg += msg::usrmsg::FLD_PEER_COUNT;
+        msg += SEP_COLON_NOQUOTE;
+        msg += std::to_string(ev.peer_count);
+        msg += SEP_COMMA_NOQUOTE;
+        msg += msg::usrmsg::FLD_WEAKLY_CONNECTED;
+        msg += SEP_COLON_NOQUOTE;
+        msg += ev.is_weakly_connected ? STR_TRUE : STR_FALSE;
+        msg += "}";
+    }
+
+    /**
      * Constructs a ledger query response.
      * @param msg Buffer to construct the generated json message string into.
      *            Message format:
@@ -891,6 +970,10 @@ namespace msg::usrmsg::json
         else if (d[msg::usrmsg::FLD_CHANNEL] == msg::usrmsg::MSGTYPE_UNL_CHANGE)
         {
             channel = usr::NOTIFICATION_CHANNEL::UNL_CHANGE;
+        }
+        else if (d[msg::usrmsg::FLD_CHANNEL] == msg::usrmsg::MSGTYPE_HEALTH_EVENT)
+        {
+            channel = usr::NOTIFICATION_CHANNEL::HEALTH_STAT;
         }
         else
         {
