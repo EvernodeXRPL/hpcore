@@ -54,12 +54,16 @@ async function main() {
 
     // This will get fired when contract sends outputs.
     hpc.on(HotPocket.events.contractOutput, (r) => {
-        r.outputs.forEach(o => console.log(`Output (ledger:${r.ledgerSeqNo})>> ${o}`));
+        r.outputs.forEach(o => {
+            const outputLog = o.length <= 512 ? o : `[Big output (${o.length / 1024} KB)]`;
+            console.log(`Output (ledger:${r.ledgerSeqNo})>> ${outputLog}`);
+        });
     })
 
     // This will get fired when contract sends a read response.
-    hpc.on(HotPocket.events.contractReadResponse, (response) => {
-        console.log("Read response>> " + response);
+    hpc.on(HotPocket.events.contractReadResponse, (o) => {
+        const outputLog = o.length <= 512 ? o : `[Big output (${o.length / 1024} KB)]`;
+        console.log("Read response>> " + outputLog);
     })
 
     // This will get fired when the unl public key list changes.
