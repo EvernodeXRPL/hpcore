@@ -44,7 +44,7 @@ namespace msg::fbuf::p2pmsg
         if (session && session->challenge_status == comm::CHALLENGE_STATUS::CHALLENGE_VERIFIED && message.size() <= MAX_SIZE_FOR_TIME_CHECK)
         {
             const uint64_t time_now = util::get_epoch_milliseconds();
-            if (p2p_msg->created_on() < (time_now - (conf::cfg.contract.roundtime * 4)))
+            if (p2p_msg->created_on() < (time_now - (conf::cfg.contract.roundtime * 3)))
             {
                 LOG_DEBUG << "Peer message is too old. type:" << p2p_msg->content_type() << " from:" << (session ? session->display_name() : "");
                 return p2p::peer_message_info{NULL, P2PMsgContent_NONE, 0};
