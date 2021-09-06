@@ -193,14 +193,17 @@ namespace p2p
         }
     }
     /**
-     * Check whether the node is weakly connected or strongly connected in every 60 seconds.
+     * Check whether the node is weakly connected or strongly connected.
     */
     void peer_comm_server::detect_if_weakly_connected()
     {
-        if (connected_status_check_counter == 600)
+        // If the node is already weakly connected, check every 2 seconds whether we are now strongly connected.
+        // Otherwise check every 60 seconds. This makes it harder to become weakly connected and easier to get out of it.
+        // This can help with unnessary flooding of forwarded messages across the network.
+        if (connected_status_check_counter == (is_weakly_connected ? 20 : 600))
         {
             // Get the count of peers which are unl nodes.
-            // One is added to session list size only if we are a unl node, to reflect the self connection.
+            // One is added to peer count only if we are a unl node, to reflect the self connection.
             const int connected_peer_count = std::count_if(sessions.begin(), sessions.end(), [](const p2p::peer_comm_session &session)
                                                            { return session.is_unl; }) +
                                              (conf::cfg.node.is_unl ? 1 : 0);
@@ -210,7 +213,11 @@ namespace p2p
                 is_weakly_connected = !is_weakly_connected;
                 send_peer_requirement_announcement(is_weakly_connected);
                 status::set_weakly_connected(is_weakly_connected);
-                LOG_DEBUG << "Sent weakly connected announcement.";
+
+                if (is_weakly_connected)
+                    LOG_WARNING << "Became weakly connected.";
+                else
+                    LOG_INFO << "No longer weakly connected.";
             }
             connected_status_check_counter = 0;
         }
