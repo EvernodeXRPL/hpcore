@@ -10,6 +10,7 @@ const metricsTrackInterval = process.env.METRICSTRACK || 10000;
 const backoffDelayMax = process.env.BACKOFFMAX || 60000;
 const eventsBatchSize = process.env.EVENTBATCH || 20;
 const stateBatchSize = process.env.STATEBATCH || 20;
+const synclog = process.env.SYNCLOG || "on";
 
 let keys = null;
 let vultrApiKey = null;
@@ -248,7 +249,9 @@ async function reportEvent(node, ev) {
     }
     else if (ev.event == 'sync_status') {
         node.status = ev.inSync ? 'in_sync' : 'desync';
-        await fs.appendFile("syncops.txt", `${new Date(ts).toUTCString()}, Node${node.idx}, ${node.uri}, ${node.status}, at ${node.lastLedger.seqNo}\n`);
+
+        if (synclog == "on")
+            await fs.appendFile("syncops.log", `${new Date(ts).toUTCString()}, Node${node.idx}, ${node.uri}, ${node.status}, at ${node.lastLedger.seqNo}\n`);
     }
     else if (ev.event == 'online') {
         node.status = 'online';

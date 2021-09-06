@@ -2,3 +2,4 @@ cfg
 config.json
 hpfiles
 node_modules
+*.log
