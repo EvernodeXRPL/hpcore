@@ -93,7 +93,7 @@ namespace consensus
             }
 
             if (ctx.stage == 0)
-                status::emit_health_stats();
+                status::emit_proposal_health();
 
             if (consensus() == -1)
             {

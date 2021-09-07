@@ -337,33 +337,44 @@ namespace msg::usrmsg::bson
         encoder.begin_object();
         encoder.key(msg::usrmsg::FLD_TYPE);
         encoder.string_value(msg::usrmsg::MSGTYPE_HEALTH_EVENT);
-        encoder.key(msg::usrmsg::FLD_PROPOSALS);
-        encoder.begin_object();
-        encoder.key(msg::usrmsg::FLD_COMM_LATENCY);
-        encoder.begin_object();
-        encoder.key(msg::usrmsg::FLD_MIN);
-        encoder.uint64_value(ev.phealth.comm_latency_min);
-        encoder.key(msg::usrmsg::FLD_MAX);
-        encoder.uint64_value(ev.phealth.comm_latency_max);
-        encoder.key(msg::usrmsg::FLD_AVG);
-        encoder.uint64_value(ev.phealth.comm_latency_avg);
-        encoder.end_object();
-        encoder.key(msg::usrmsg::FLD_READ_LATENCY);
-        encoder.begin_object();
-        encoder.key(msg::usrmsg::FLD_MIN);
-        encoder.uint64_value(ev.phealth.read_latency_min);
-        encoder.key(msg::usrmsg::FLD_MAX);
-        encoder.uint64_value(ev.phealth.read_latency_max);
-        encoder.key(msg::usrmsg::FLD_AVG);
-        encoder.uint64_value(ev.phealth.read_latency_avg);
-        encoder.end_object();
-        encoder.key(msg::usrmsg::FLD_BATCH_SIZE);
-        encoder.uint64_value(ev.phealth.batch_size);
-        encoder.end_object();
-        encoder.key(msg::usrmsg::FLD_PEER_COUNT);
-        encoder.uint64_value(ev.peer_count);
-        encoder.key(msg::usrmsg::FLD_WEAKLY_CONNECTED);
-        encoder.bool_value(ev.is_weakly_connected);
+        encoder.key(msg::usrmsg::FLD_EVENT);
+
+        if (ev.index() == 0)
+        {
+            const status::proposal_health &phealth = std::get<status::proposal_health>(ev);
+
+            encoder.string_value(msg::usrmsg::HEALTH_EVENT_PROPOSAL);
+            encoder.key(msg::usrmsg::FLD_COMM_LATENCY);
+            encoder.begin_object();
+            encoder.key(msg::usrmsg::FLD_MIN);
+            encoder.uint64_value(phealth.comm_latency_min);
+            encoder.key(msg::usrmsg::FLD_MAX);
+            encoder.uint64_value(phealth.comm_latency_max);
+            encoder.key(msg::usrmsg::FLD_AVG);
+            encoder.uint64_value(phealth.comm_latency_avg);
+            encoder.end_object();
+            encoder.key(msg::usrmsg::FLD_READ_LATENCY);
+            encoder.begin_object();
+            encoder.key(msg::usrmsg::FLD_MIN);
+            encoder.uint64_value(phealth.read_latency_min);
+            encoder.key(msg::usrmsg::FLD_MAX);
+            encoder.uint64_value(phealth.read_latency_max);
+            encoder.key(msg::usrmsg::FLD_AVG);
+            encoder.uint64_value(phealth.read_latency_avg);
+            encoder.end_object();
+            encoder.key(msg::usrmsg::FLD_BATCH_SIZE);
+            encoder.uint64_value(phealth.batch_size);
+        }
+        else if (ev.index() == 1)
+        {
+            const status::connectivity_health &conn = std::get<status::connectivity_health>(ev);
+            encoder.string_value(msg::usrmsg::HEALTH_EVENT_CONNECTIVITY);
+            encoder.key(msg::usrmsg::FLD_PEER_COUNT);
+            encoder.uint64_value(conn.peer_count);
+            encoder.key(msg::usrmsg::FLD_WEAKLY_CONNECTED);
+            encoder.bool_value(conn.is_weakly_connected);
+        }
+
         encoder.end_object();
         encoder.flush();
     }

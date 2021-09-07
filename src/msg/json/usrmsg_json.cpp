@@ -552,11 +552,14 @@ namespace msg::usrmsg::json
      *            Message format:
      *            {
      *              "type": "health_event",
-     *              "proposals": {
-     *                "comm_latency": {min:0, max:0, avg:0},
-     *                "read_latency": {min:0, max:0, avg:0}
-     *                "batch_size": 0
-     *              },
+     *              "event": "proposal" | "connectivity",
+     * 
+     *              // proposal
+     *              "comm_latency": {min:0, max:0, avg:0},
+     *              "read_latency": {min:0, max:0, avg:0}
+     *              "batch_size": 0
+     * 
+     *              // connectivity
      *              "peer_count": 0,
      *              "weakly_connected": true | false
      *            }
@@ -570,58 +573,67 @@ namespace msg::usrmsg::json
         msg += SEP_COLON;
         msg += msg::usrmsg::MSGTYPE_HEALTH_EVENT;
         msg += SEP_COMMA;
-        msg += msg::usrmsg::FLD_PROPOSALS;
-        msg += SEP_COLON_NOQUOTE;
-        msg += "{\"";
+        msg += msg::usrmsg::FLD_EVENT;
+        msg += SEP_COLON;
 
-        msg += msg::usrmsg::FLD_COMM_LATENCY;
-        msg += SEP_COLON_NOQUOTE;
-        msg += "{\"";
-        msg += msg::usrmsg::FLD_MIN;
-        msg += SEP_COLON_NOQUOTE;
-        msg += std::to_string(ev.phealth.comm_latency_min);
-        msg += SEP_COMMA_NOQUOTE;
-        msg += msg::usrmsg::FLD_MAX;
-        msg += SEP_COLON_NOQUOTE;
-        msg += std::to_string(ev.phealth.comm_latency_max);
-        msg += SEP_COMMA_NOQUOTE;
-        msg += msg::usrmsg::FLD_AVG;
-        msg += SEP_COLON_NOQUOTE;
-        msg += std::to_string(ev.phealth.comm_latency_avg);
-        msg += "}";
+        if (ev.index() == 0)
+        {
+            const status::proposal_health &phealth = std::get<status::proposal_health>(ev);
 
-        msg += SEP_COMMA_NOQUOTE;
-        msg += msg::usrmsg::FLD_READ_LATENCY;
-        msg += SEP_COLON_NOQUOTE;
-        msg += "{\"";
-        msg += msg::usrmsg::FLD_MIN;
-        msg += SEP_COLON_NOQUOTE;
-        msg += std::to_string(ev.phealth.read_latency_min);
-        msg += SEP_COMMA_NOQUOTE;
-        msg += msg::usrmsg::FLD_MAX;
-        msg += SEP_COLON_NOQUOTE;
-        msg += std::to_string(ev.phealth.read_latency_max);
-        msg += SEP_COMMA_NOQUOTE;
-        msg += msg::usrmsg::FLD_AVG;
-        msg += SEP_COLON_NOQUOTE;
-        msg += std::to_string(ev.phealth.read_latency_avg);
-        msg += "}";
+            msg += msg::usrmsg::HEALTH_EVENT_PROPOSAL;
+            msg += SEP_COMMA;
+            msg += msg::usrmsg::FLD_COMM_LATENCY;
+            msg += SEP_COLON_NOQUOTE;
+            msg += "{\"";
+            msg += msg::usrmsg::FLD_MIN;
+            msg += SEP_COLON_NOQUOTE;
+            msg += std::to_string(phealth.comm_latency_min);
+            msg += SEP_COMMA_NOQUOTE;
+            msg += msg::usrmsg::FLD_MAX;
+            msg += SEP_COLON_NOQUOTE;
+            msg += std::to_string(phealth.comm_latency_max);
+            msg += SEP_COMMA_NOQUOTE;
+            msg += msg::usrmsg::FLD_AVG;
+            msg += SEP_COLON_NOQUOTE;
+            msg += std::to_string(phealth.comm_latency_avg);
+            msg += "}";
 
-        msg += SEP_COMMA_NOQUOTE;
-        msg += msg::usrmsg::FLD_BATCH_SIZE;
-        msg += SEP_COLON_NOQUOTE;
-        msg += std::to_string(ev.phealth.batch_size);
+            msg += SEP_COMMA_NOQUOTE;
+            msg += msg::usrmsg::FLD_READ_LATENCY;
+            msg += SEP_COLON_NOQUOTE;
+            msg += "{\"";
+            msg += msg::usrmsg::FLD_MIN;
+            msg += SEP_COLON_NOQUOTE;
+            msg += std::to_string(phealth.read_latency_min);
+            msg += SEP_COMMA_NOQUOTE;
+            msg += msg::usrmsg::FLD_MAX;
+            msg += SEP_COLON_NOQUOTE;
+            msg += std::to_string(phealth.read_latency_max);
+            msg += SEP_COMMA_NOQUOTE;
+            msg += msg::usrmsg::FLD_AVG;
+            msg += SEP_COLON_NOQUOTE;
+            msg += std::to_string(phealth.read_latency_avg);
+            msg += "}";
 
-        msg += "}";
+            msg += SEP_COMMA_NOQUOTE;
+            msg += msg::usrmsg::FLD_BATCH_SIZE;
+            msg += SEP_COLON_NOQUOTE;
+            msg += std::to_string(phealth.batch_size);
+        }
+        else if (ev.index() == 1)
+        {
+            const status::connectivity_health &conn = std::get<status::connectivity_health>(ev);
+            msg += msg::usrmsg::HEALTH_EVENT_CONNECTIVITY;
+            msg += SEP_COMMA;
+            msg += msg::usrmsg::FLD_PEER_COUNT;
+            msg += SEP_COLON_NOQUOTE;
+            msg += std::to_string(conn.peer_count);
+            msg += SEP_COMMA_NOQUOTE;
+            msg += msg::usrmsg::FLD_WEAKLY_CONNECTED;
+            msg += SEP_COLON_NOQUOTE;
+            msg += conn.is_weakly_connected ? STR_TRUE : STR_FALSE;
+        }
 
-        msg += SEP_COMMA_NOQUOTE;
-        msg += msg::usrmsg::FLD_PEER_COUNT;
-        msg += SEP_COLON_NOQUOTE;
-        msg += std::to_string(ev.peer_count);
-        msg += SEP_COMMA_NOQUOTE;
-        msg += msg::usrmsg::FLD_WEAKLY_CONNECTED;
-        msg += SEP_COLON_NOQUOTE;
-        msg += ev.is_weakly_connected ? STR_TRUE : STR_FALSE;
         msg += "}";
     }
 

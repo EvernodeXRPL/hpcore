@@ -21,7 +21,7 @@ namespace status
 
     std::shared_mutex peers_mutex;
     std::set<conf::peer_ip_port> peers; // Known ip:port pairs for connection verified peers.
-    std::atomic<size_t> peers_count = 0;
+    std::atomic<size_t> peer_count = 0;
 
     std::atomic<bool> weakly_connected = false;
 
@@ -99,7 +99,12 @@ namespace status
     {
         std::unique_lock lock(peers_mutex);
         peers = std::move(updated_peers);
-        peers_count = peers.size();
+
+        if (peers.size() != peer_count)
+        {
+            peer_count = peers.size();
+            event_queue.try_enqueue(connectivity_health{peer_count.load(), weakly_connected.load()});
+        }
     }
 
     const std::set<conf::peer_ip_port> get_peers()
@@ -110,12 +115,16 @@ namespace status
 
     const size_t get_peers_count()
     {
-        return peers_count.load();
+        return peer_count.load();
     }
 
     void set_weakly_connected(const bool is_weakly_connected)
     {
-        weakly_connected = is_weakly_connected;
+        if (weakly_connected.load() != is_weakly_connected)
+        {
+            weakly_connected = is_weakly_connected;
+            event_queue.try_enqueue(connectivity_health{peer_count.load(), weakly_connected.load()});
+        }
     }
 
     const bool get_weakly_connected()
@@ -167,9 +176,9 @@ namespace status
         phealth.read_latency_avg = total_read_latency / phealth.batch_size;
     }
 
-    void emit_health_stats()
+    void emit_proposal_health()
     {
-        event_queue.try_enqueue(health_event{phealth, peers_count.load(), weakly_connected.load()});
+        event_queue.try_enqueue(phealth);
     }
 
 } // namespace status

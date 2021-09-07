@@ -1151,14 +1151,20 @@
         }
 
         this.deserializeHealthEvent = (m) => {
-            return {
-                proposals: {
-                    commLatency: m.proposals.comm_latency,
-                    readLatency: m.proposals.read_latency,
-                    batchSize: m.proposals.batch_size
-                },
-                peerCount: m.peer_count,
-                weaklyConnected: m.weakly_connected
+            if (m.event === "proposal") {
+                return {
+                    event: m.event,
+                    commLatency: m.comm_latency,
+                    readLatency: m.read_latency,
+                    batchSize: m.batch_size
+                }
+            }
+            else if (m.event === "connectivity") {
+                return {
+                    event: m.event,
+                    peerCount: m.peer_count,
+                    weaklyConnected: m.weakly_connected
+                }
             }
         }
     }

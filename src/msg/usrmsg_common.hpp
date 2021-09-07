@@ -65,7 +65,6 @@ namespace msg::usrmsg
     constexpr const char *FLD_LEDGER = "ledger";
     constexpr const char *FLD_CHANNEL = "channel";
     constexpr const char *FLD_ENABLED = "enabled";
-    constexpr const char *FLD_PROPOSALS = "proposals";
     constexpr const char *FLD_COMM_LATENCY = "comm_latency";
     constexpr const char *FLD_READ_LATENCY = "read_latency";
     constexpr const char *FLD_BATCH_SIZE = "batch_size";
@@ -113,6 +112,8 @@ namespace msg::usrmsg
     constexpr const char *STR_FALSE = "false";
     constexpr const char *LEDGER_EVENT_LEDGER_CREATED = "ledger_created";
     constexpr const char *LEDGER_EVENT_SYNC_STATUS = "sync_status";
+    constexpr const char *HEALTH_EVENT_PROPOSAL = "proposal";
+    constexpr const char *HEALTH_EVENT_CONNECTIVITY = "connectivity";
 
 } // namespace msg::usrmsg
 
