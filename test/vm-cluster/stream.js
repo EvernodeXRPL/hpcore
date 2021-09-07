@@ -208,12 +208,12 @@ async function establishClientConnection(node) {
             if (ev.event === "proposal") {
                 delete ev.event;
                 const str = JSON.stringify(ev);
-                await fs.appendFile("prop_health.log", `${new Date(ts).toUTCString()}, Node${node.idx}, ${node.uri}, ${node.status}, at ${node.lastLedger.seqNo}, ${str}\n`);
+                await fs.appendFile("prop_health.log", `${new Date(ts).toUTCString()}, Node${node.idx}, ${node.uri}, ${node.status}, ${str}\n`);
             }
             else if (ev.event === "connectivity") {
                 delete ev.event;
                 const str = JSON.stringify(ev);
-                await fs.appendFile("conn_health.log", `${new Date(ts).toUTCString()}, Node${node.idx}, ${node.uri}, ${node.status}, at ${node.lastLedger.seqNo}, ${str}\n`);
+                await fs.appendFile("conn_health.log", `${new Date(ts).toUTCString()}, Node${node.idx}, ${node.uri}, ${node.status}, ${str}\n`);
             }
         });
     }

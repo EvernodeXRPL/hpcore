@@ -77,6 +77,11 @@ async function main() {
         console.log(ev);
     })
 
+    // This will get fired when any health event occurs (proposal stats, connectivity changes...).
+    hpc.on(HotPocket.events.healthEvent, (ev) => {
+        console.log(ev);
+    })
+
     // Establish HotPocket connection.
     if (!await hpc.connect()) {
         console.log('Connection failed.');
@@ -87,6 +92,7 @@ async function main() {
     // After connecting, we can subscribe to events from the HotPocket node.
     // await hpc.subscribe(HotPocket.notificationChannels.unlChange);
     // await hpc.subscribe(HotPocket.notificationChannels.ledgerEvent);
+    // await hpc.subscribe(HotPocket.notificationChannels.healthEvent);
 
     // start listening for stdin
     const rl = readline.createInterface({
@@ -113,6 +119,12 @@ async function main() {
                 else if (inp.startsWith("ledger ")) {
                     hpc.getLedgerBySeqNo(parseInt(inp.substr(7)), true, true)
                         .then(result => console.log(result));
+                }
+                else if (inp.startsWith("health ")) {
+                    if (inp.endsWith("on"))
+                        hpc.subscribe(HotPocket.notificationChannels.healthEvent);
+                    else if (inp.endsWith("off"))
+                        hpc.unsubscribe(HotPocket.notificationChannels.healthEvent);
                 }
                 else {
                     hpc.submitContractInput(inp).then(input => {
