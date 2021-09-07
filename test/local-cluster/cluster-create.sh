@@ -17,6 +17,7 @@ ncount=$1
 loglevel=$2
 roundtime=$3
 hpcore=$(realpath ../..)
+iprange="172.1.1"
 
 # Contract can be set with 'export CONTRACT=<name>'. Defaults to nodejs echo contract.
 if [ "$CONTRACT" = "cecho" ]; then # C echo contract
@@ -95,7 +96,7 @@ do
 
     # During hosting we use docker virtual dns instead of IP address.
     # So each node is reachable via 'node<id>' name.
-    peers[i]="node${n}:${peerport}"
+    peers[i]="$iprange.${n}:${peerport}"
     
     # Update config.
     node_json=$(node -p "JSON.stringify({...require('./tmp.json').node, \
@@ -224,7 +225,8 @@ popd > /dev/null 2>&1
 
 # Create docker virtual network named 'hpnet'
 # All nodes will communicate with each other via this network.
-docker network create --driver bridge hpnet > /dev/null 2>&1
+docker network rm hpnet > /dev/null 2>&1
+docker network create --driver=bridge --subnet=$iprange.0/24 --gateway=$iprange.254 hpnet > /dev/null 2>&1
 
 echo "Cluster generated at ${clusterloc}"
 echo "Use \"./cluster-start.sh <nodeid>\" to run each node."

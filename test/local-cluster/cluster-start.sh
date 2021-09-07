@@ -21,7 +21,7 @@ let peerport=22860+$n
 # Mount the node<id> contract directory into hpcore docker container and run.
 # We specify --network=hpnet so all nodes will communicate via 'hpnet' docker virtual network.
 # We specify --name for each node so it will be the virtual dns name for each node.
-docker run --rm -t -i --network=hpnet --name=node${n} \
+docker run --rm -t -i --network=hpnet --ip=172.1.1.${n} --name=node${n} \
     -p ${pubport}:${pubport} \
     -p ${peerport}:${peerport} \
     --device /dev/fuse --cap-add SYS_ADMIN --security-opt apparmor:unconfined \
