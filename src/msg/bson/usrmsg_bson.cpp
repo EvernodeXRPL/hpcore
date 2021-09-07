@@ -24,6 +24,7 @@ namespace msg::usrmsg::bson
      *              "contract_execution_enabled": true | false,
      *              "read_requests_enabled": true | false,
      *              "is_full_history_node": true | false,
+     *              "weakly_connected": true | false,
      *              "current_unl": [ <ed prefixed pubkey>, ... ],
      *              "peers": [ "ip:port", ... ]
      *            }
@@ -33,6 +34,7 @@ namespace msg::usrmsg::bson
         const util::sequence_hash lcl_id = status::get_lcl_id();
         const std::set<std::string> unl = status::get_unl();
         const bool in_sync = status::is_in_sync();
+        const bool weakly_connected = status::get_weakly_connected();
 
         jsoncons::bson::bson_bytes_encoder encoder(msg);
         encoder.begin_object();
@@ -54,6 +56,8 @@ namespace msg::usrmsg::bson
         encoder.bool_value(conf::cfg.user.concurrent_read_requests != 0);
         encoder.key(msg::usrmsg::FLD_IS_FULL_HISTORY_NODE);
         encoder.bool_value(conf::cfg.node.history == conf::HISTORY::FULL);
+        encoder.key(msg::usrmsg::FLD_WEAKLY_CONNECTED);
+        encoder.bool_value(weakly_connected);
 
         encoder.key(msg::usrmsg::FLD_CURRENT_UNL);
         encoder.begin_array();

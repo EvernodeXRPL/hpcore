@@ -126,6 +126,9 @@ async function main() {
                     else if (inp.endsWith("off"))
                         hpc.unsubscribe(HotPocket.notificationChannels.healthEvent);
                 }
+                else if (inp === "stat") {
+                    hpc.getStatus().then(stat => console.log(stat));
+                }
                 else {
                     hpc.submitContractInput(inp).then(input => {
                         // console.log(input.hash);

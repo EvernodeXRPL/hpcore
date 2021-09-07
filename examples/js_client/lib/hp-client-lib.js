@@ -668,6 +668,7 @@
                         contractExecutionEnabled: m.contract_execution_enabled,
                         readRequestsEnabled: m.read_requests_enabled,
                         isFullHistoryNode: m.is_full_history_node,
+                        weaklyConnected: m.weakly_connected,
                         currentUnl: m.current_unl.map(u => msgHelper.deserializeValue(u)),
                         peers: m.peers
                     });

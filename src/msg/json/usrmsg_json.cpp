@@ -143,6 +143,7 @@ namespace msg::usrmsg::json
      *              "contract_execution_enabled": true | false,
      *              "read_requests_enabled": true | false,
      *              "is_full_history_node": true | false,
+     *              "weakly_connected": true | false,
      *              "current_unl": [ "<ed prefixed pubkey hex>"", ... ],
      *              "peers": [ "ip:port", ... ]
      *            }
@@ -152,6 +153,7 @@ namespace msg::usrmsg::json
         const util::sequence_hash lcl_id = status::get_lcl_id();
         const std::set<std::string> unl = status::get_unl();
         const bool in_sync = status::is_in_sync();
+        const bool weakly_connected = status::get_weakly_connected();
 
         msg.reserve(1024);
         msg += "{\"";
@@ -191,6 +193,11 @@ namespace msg::usrmsg::json
         msg += SEP_COLON_NOQUOTE;
         msg += conf::cfg.node.history == conf::HISTORY::FULL ? STR_TRUE : STR_FALSE;
         msg += SEP_COMMA_NOQUOTE;
+        msg += msg::usrmsg::FLD_WEAKLY_CONNECTED;
+        msg += SEP_COLON_NOQUOTE;
+        msg += weakly_connected ? STR_TRUE : STR_FALSE;
+        msg += SEP_COMMA_NOQUOTE;
+
         msg += msg::usrmsg::FLD_CURRENT_UNL;
         msg += SEP_COLON_NOQUOTE;
         msg += OPEN_SQR_BRACKET;
