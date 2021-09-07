@@ -204,18 +204,22 @@ async function establishClientConnection(node) {
 
     // This will get fired when any diagnostic health event occurs.
     if (healthlog === "on") {
-        hpc.on(HotPocket.events.healthEvent, (ev) => {
+        hpc.on(HotPocket.events.healthEvent, async (ev) => {
+            
+            const now = new Date().toUTCString();
             if (ev.event === "proposal") {
                 delete ev.event;
                 const str = JSON.stringify(ev);
-                await fs.appendFile("prop_health.log", `${new Date(ts).toUTCString()}, Node${node.idx}, ${node.uri}, ${node.status}, ${str}\n`);
+                await fs.appendFile("prop_health.log", `${now}, Node${node.idx}, ${node.uri}, ${node.status}, ${str}\n`);
             }
             else if (ev.event === "connectivity") {
                 delete ev.event;
                 const str = JSON.stringify(ev);
-                await fs.appendFile("conn_health.log", `${new Date(ts).toUTCString()}, Node${node.idx}, ${node.uri}, ${node.status}, ${str}\n`);
+                await fs.appendFile("conn_health.log", `${now}, Node${node.idx}, ${node.uri}, ${node.status}, ${str}\n`);
             }
         });
+
+        await hpc.subscribe(HotPocket.notificationChannels.healthEvent);
     }
 
     // Establish HotPocket connection.
