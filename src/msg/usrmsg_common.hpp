@@ -9,7 +9,7 @@ namespace msg::usrmsg
     constexpr size_t CHALLENGE_LEN = 16;
 
     // Max no. of known peers to return in get status.
-    constexpr const size_t MAX_KNOWN_PEERS_INFO = 16;
+    constexpr const size_t MAX_KNOWN_PEERS_INFO = 100;
 
     // Message field names
     constexpr const char *FLD_HP_VERSION = "hp_version";

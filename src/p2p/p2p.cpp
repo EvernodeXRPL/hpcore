@@ -14,7 +14,7 @@
 namespace p2pmsg = msg::fbuf::p2pmsg;
 
 // Maximum no. of peers that will be persisted back to config upon exit.
-constexpr size_t MAX_PERSISTED_KNOWN_PEERS = 50;
+constexpr size_t MAX_PERSISTED_KNOWN_PEERS = 100;
 
 namespace p2p
 {
