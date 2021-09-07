@@ -10,7 +10,8 @@ const metricsTrackInterval = process.env.METRICSTRACK || 10000;
 const backoffDelayMax = process.env.BACKOFFMAX || 60000;
 const eventsBatchSize = process.env.EVENTBATCH || 20;
 const stateBatchSize = process.env.STATEBATCH || 20;
-const synclog = process.env.SYNCLOG || "on";
+const synclog = process.env.SYNCLOG || "off";
+const healthlog = process.env.HEALTHLOG || "off";
 
 let keys = null;
 let vultrApiKey = null;
@@ -201,6 +202,22 @@ async function establishClientConnection(node) {
         reportEvent(node, ev);
     });
 
+    // This will get fired when any diagnostic health event occurs.
+    if (healthlog === "on") {
+        hpc.on(HotPocket.events.healthEvent, (ev) => {
+            if (ev.event === "proposal") {
+                delete ev.event;
+                const str = JSON.stringify(ev);
+                await fs.appendFile("prop_health.log", `${new Date(ts).toUTCString()}, Node${node.idx}, ${node.uri}, ${node.status}, at ${node.lastLedger.seqNo}, ${str}\n`);
+            }
+            else if (ev.event === "connectivity") {
+                delete ev.event;
+                const str = JSON.stringify(ev);
+                await fs.appendFile("conn_health.log", `${new Date(ts).toUTCString()}, Node${node.idx}, ${node.uri}, ${node.status}, at ${node.lastLedger.seqNo}, ${str}\n`);
+            }
+        });
+    }
+
     // Establish HotPocket connection.
     if (!await hpc.connect()) {
         onConnectionFail(node);
@@ -251,7 +268,7 @@ async function reportEvent(node, ev) {
         node.status = ev.inSync ? 'in_sync' : 'desync';
 
         if (synclog == "on")
-            await fs.appendFile("syncops.log", `${new Date(ts).toUTCString()}, Node${node.idx}, ${node.uri}, ${node.status}, at ${node.lastLedger.seqNo}\n`);
+            await fs.appendFile("sync_ops.log", `${new Date(ts).toUTCString()}, Node${node.idx}, ${node.uri}, ${node.status}, at ${node.lastLedger.seqNo}\n`);
     }
     else if (ev.event == 'online') {
         node.status = 'online';
