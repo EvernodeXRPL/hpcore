@@ -13,6 +13,7 @@
 #include "p2p.hpp"
 #include "../unl.hpp"
 #include "../sc/hpfs_log_sync.hpp"
+#include "../status.hpp"
 
 namespace p2pmsg = msg::fbuf::p2pmsg;
 
@@ -32,7 +33,7 @@ namespace p2p
     int handle_peer_connect(p2p::peer_comm_session &session)
     {
         // Skip new inbound connection if max inbound connection cap is reached.
-        if (session.is_inbound && get_available_capacity() == 0)
+        if (session.is_inbound && calculate_available_capacity() == 0)
         {
             LOG_DEBUG << "Max peer connection cap reached. Rejecting new peer connection [" << session.display_name() << "]";
             return -1;
@@ -148,7 +149,7 @@ namespace p2p
 
         if (mi.type == p2pmsg::P2PMsgContent_PeerListResponseMsg)
         {
-            p2p::merge_peer_list(p2pmsg::create_peer_list_response_from_msg(mi));
+            p2p::merge_peer_list(p2pmsg::create_peer_list_response_from_msg(mi), session);
         }
         else if (mi.type == p2pmsg::P2PMsgContent_PeerListRequestMsg)
         {
@@ -334,9 +335,7 @@ namespace p2p
     void handle_peer_on_verified(p2p::peer_comm_session &session)
     {
         // Sending newly verified node the requirement of consensus msg fowarding if this node is weakly connected.
-        if (p2p::is_weakly_connected)
-        {
-            p2p::send_peer_requirement_announcement(is_weakly_connected, &session);
-        }
+        if (status::get_weakly_connected())
+            p2p::send_peer_requirement_announcement(true, &session);
     }
 } // namespace p2p

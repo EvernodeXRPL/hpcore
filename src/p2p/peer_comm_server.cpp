@@ -11,8 +11,6 @@
 namespace p2p
 {
     constexpr float WEAKLY_CONNECTED_THRESHOLD = 0.7;
-    // Globally exposed weakly connected status variable.
-    bool is_weakly_connected = false;
 
     peer_comm_server::peer_comm_server(const uint16_t port, const uint64_t (&metric_thresholds)[5], const uint64_t max_msg_size,
                                        const uint64_t max_in_connections, const uint64_t max_in_connections_per_host,
@@ -45,21 +43,28 @@ namespace p2p
 
         uint16_t peer_managing_counter = 0;
         uint16_t known_connections_counter = 0;
+        uint16_t available_capacity_counter = 0;
 
         while (!is_shutting_down)
         {
             peer_managing_counter++;
             known_connections_counter++;
+            available_capacity_counter++;
 
-            if (known_connections_counter % 20 == 0)
+            if (known_connections_counter % 40 == 0)
             {
                 maintain_known_connections();
                 known_connections_counter = 0;
             }
 
-            // Send available peer capacity if peer max connections is configured.
-            if (conf::cfg.mesh.max_connections != 0)
-                p2p::send_available_capacity_announcement(p2p::get_available_capacity());
+            if (available_capacity_counter % 300 == 0)
+            {
+                status::set_available_mesh_capacity(p2p::calculate_available_capacity());
+
+                // Send available peer capacity if peer max connections is configured.
+                if (conf::cfg.mesh.max_connections != 0)
+                    p2p::send_available_capacity_announcement(status::get_available_mesh_capacity());
+            }
 
             // Start peer list request loop if dynamic peer discovery is enabled.
             if (conf::cfg.mesh.peer_discovery.enabled)
@@ -200,7 +205,8 @@ namespace p2p
         // If the node is already weakly connected, check every 2 seconds whether we are now strongly connected.
         // Otherwise check every 60 seconds. This makes it harder to become weakly connected and easier to get out of it.
         // This can help with unnessary flooding of forwarded messages across the network.
-        if (connected_status_check_counter == (is_weakly_connected ? 20 : 600))
+        bool weakly_connected = status::get_weakly_connected();
+        if (connected_status_check_counter == (weakly_connected ? 20 : 600))
         {
             // Get the count of peers which are unl nodes.
             // One is added to peer count only if we are a unl node, to reflect the self connection.
@@ -208,13 +214,13 @@ namespace p2p
                                                            { return session.is_unl; }) +
                                              (conf::cfg.node.is_unl ? 1 : 0);
             const bool current_state = connected_peer_count < (unl::count() * WEAKLY_CONNECTED_THRESHOLD);
-            if (is_weakly_connected != current_state)
+            if (weakly_connected != current_state)
             {
-                is_weakly_connected = !is_weakly_connected;
-                send_peer_requirement_announcement(is_weakly_connected);
-                status::set_weakly_connected(is_weakly_connected);
+                weakly_connected = !weakly_connected;
+                send_peer_requirement_announcement(weakly_connected);
+                status::set_weakly_connected(weakly_connected);
 
-                if (is_weakly_connected)
+                if (weakly_connected)
                     LOG_WARNING << "Became weakly connected.";
                 else
                     LOG_INFO << "No longer weakly connected.";

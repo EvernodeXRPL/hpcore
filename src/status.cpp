@@ -22,8 +22,8 @@ namespace status
     std::shared_mutex peers_mutex;
     std::set<conf::peer_ip_port> peers; // Known ip:port pairs for connection verified peers.
     std::atomic<size_t> peer_count = 0;
-
     std::atomic<bool> weakly_connected = false;
+    std::atomic<int16_t> available_mesh_capacity = -1;
 
     proposal_health phealth = {};
 
@@ -130,6 +130,16 @@ namespace status
     const bool get_weakly_connected()
     {
         return weakly_connected.load();
+    }
+
+    void set_available_mesh_capacity(const int16_t new_capacity)
+    {
+        available_mesh_capacity = new_capacity;
+    }
+
+    const int16_t get_available_mesh_capacity()
+    {
+        return available_mesh_capacity.load();
     }
 
     //----- Node health

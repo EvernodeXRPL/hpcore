@@ -64,6 +64,8 @@ namespace status
     const size_t get_peers_count();
     void set_weakly_connected(const bool is_weakly_connected);
     const bool get_weakly_connected();
+    void set_available_mesh_capacity(const int16_t new_capacity);
+    const int16_t get_available_mesh_capacity();
 
     void report_proposal_batch(const std::list<p2p::proposal> &proposals);
     void emit_proposal_health();

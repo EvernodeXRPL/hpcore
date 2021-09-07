@@ -6,9 +6,6 @@
 
 namespace p2p
 {
-    // Globally exposed weakly connected status variable.
-    extern bool is_weakly_connected;
-
     struct peer_properties;
 
     class peer_comm_server : public comm::comm_server<peer_comm_session>
