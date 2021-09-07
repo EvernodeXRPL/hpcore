@@ -22,7 +22,7 @@
         TextDecoder = util.TextDecoder;
     }
 
-    const supportedHpVersion = "0.5.0";
+    const supportedHpVersion = "0.5.";
     const serverChallengeSize = 16;
     const outputValidationPassThreshold = 0.8;
     const connectionCheckIntervalMs = 1000;
@@ -551,8 +551,8 @@
 
             if (connectionStatus == 0 && m.type == "user_challenge" && m.hp_version && m.contract_id) {
 
-                if (m.hp_version != supportedHpVersion) {
-                    liblog(1, `Incompatible Hot Pocket server version. Expected:${supportedHpVersion} Got:${m.hp_version}`);
+                if (!m.hp_version.startsWith(supportedHpVersion)) {
+                    liblog(1, `Incompatible Hot Pocket server version. Expected:${supportedHpVersion}* Got:${m.hp_version}`);
                     return false;
                 }
                 else if (!m.contract_id) {
