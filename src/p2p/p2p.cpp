@@ -470,10 +470,13 @@ namespace p2p
         {
             // If the peer address is indicated as empty, that is the entry for the peer who sent us this.
             // We then fill that up with the host address we see for that peer.
+            // if (peer.ip_port.host_address.empty())
+            // {
+            //     peer.ip_port.host_address = from.host_address;
+            // }
+            // Skip the sender peer entry.
             if (peer.ip_port.host_address.empty())
-            {
-                peer.ip_port.host_address = from.host_address;
-            }
+                continue;
 
             // If the peer is self, we won't add to the known peer list.
             if (self::ip_port.has_value() && self::ip_port == peer.ip_port)
