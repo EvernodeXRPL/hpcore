@@ -62,7 +62,7 @@ namespace p2p
                 p2p::send_available_capacity_announcement(p2p::get_available_capacity());
 
             // Start peer list request loop if dynamic peer discovery is enabled.
-            if (conf::cfg.mesh.peer_discovery.enabled && known_remote_count > 0)
+            if (conf::cfg.mesh.peer_discovery.enabled)
             {
                 // If max known peer connection cap is reached then periodically request peer list from random known peer.
                 // Otherwise frequently request peer list from a random known peer.
