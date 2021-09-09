@@ -92,8 +92,8 @@ namespace consensus
                 break;
             }
 
-            // if (ctx.stage == 0)
-            //     status::emit_proposal_health();
+            if (ctx.stage == 0)
+                status::emit_proposal_health();
 
             if (consensus() == -1)
             {
@@ -463,7 +463,7 @@ namespace consensus
             collected_proposals.splice(collected_proposals.end(), p2p::ctx.collected_msgs.proposals);
         }
 
-        // status::report_proposal_batch(collected_proposals);
+        status::report_proposal_batch(collected_proposals);
 
         // Prune incoming proposals if they are older than existing proposal from same node.
         {

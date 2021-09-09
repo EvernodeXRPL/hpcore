@@ -990,7 +990,8 @@ namespace msg::usrmsg::json
         {
             channel = usr::NOTIFICATION_CHANNEL::UNL_CHANGE;
         }
-        else if (d[msg::usrmsg::FLD_CHANNEL] == msg::usrmsg::MSGTYPE_HEALTH_EVENT)
+        else if (d[msg::usrmsg::FLD_CHANNEL] == msg::usrmsg::MSGTYPE_HEALTH_EVENT &&
+                 (conf::cfg.health.proposal_stats || conf::cfg.health.connectivity_stats))
         {
             channel = usr::NOTIFICATION_CHANNEL::HEALTH_STAT;
         }

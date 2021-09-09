@@ -409,13 +409,13 @@ namespace p2p
      */
     void send_known_peer_list(peer_comm_session *session)
     {
-        std::vector<peer_properties> peers = ctx.server->req_known_remotes;
+        const std::vector<peer_properties> &peers = ctx.server->req_known_remotes;
 
         // Add self to known peer announcement (indicated as blank host address).
-        peers.push_back(peer_properties{
-            conf::peer_ip_port{"", conf::cfg.mesh.port},
-            status::get_available_mesh_capacity(),
-            util::get_epoch_milliseconds()});
+        // peers.push_back(peer_properties{
+        //     conf::peer_ip_port{"", conf::cfg.mesh.port},
+        //     status::get_available_mesh_capacity(),
+        //     util::get_epoch_milliseconds()});
 
         flatbuffers::FlatBufferBuilder fbuf;
         p2pmsg::create_msg_from_peer_list_response(fbuf, peers, session->known_ipport);
@@ -466,7 +466,7 @@ namespace p2p
     {
         std::scoped_lock<std::mutex> lock(ctx.server->req_known_remotes_mutex);
 
-        for (peer_properties peer : peers)
+        for (const peer_properties &peer : peers)
         {
             // If the peer address is indicated as empty, that is the entry for the peer who sent us this.
             // We then fill that up with the host address we see for that peer.
@@ -474,9 +474,6 @@ namespace p2p
             // {
             //     peer.ip_port.host_address = from.host_address;
             // }
-            // Skip the sender peer entry.
-            if (peer.ip_port.host_address.empty())
-                continue;
 
             // If the peer is self, we won't add to the known peer list.
             if (self::ip_port.has_value() && self::ip_port == peer.ip_port)

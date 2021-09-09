@@ -103,7 +103,9 @@ namespace status
         if (peers.size() != peer_count)
         {
             peer_count = peers.size();
-            event_queue.try_enqueue(connectivity_health{peer_count.load(), weakly_connected.load()});
+
+            if (conf::cfg.health.connectivity_stats)
+                event_queue.try_enqueue(connectivity_health{peer_count.load(), weakly_connected.load()});
         }
     }
 
@@ -123,7 +125,9 @@ namespace status
         if (weakly_connected.load() != is_weakly_connected)
         {
             weakly_connected = is_weakly_connected;
-            event_queue.try_enqueue(connectivity_health{peer_count.load(), weakly_connected.load()});
+
+            if (conf::cfg.health.connectivity_stats)
+                event_queue.try_enqueue(connectivity_health{peer_count.load(), weakly_connected.load()});
         }
     }
 
@@ -146,6 +150,9 @@ namespace status
 
     void report_proposal_batch(const std::list<p2p::proposal> &proposals)
     {
+        if (!conf::cfg.health.proposal_stats)
+            return;
+
         phealth.comm_latency_min = UINT64_MAX;
         phealth.comm_latency_max = 0;
         phealth.comm_latency_avg = 0;
@@ -188,6 +195,9 @@ namespace status
 
     void emit_proposal_health()
     {
+        if (!conf::cfg.health.proposal_stats)
+            return;
+
         event_queue.try_enqueue(phealth);
     }
 
