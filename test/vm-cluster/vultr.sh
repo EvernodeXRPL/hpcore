@@ -11,7 +11,7 @@
 planid="vc2-1c-1gb" # $5/month
 osid=387 # Ubuntu 20.04
 # Order of Vultr regions to distribute servers across the globe.
-regions=("nrt" "syd" "fra" "yto" "icn" "cdg" "atl" "sgp" "lhr" "ord" "ams" "nrt" "dfw" "syd" "fra" "lax" "icn" "syd" "cdg" "mia" "sgp" "syd" "lhr" "ewr" "nrt" "syd" "fra" "sea" "icn" "syd" "cdg" "sjc")
+regions=("syd" "yto" "ams" "atl" "cdg" "dfw" "ewr" "fra" "icn" "lax" "lhr" "mia" "nrt" "ord" "sea" "sgp" "sjc")
 
 # jq command is used for json manipulation.
 if ! command -v jq &> /dev/null
