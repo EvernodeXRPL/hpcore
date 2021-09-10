@@ -205,7 +205,7 @@ async function establishClientConnection(node) {
     // This will get fired when any diagnostic health event occurs.
     if (healthlog === "on") {
         hpc.on(HotPocket.events.healthEvent, async (ev) => {
-            
+
             const now = new Date().toUTCString();
             if (ev.event === "proposal") {
                 delete ev.event;
@@ -227,8 +227,12 @@ async function establishClientConnection(node) {
         onConnectionFail(node);
     }
     else {
+
+        const stat = await hpc.getStatus();
+        const lastLedger = await hpc.getLedgerBySeqNo(stat.ledgerSeqNo);
+
         node.failureCount = 0;
-        reportEvent(node, { event: "online" });
+        reportEvent(node, { event: "online", ledger: lastLedger });
         await hpc.subscribe(HotPocket.notificationChannels.ledgerEvent);
     }
 }
@@ -276,6 +280,7 @@ async function reportEvent(node, ev) {
     }
     else if (ev.event == 'online') {
         node.status = 'online';
+        node.lastLedger = ev.ledger;
     }
     else if (ev.event == 'offline') {
         node.status = 'offline';
