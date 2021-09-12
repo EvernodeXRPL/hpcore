@@ -177,7 +177,7 @@ namespace consensus
                 }
 
                 // Update the node's status if we went from in-sync to not-in-sync. We will report back as being in-sync only when ledger is created.
-                if (ctx.vote_status == VOTES_SYNCED && new_sync_status != VOTES_SYNCED)
+                if (new_sync_status == VOTES_DESYNC)
                     status::sync_status_changed(false);
 
                 // This marks entering into a new sync cycle.

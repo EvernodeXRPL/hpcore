@@ -39,7 +39,7 @@ namespace status
     void ledger_created(const util::sequence_hash &ledger_id, const ledger::ledger_record &ledger)
     {
         // If currently not-in-sync, report it as in-sync when a ledger is created.
-        if (in_sync != 1)
+        if (in_sync.load() != 1)
             sync_status_changed(true);
 
         std::unique_lock lock(ledger_mutex);
@@ -50,8 +50,12 @@ namespace status
 
     void sync_status_changed(const bool new_in_sync)
     {
-        in_sync = new_in_sync ? 1 : 0;
-        event_queue.try_enqueue(sync_status_change_event{new_in_sync});
+        const int new_value = new_in_sync ? 1 : 0;
+        if (new_value != in_sync.load())
+        {
+            in_sync = new_value;
+            event_queue.try_enqueue(sync_status_change_event{new_in_sync});
+        }
     }
 
     const util::sequence_hash get_lcl_id()
@@ -62,7 +66,7 @@ namespace status
 
     const bool is_in_sync()
     {
-        return in_sync == 1;
+        return in_sync.load() == 1;
     }
 
     const ledger::ledger_record get_last_ledger()
