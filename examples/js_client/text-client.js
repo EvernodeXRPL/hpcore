@@ -130,6 +130,15 @@ async function main() {
                     hpc.getStatus().then(stat => console.log(stat));
                 }
                 else {
+
+                    if (inp.startsWith("upload ")) {
+                        const size = parseInt(inp.split(" ")[1]);
+                        if (!isNaN(size)) {
+                            inp = "A".repeat(size * 1024 * 1024);
+                            console.log("Uploading " + size + " MB payload...");
+                        }
+                    }
+
                     hpc.submitContractInput(inp).then(input => {
                         // console.log(input.hash);
                         input.submissionStatus.then(s => {

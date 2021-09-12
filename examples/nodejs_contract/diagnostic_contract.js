@@ -3,6 +3,8 @@ const fs = require('fs').promises;
 var seedrandom = require('seedrandom');
 
 const filename = "file.dat";
+const autofilePrefix = "autofile";
+const autofileSize = 1 * 1024 * 1024;
 
 const diagnosticContract = async (ctx) => {
 
@@ -53,6 +55,29 @@ const diagnosticContract = async (ctx) => {
                         }
                     }
                 }
+                else if (mode === "files") {
+                    const param = parseInt(data);
+                    const autofiles = await (await fs.readdir(".")).filter(f => f.startsWith(autofilePrefix));
+
+                    if (isNaN(param)) {
+                        output = autofiles.length + " autofiles found.";
+                    }
+                    else {
+                        if (param == 0) {
+                            for (file of autofiles) {
+                                await fs.unlink(file);
+                            }
+                            output = autofiles.length + " autofiles deleted.";
+                        }
+                        else {
+                            const content = "A".repeat(autofileSize);
+                            for (let i = (autofiles.length + 1); i <= (autofiles.length + param); i++) {
+                                await fs.writeFile(autofilePrefix + i, content);
+                            }
+                            output = param + " new autofiles created. Total: " + (autofiles.length + param);
+                        }
+                    }
+                }
                 else if (mode === "download") {
                     const param = parseFloat(data);
                     if (!isNaN(param)) {
@@ -62,9 +87,12 @@ const diagnosticContract = async (ctx) => {
                 else if (mode === "roundtime") {
                     const param = parseInt(data);
                     if (!isNaN(param)) {
-                        const config = await ctx.getConfig();
-                        config.roundtime = param;
-                        await ctx.updateConfig(config)
+                        if (param >= 100) {
+                            const config = await ctx.getConfig();
+                            config.roundtime = param;
+                            await ctx.updateConfig(config)
+                            output = "Updated Roundtime to " + config.roundtime;
+                        }
                     }
                     else {
                         const config = await ctx.getConfig();
