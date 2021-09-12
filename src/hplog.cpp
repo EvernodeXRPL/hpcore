@@ -43,15 +43,13 @@ namespace hplog
             plog::util::localtime_s(&t, &record.getTime().time); // local time
 
             plog::util::nostringstream ss;
-            ss << t.tm_year + 1900 << std::setfill(PLOG_NSTR('0')) << std::setw(2) << t.tm_mon + 1 << std::setfill(PLOG_NSTR('0')) << std::setw(2) << t.tm_mday << PLOG_NSTR(" ");
-            ss << std::setfill(PLOG_NSTR('0')) << std::setw(2) << t.tm_hour << PLOG_NSTR(":")
-               << std::setfill(PLOG_NSTR('0')) << std::setw(2) << t.tm_min << PLOG_NSTR(":")
-               << std::setfill(PLOG_NSTR('0')) << std::setw(2) << t.tm_sec << PLOG_NSTR(" ");
-            // Uncomment for millseconds.
-            // << std::setfill(PLOG_NSTR('0')) << std::setw(3) << record.getTime().millitm << PLOG_NSTR(" ");
-
-            ss << PLOG_NSTR("[") << severity_to_string(record.getSeverity()) << PLOG_NSTR("][hpc] ");
-            ss << record.getMessage() << PLOG_NSTR("\n");
+            ss << t.tm_year + 1900 << std::setfill(PLOG_NSTR('0')) << std::setw(2) << t.tm_mon + 1 << std::setfill(PLOG_NSTR('0')) << std::setw(2) << t.tm_mday
+               << PLOG_NSTR(" ") << std::setfill(PLOG_NSTR('0')) << std::setw(2) << t.tm_hour
+               << PLOG_NSTR(":") << std::setfill(PLOG_NSTR('0')) << std::setw(2) << t.tm_min
+               << PLOG_NSTR(":") << std::setfill(PLOG_NSTR('0')) << std::setw(2) << t.tm_sec
+               << PLOG_NSTR(".") << std::setfill(PLOG_NSTR('0')) << std::setw(3) << record.getTime().millitm // Uncomment for millseconds.
+               << PLOG_NSTR(" ") << PLOG_NSTR("[") << severity_to_string(record.getSeverity())
+               << PLOG_NSTR("][hpc] ") << record.getMessage() << PLOG_NSTR("\n");
 
             return ss.str();
         }
