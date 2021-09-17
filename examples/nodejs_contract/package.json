@@ -1,9 +1,11 @@
 {
     "scripts": {
         "build-echo": "ncc build echo_contract.js -o dist/echo-contract",
-        "build-file": "ncc build file_contract.js -o dist/file-contract"
+        "build-file": "ncc build file_contract.js -o dist/file-contract",
+        "build-diag": "ncc build diagnostic_contract.js -o dist/diagnostic-contract"
     },
     "dependencies": {
-        "bson": "4.0.4"
+        "bson": "4.0.4",
+        "seedrandom": "3.0.5"
     }
 }

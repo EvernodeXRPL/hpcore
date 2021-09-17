@@ -5,6 +5,7 @@
 #include "../../util/merkle_hash_tree.hpp"
 #include "../../ledger/ledger_query.hpp"
 #include "../../usr/user_common.hpp"
+#include "../../status.hpp"
 
 namespace msg::usrmsg::bson
 {
@@ -27,6 +28,8 @@ namespace msg::usrmsg::bson
     void create_ledger_created_notification(std::vector<uint8_t> &msg, const ledger::ledger_record &ledger);
 
     void create_sync_status_notification(std::vector<uint8_t> &msg, const bool in_sync);
+
+    void create_health_notification(std::vector<uint8_t> &msg, const status::health_event &ev);
 
     void create_ledger_query_response(std::vector<uint8_t> &msg, std::string_view reply_for,
                                       const ledger::query::query_result &result);

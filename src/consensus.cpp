@@ -92,6 +92,9 @@ namespace consensus
                 break;
             }
 
+            if (ctx.stage == 0)
+                status::emit_proposal_health();
+
             if (consensus() == -1)
             {
                 LOG_ERROR << "Consensus thread exited due to an error.";
@@ -119,7 +122,7 @@ namespace consensus
         revise_candidate_proposals(ctx.vote_status == VOTES_SYNCED);
 
         // Attempt to close the ledger after scanning last round stage 3 proposals.
-        if (ctx.stage == 0)
+        if (ctx.stage == 0 && ctx.vote_status == VOTES_SYNCED)
             attempt_ledger_close();
 
         // Get current lcl, state, patch, primary shard and raw shard info.
@@ -156,7 +159,7 @@ namespace consensus
             const size_t unl_count = unl::count();
             vote_counter votes;
 
-            // Check whether we are in sync with other nodes using proposals.
+            // Check whether we are in sync with other nodes using the proposals we received.
             {
                 int new_sync_status = check_sync_status(unl_count, votes, lcl_id);
 
@@ -174,7 +177,7 @@ namespace consensus
                 }
 
                 // Update the node's status if we went from in-sync to not-in-sync. We will report back as being in-sync only when ledger is created.
-                if (ctx.vote_status == VOTES_SYNCED && new_sync_status != VOTES_SYNCED)
+                if (new_sync_status == VOTES_DESYNC)
                     status::sync_status_changed(false);
 
                 // This marks entering into a new sync cycle.
@@ -195,9 +198,10 @@ namespace consensus
 
             if (ctx.vote_status == VOTES_UNRELIABLE)
             {
+                ctx.stage = 0;
                 ctx.unreliable_votes_attempts++;
 
-                // If we get too many consecative unreliable vote rounds, then we perform time config sniffing just in case the unreliable votes
+                // If we get too many consecutive unreliable vote rounds, then we perform time config sniffing just in case the unreliable votes
                 // are caused because our roundtime config information is different from other nodes.
                 if (ctx.unreliable_votes_attempts >= MAX_UNRELIABLE_VOTES_ATTEMPTS)
                 {
@@ -208,21 +212,21 @@ namespace consensus
             else
             {
                 ctx.unreliable_votes_attempts = 0;
-            }
 
-            if (ctx.vote_status == VOTES_SYNCED)
-            {
-                // If we are in sync, vote and broadcast the winning votes to next stage.
-                const p2p::proposal p = create_stage123_proposal(votes, unl_count, state_hash, patch_hash, last_primary_shard_id, last_raw_shard_id);
-                broadcast_proposal(p);
-
-                // This marks the moment we finish a sync cycle. We are in stage 1 and we detect that our votes are in sync.
-                if (ctx.stage == 1 && ctx.sync_ongoing)
+                if (ctx.vote_status == VOTES_SYNCED)
                 {
-                    // Clear any sync recovery pending state if we enter stage 1 while being in sync.
-                    ctx.sync_ongoing = false;
-                    status::sync_status_changed(true);
-                    LOG_DEBUG << "Sync recovery completed.";
+                    // If we are in sync, vote and broadcast the winning votes to next stage.
+                    const p2p::proposal p = create_stage123_proposal(votes, unl_count, state_hash, patch_hash, last_primary_shard_id, last_raw_shard_id);
+                    broadcast_proposal(p);
+
+                    // This marks the moment we finish a sync cycle. We are in stage 1 and we just detected that our votes are in sync.
+                    if (ctx.stage == 1 && ctx.sync_ongoing)
+                    {
+                        // Clear any sync recovery pending state if we enter stage 1 while being in sync.
+                        ctx.sync_ongoing = false;
+                        status::sync_status_changed(true);
+                        LOG_DEBUG << "Sync recovery completed.";
+                    }
                 }
             }
 
@@ -447,7 +451,7 @@ namespace consensus
     /**
      * Moves proposals collected from the network into candidate proposals and
      * cleans up any outdated proposals from the candidate set.
-     * @param in_sync Whether the node is currently on sync or not. We relax the pruning criteria if we are not in sync.
+     * @param in_sync Whether the node is currently in sync or not. We relax the pruning criteria if we are not in sync.
      */
     void revise_candidate_proposals(const bool in_sync)
     {
@@ -458,6 +462,8 @@ namespace consensus
             std::scoped_lock<std::mutex> lock(p2p::ctx.collected_msgs.proposals_mutex);
             collected_proposals.splice(collected_proposals.end(), p2p::ctx.collected_msgs.proposals);
         }
+
+        status::report_proposal_batch(collected_proposals);
 
         // Prune incoming proposals if they are older than existing proposal from same node.
         {

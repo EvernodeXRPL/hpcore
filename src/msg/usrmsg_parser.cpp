@@ -80,6 +80,14 @@ namespace msg::usrmsg
             busrmsg::create_sync_status_notification(msg, in_sync);
     }
 
+    void usrmsg_parser::create_health_notification(std::vector<uint8_t> &msg, const status::health_event &ev) const
+    {
+        if (protocol == util::PROTOCOL::JSON)
+            jusrmsg::create_health_notification(msg, ev);
+        else
+            busrmsg::create_health_notification(msg, ev);
+    }
+
     void usrmsg_parser::create_ledger_query_response(std::vector<uint8_t> &msg, std::string_view reply_for,
                                                      const ledger::query::query_result &result) const
     {

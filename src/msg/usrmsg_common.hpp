@@ -9,7 +9,7 @@ namespace msg::usrmsg
     constexpr size_t CHALLENGE_LEN = 16;
 
     // Max no. of known peers to return in get status.
-    constexpr const size_t MAX_KNOWN_PEERS_INFO = 16;
+    constexpr const size_t MAX_KNOWN_PEERS_INFO = 100;
 
     // Message field names
     constexpr const char *FLD_HP_VERSION = "hp_version";
@@ -65,6 +65,14 @@ namespace msg::usrmsg
     constexpr const char *FLD_LEDGER = "ledger";
     constexpr const char *FLD_CHANNEL = "channel";
     constexpr const char *FLD_ENABLED = "enabled";
+    constexpr const char *FLD_COMM_LATENCY = "comm_latency";
+    constexpr const char *FLD_READ_LATENCY = "read_latency";
+    constexpr const char *FLD_BATCH_SIZE = "batch_size";
+    constexpr const char *FLD_MIN = "min";
+    constexpr const char *FLD_MAX = "max";
+    constexpr const char *FLD_AVG = "avg";
+    constexpr const char *FLD_PEER_COUNT = "peer_count";
+    constexpr const char *FLD_WEAKLY_CONNECTED = "weakly_connected";
 
     // Message types
     constexpr const char *MSGTYPE_USER_CHALLENGE = "user_challenge";
@@ -81,6 +89,7 @@ namespace msg::usrmsg
     constexpr const char *MSGTYPE_LCL_RESPONSE = "lcl_response";
     constexpr const char *MSGTYPE_UNL_CHANGE = "unl_change";
     constexpr const char *MSGTYPE_LEDGER_EVENT = "ledger_event";
+    constexpr const char *MSGTYPE_HEALTH_EVENT = "health_event";
     constexpr const char *MSGTYPE_LEDGER_QUERY = "ledger_query";
     constexpr const char *MSGTYPE_LEDGER_QUERY_RESULT = "ledger_query_result";
     constexpr const char *MSGTYPE_SUBSCRIPTION = "subscription";
@@ -103,7 +112,8 @@ namespace msg::usrmsg
     constexpr const char *STR_FALSE = "false";
     constexpr const char *LEDGER_EVENT_LEDGER_CREATED = "ledger_created";
     constexpr const char *LEDGER_EVENT_SYNC_STATUS = "sync_status";
-
+    constexpr const char *HEALTH_EVENT_PROPOSAL = "proposal";
+    constexpr const char *HEALTH_EVENT_CONNECTIVITY = "connectivity";
 
 } // namespace msg::usrmsg
 

@@ -1,6 +1,6 @@
 const HotPocket = require('../../examples/js_client/lib/hp-client-lib');
 const azure = require('azure-storage');
-const fs = require('fs');
+const fs = require('fs').promises;
 const https = require('https');
 const fetch = require('node-fetch');
 
@@ -10,6 +10,8 @@ const metricsTrackInterval = process.env.METRICSTRACK || 10000;
 const backoffDelayMax = process.env.BACKOFFMAX || 60000;
 const eventsBatchSize = process.env.EVENTBATCH || 20;
 const stateBatchSize = process.env.STATEBATCH || 20;
+const synclog = process.env.SYNCLOG || "off";
+const healthlog = process.env.HEALTHLOG || "off";
 
 let keys = null;
 let vultrApiKey = null;
@@ -27,7 +29,7 @@ async function main() {
     console.log('My public key is: ' + pkhex);
 
     // Load cluster config.
-    const config = JSON.parse(fs.readFileSync("config.json"));
+    const config = JSON.parse(await fs.readFile("config.json"));
     vultrApiKey = config.vultr.api_key;
 
     // Create Azure table service.
@@ -200,13 +202,37 @@ async function establishClientConnection(node) {
         reportEvent(node, ev);
     });
 
+    // This will get fired when any diagnostic health event occurs.
+    if (healthlog === "on") {
+        hpc.on(HotPocket.events.healthEvent, async (ev) => {
+
+            const now = new Date().toUTCString();
+            if (ev.event === "proposal") {
+                delete ev.event;
+                const str = JSON.stringify(ev);
+                await fs.appendFile("prop_health.log", `${now}, Node${node.idx}, ${node.uri}, ${node.status}, ${str}\n`);
+            }
+            else if (ev.event === "connectivity") {
+                delete ev.event;
+                const str = JSON.stringify(ev);
+                await fs.appendFile("conn_health.log", `${now}, Node${node.idx}, ${node.uri}, ${node.status}, ${str}\n`);
+            }
+        });
+
+        await hpc.subscribe(HotPocket.notificationChannels.healthEvent);
+    }
+
     // Establish HotPocket connection.
     if (!await hpc.connect()) {
         onConnectionFail(node);
     }
     else {
+
+        const stat = await hpc.getStatus();
+        const lastLedger = await hpc.getLedgerBySeqNo(stat.ledgerSeqNo);
+
         node.failureCount = 0;
-        reportEvent(node, { event: "online" });
+        reportEvent(node, { event: "online", ledger: lastLedger });
         await hpc.subscribe(HotPocket.notificationChannels.ledgerEvent);
     }
 }
@@ -248,9 +274,13 @@ async function reportEvent(node, ev) {
     }
     else if (ev.event == 'sync_status') {
         node.status = ev.inSync ? 'in_sync' : 'desync';
+
+        if (synclog == "on")
+            await fs.appendFile("sync_ops.log", `${new Date(ts).toUTCString()}, Node${node.idx}, ${node.uri}, ${node.status}, at ${node.lastLedger.seqNo}\n`);
     }
     else if (ev.event == 'online') {
         node.status = 'online';
+        node.lastLedger = ev.ledger;
     }
     else if (ev.event == 'offline') {
         node.status = 'offline';

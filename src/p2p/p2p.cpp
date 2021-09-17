@@ -14,7 +14,7 @@
 namespace p2pmsg = msg::fbuf::p2pmsg;
 
 // Maximum no. of peers that will be persisted back to config upon exit.
-constexpr size_t MAX_PERSISTED_KNOWN_PEERS = 50;
+constexpr size_t MAX_PERSISTED_KNOWN_PEERS = 100;
 
 namespace p2p
 {
@@ -409,8 +409,16 @@ namespace p2p
      */
     void send_known_peer_list(peer_comm_session *session)
     {
+        const std::vector<peer_properties> &peers = ctx.server->req_known_remotes;
+
+        // Add self to known peer announcement (indicated as blank host address).
+        // peers.push_back(peer_properties{
+        //     conf::peer_ip_port{"", conf::cfg.mesh.port},
+        //     status::get_available_mesh_capacity(),
+        //     util::get_epoch_milliseconds()});
+
         flatbuffers::FlatBufferBuilder fbuf;
-        p2pmsg::create_msg_from_peer_list_response(fbuf, ctx.server->req_known_remotes, session->known_ipport);
+        p2pmsg::create_msg_from_peer_list_response(fbuf, peers, session->known_ipport);
         session->send(msg::fbuf::builder_to_string_view(fbuf));
     }
 
@@ -432,7 +440,7 @@ namespace p2p
             itr->available_capacity = available_capacity;
             itr->timestamp = timestamp;
 
-            // Sorting the known remote list  according to the weight value after updating the peer properties.
+            // Sorting the known remote list according to the weight value after updating the peer properties.
             sort_known_remotes();
         }
     }
@@ -452,13 +460,21 @@ namespace p2p
     /**
      * Merging the response peer list with the own known peer list.
      * @param peers Incoming peer list.
+     * @param from The session that sent us the peer list.
      */
-    void merge_peer_list(const std::vector<peer_properties> &peers)
+    void merge_peer_list(const std::vector<peer_properties> &peers, const p2p::peer_comm_session &from)
     {
         std::scoped_lock<std::mutex> lock(ctx.server->req_known_remotes_mutex);
 
         for (const peer_properties &peer : peers)
         {
+            // If the peer address is indicated as empty, that is the entry for the peer who sent us this.
+            // We then fill that up with the host address we see for that peer.
+            // if (peer.ip_port.host_address.empty())
+            // {
+            //     peer.ip_port.host_address = from.host_address;
+            // }
+
             // If the peer is self, we won't add to the known peer list.
             if (self::ip_port.has_value() && self::ip_port == peer.ip_port)
             {
@@ -519,7 +535,7 @@ namespace p2p
      * Calculate and retunrns the available capacity.
      * @returns -1 if available capacity is unlimited otherwise available value.
      */
-    int16_t get_available_capacity()
+    int16_t calculate_available_capacity()
     {
         // If both max_connections and max_known_connections are configured calculate the capacity.
         if (conf::cfg.mesh.max_connections != 0 && conf::cfg.mesh.max_known_connections != 0)

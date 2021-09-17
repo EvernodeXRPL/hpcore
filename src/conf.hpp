@@ -256,6 +256,12 @@ namespace conf
         size_t max_file_count = 0;               // Max no. of log files to keep.
     };
 
+    struct health_config
+    {
+        bool proposal_stats = false;
+        bool connectivity_stats = false;
+    };
+
     // Holds all the config values.
     struct hp_config
     {
@@ -265,6 +271,7 @@ namespace conf
         user_config user;
         hpfs_config hpfs;
         log_config log;
+        health_config health; // For debugging only. Not included in the config file.
     };
 
     // Global contract context struct exposed to the application.

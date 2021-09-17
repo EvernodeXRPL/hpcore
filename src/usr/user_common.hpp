@@ -7,7 +7,8 @@ namespace usr
     enum NOTIFICATION_CHANNEL
     {
         UNL_CHANGE = 0,
-        LEDGER_EVENT = 1
+        LEDGER_EVENT = 1,
+        HEALTH_STAT = 2
     };
 
 } // namespace usr

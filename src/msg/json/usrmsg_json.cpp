@@ -143,6 +143,7 @@ namespace msg::usrmsg::json
      *              "contract_execution_enabled": true | false,
      *              "read_requests_enabled": true | false,
      *              "is_full_history_node": true | false,
+     *              "weakly_connected": true | false,
      *              "current_unl": [ "<ed prefixed pubkey hex>"", ... ],
      *              "peers": [ "ip:port", ... ]
      *            }
@@ -152,6 +153,7 @@ namespace msg::usrmsg::json
         const util::sequence_hash lcl_id = status::get_lcl_id();
         const std::set<std::string> unl = status::get_unl();
         const bool in_sync = status::is_in_sync();
+        const bool weakly_connected = status::get_weakly_connected();
 
         msg.reserve(1024);
         msg += "{\"";
@@ -191,6 +193,11 @@ namespace msg::usrmsg::json
         msg += SEP_COLON_NOQUOTE;
         msg += conf::cfg.node.history == conf::HISTORY::FULL ? STR_TRUE : STR_FALSE;
         msg += SEP_COMMA_NOQUOTE;
+        msg += msg::usrmsg::FLD_WEAKLY_CONNECTED;
+        msg += SEP_COLON_NOQUOTE;
+        msg += weakly_connected ? STR_TRUE : STR_FALSE;
+        msg += SEP_COMMA_NOQUOTE;
+
         msg += msg::usrmsg::FLD_CURRENT_UNL;
         msg += SEP_COLON_NOQUOTE;
         msg += OPEN_SQR_BRACKET;
@@ -547,6 +554,97 @@ namespace msg::usrmsg::json
     }
 
     /**
+     * Constructs health stat message.
+     * @param msg Buffer to construct the generated json message string into.
+     *            Message format:
+     *            {
+     *              "type": "health_event",
+     *              "event": "proposal" | "connectivity",
+     * 
+     *              // proposal
+     *              "comm_latency": {min:0, max:0, avg:0},
+     *              "read_latency": {min:0, max:0, avg:0}
+     *              "batch_size": 0
+     * 
+     *              // connectivity
+     *              "peer_count": 0,
+     *              "weakly_connected": true | false
+     *            }
+     * @param ev Current health information.
+     */
+    void create_health_notification(std::vector<uint8_t> &msg, const status::health_event &ev)
+    {
+        msg.reserve(128);
+        msg += "{\"";
+        msg += msg::usrmsg::FLD_TYPE;
+        msg += SEP_COLON;
+        msg += msg::usrmsg::MSGTYPE_HEALTH_EVENT;
+        msg += SEP_COMMA;
+        msg += msg::usrmsg::FLD_EVENT;
+        msg += SEP_COLON;
+
+        if (ev.index() == 0)
+        {
+            const status::proposal_health &phealth = std::get<status::proposal_health>(ev);
+
+            msg += msg::usrmsg::HEALTH_EVENT_PROPOSAL;
+            msg += SEP_COMMA;
+            msg += msg::usrmsg::FLD_COMM_LATENCY;
+            msg += SEP_COLON_NOQUOTE;
+            msg += "{\"";
+            msg += msg::usrmsg::FLD_MIN;
+            msg += SEP_COLON_NOQUOTE;
+            msg += std::to_string(phealth.comm_latency_min);
+            msg += SEP_COMMA_NOQUOTE;
+            msg += msg::usrmsg::FLD_MAX;
+            msg += SEP_COLON_NOQUOTE;
+            msg += std::to_string(phealth.comm_latency_max);
+            msg += SEP_COMMA_NOQUOTE;
+            msg += msg::usrmsg::FLD_AVG;
+            msg += SEP_COLON_NOQUOTE;
+            msg += std::to_string(phealth.comm_latency_avg);
+            msg += "}";
+
+            msg += SEP_COMMA_NOQUOTE;
+            msg += msg::usrmsg::FLD_READ_LATENCY;
+            msg += SEP_COLON_NOQUOTE;
+            msg += "{\"";
+            msg += msg::usrmsg::FLD_MIN;
+            msg += SEP_COLON_NOQUOTE;
+            msg += std::to_string(phealth.read_latency_min);
+            msg += SEP_COMMA_NOQUOTE;
+            msg += msg::usrmsg::FLD_MAX;
+            msg += SEP_COLON_NOQUOTE;
+            msg += std::to_string(phealth.read_latency_max);
+            msg += SEP_COMMA_NOQUOTE;
+            msg += msg::usrmsg::FLD_AVG;
+            msg += SEP_COLON_NOQUOTE;
+            msg += std::to_string(phealth.read_latency_avg);
+            msg += "}";
+
+            msg += SEP_COMMA_NOQUOTE;
+            msg += msg::usrmsg::FLD_BATCH_SIZE;
+            msg += SEP_COLON_NOQUOTE;
+            msg += std::to_string(phealth.batch_size);
+        }
+        else if (ev.index() == 1)
+        {
+            const status::connectivity_health &conn = std::get<status::connectivity_health>(ev);
+            msg += msg::usrmsg::HEALTH_EVENT_CONNECTIVITY;
+            msg += SEP_COMMA;
+            msg += msg::usrmsg::FLD_PEER_COUNT;
+            msg += SEP_COLON_NOQUOTE;
+            msg += std::to_string(conn.peer_count);
+            msg += SEP_COMMA_NOQUOTE;
+            msg += msg::usrmsg::FLD_WEAKLY_CONNECTED;
+            msg += SEP_COLON_NOQUOTE;
+            msg += conn.is_weakly_connected ? STR_TRUE : STR_FALSE;
+        }
+
+        msg += "}";
+    }
+
+    /**
      * Constructs a ledger query response.
      * @param msg Buffer to construct the generated json message string into.
      *            Message format:
@@ -891,6 +989,11 @@ namespace msg::usrmsg::json
         else if (d[msg::usrmsg::FLD_CHANNEL] == msg::usrmsg::MSGTYPE_UNL_CHANGE)
         {
             channel = usr::NOTIFICATION_CHANNEL::UNL_CHANGE;
+        }
+        else if (d[msg::usrmsg::FLD_CHANNEL] == msg::usrmsg::MSGTYPE_HEALTH_EVENT &&
+                 (conf::cfg.health.proposal_stats || conf::cfg.health.connectivity_stats))
+        {
+            channel = usr::NOTIFICATION_CHANNEL::HEALTH_STAT;
         }
         else
         {
