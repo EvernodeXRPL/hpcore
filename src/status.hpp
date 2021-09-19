@@ -9,6 +9,14 @@
 
 namespace status
 {
+    enum VOTE_STATUS
+    {
+        UNKNOWN = 0,
+        UNRELIABLE = 1,
+        DESYNC = 2,
+        SYNCED = 3
+    };
+
     struct unl_change_event
     {
         std::set<std::string> unl;
@@ -19,9 +27,9 @@ namespace status
         ledger::ledger_record ledger;
     };
 
-    struct sync_status_change_event
+    struct vote_status_change_event
     {
-        bool in_sync = false;
+        VOTE_STATUS vote_status;
     };
 
     struct proposal_health
@@ -44,15 +52,15 @@ namespace status
     typedef std::variant<proposal_health, connectivity_health> health_event;
 
     // Represents any kind of change that has happened in the node.
-    typedef std::variant<unl_change_event, ledger_created_event, sync_status_change_event, health_event> change_event;
+    typedef std::variant<unl_change_event, ledger_created_event, vote_status_change_event, health_event> change_event;
 
     extern moodycamel::ConcurrentQueue<change_event> event_queue;
 
     void init_ledger(const util::sequence_hash &ledger_id, const ledger::ledger_record &ledger);
     void ledger_created(const util::sequence_hash &ledger_id, const ledger::ledger_record &ledger);
-    void sync_status_changed(const bool in_sync);
+    void vote_status_changed(const VOTE_STATUS new_status);
     const util::sequence_hash get_lcl_id();
-    const bool is_in_sync();
+    const VOTE_STATUS get_vote_status();
     const ledger::ledger_record get_last_ledger();
 
     void init_unl(const std::set<std::string> &init_unl);

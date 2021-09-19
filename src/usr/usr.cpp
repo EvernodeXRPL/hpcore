@@ -599,10 +599,10 @@ namespace usr
                                 const status::ledger_created_event &ledger_ev = std::get<status::ledger_created_event>(ev);
                                 parser.create_ledger_created_notification(msg, ledger_ev.ledger);
                             }
-                            else if (ev.index() == 2) // Sync status chnge event.
+                            else if (ev.index() == 2) // Vote status chnge event.
                             {
-                                const status::sync_status_change_event &sync_ev = std::get<status::sync_status_change_event>(ev);
-                                parser.create_sync_status_notification(msg, sync_ev.in_sync);
+                                const status::vote_status_change_event &vote_ev = std::get<status::vote_status_change_event>(ev);
+                                parser.create_vote_status_notification(msg, vote_ev.vote_status);
                             }
                         }
                         user.session.send(msg);

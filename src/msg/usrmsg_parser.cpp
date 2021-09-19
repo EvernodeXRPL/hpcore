@@ -72,12 +72,12 @@ namespace msg::usrmsg
             busrmsg::create_ledger_created_notification(msg, ledger);
     }
 
-    void usrmsg_parser::create_sync_status_notification(std::vector<uint8_t> &msg, const bool in_sync) const
+    void usrmsg_parser::create_vote_status_notification(std::vector<uint8_t> &msg, const status::VOTE_STATUS vote_status) const
     {
         if (protocol == util::PROTOCOL::JSON)
-            jusrmsg::create_sync_status_notification(msg, in_sync);
+            jusrmsg::create_vote_status_notification(msg, vote_status);
         else
-            busrmsg::create_sync_status_notification(msg, in_sync);
+            busrmsg::create_vote_status_notification(msg, vote_status);
     }
 
     void usrmsg_parser::create_health_notification(std::vector<uint8_t> &msg, const status::health_event &ev) const

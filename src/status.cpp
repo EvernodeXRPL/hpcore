@@ -12,9 +12,8 @@ namespace status
     util::sequence_hash lcl_id;        // Last ledger id/hash pair.
     ledger::ledger_record last_ledger; // Last ledger record that the node created.
 
-    // Indicates whether this node is in sync with other nodes or not.
-    // -1=unknown, 0=not-in-sync, 1=in-sync
-    std::atomic<int> in_sync = -1;
+    // Indicates the current voting status.
+    std::atomic<VOTE_STATUS> vote_status = VOTE_STATUS::UNKNOWN;
 
     std::shared_mutex unl_mutex;
     std::set<std::string> unl; // List of last reported unl binary pubkeys.
@@ -39,8 +38,7 @@ namespace status
     void ledger_created(const util::sequence_hash &ledger_id, const ledger::ledger_record &ledger)
     {
         // If currently not-in-sync, report it as in-sync when a ledger is created.
-        if (in_sync.load() != 1)
-            sync_status_changed(true);
+        vote_status_changed(VOTE_STATUS::SYNCED);
 
         std::unique_lock lock(ledger_mutex);
         lcl_id = ledger_id;
@@ -48,13 +46,12 @@ namespace status
         event_queue.try_enqueue(ledger_created_event{ledger});
     }
 
-    void sync_status_changed(const bool new_in_sync)
+    void vote_status_changed(const VOTE_STATUS new_status)
     {
-        const int new_value = new_in_sync ? 1 : 0;
-        if (new_value != in_sync.load())
+        if (new_status != vote_status.load())
         {
-            in_sync = new_value;
-            event_queue.try_enqueue(sync_status_change_event{new_in_sync});
+            vote_status = new_status;
+            event_queue.try_enqueue(vote_status_change_event{new_status});
         }
     }
 
@@ -64,9 +61,9 @@ namespace status
         return lcl_id;
     }
 
-    const bool is_in_sync()
+    const VOTE_STATUS get_vote_status()
     {
-        return in_sync.load() == 1;
+        return vote_status.load();
     }
 
     const ledger::ledger_record get_last_ledger()

@@ -31,7 +31,7 @@ namespace msg::usrmsg::json
 
     void create_ledger_created_notification(std::vector<uint8_t> &msg, const ledger::ledger_record &ledger);
 
-    void create_sync_status_notification(std::vector<uint8_t> &msg, const bool in_sync);
+    void create_vote_status_notification(std::vector<uint8_t> &msg, const status::VOTE_STATUS vote_status);
 
     void create_health_notification(std::vector<uint8_t> &msg, const status::health_event &ev);
 
