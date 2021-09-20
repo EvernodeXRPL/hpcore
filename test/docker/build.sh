@@ -11,9 +11,10 @@ tmp=$(mktemp -d)
 cp $hpcoredir/build/{hpcore,appbill} $hpcoredir/test/bin/{hpfs,hpws,libblake3.so} $tmp/
 strip $tmp/hpcore
 
-hpversion=$($tmp/hpcore version | head -n 1)
 # Remove the revision component from hp version to make up the image version.
-imgversion=$(echo "${hpversion%.*}")
+# hpversion=$($tmp/hpcore version | head -n 1)
+# imgversion=$(echo "${hpversion%.*}")
+imgversion="latest"
 
 # Ubuntu base image
 docker build -t $img:$imgversion-ubt.20.04 -f ./$basefile $tmp/
