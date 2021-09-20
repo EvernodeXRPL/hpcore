@@ -43,7 +43,7 @@ namespace msg::usrmsg
     constexpr const char *FLD_IS_FULL_HISTORY_NODE = "is_full_history_node";
     constexpr const char *FLD_CURRENT_UNL = "current_unl";
     constexpr const char *FLD_PEERS = "peers";
-    constexpr const char *FLD_VOTES = "votes";
+    constexpr const char *FLD_VOTE_STATUS = "vote_status";
     constexpr const char *FLD_ID = "id";
     constexpr const char *FLD_REPLY_FOR = "reply_for";
     constexpr const char *FLD_FILTER_BY = "filter_by";

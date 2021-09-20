@@ -22,7 +22,7 @@
         TextDecoder = util.TextDecoder;
     }
 
-    const supportedHpVersion = "0.5.";
+    const supportedHpVersion = "0.6.";
     const serverChallengeSize = 16;
     const outputValidationPassThreshold = 0.8;
     const connectionCheckIntervalMs = 1000;
@@ -663,7 +663,7 @@
                         hpVersion: m.hp_version,
                         ledgerSeqNo: m.ledger_seq_no,
                         ledgerHash: msgHelper.deserializeValue(m.ledger_hash),
-                        inSync: m.in_sync,
+                        voteStatus: m.vote_status,
                         roundTime: m.round_time,
                         contractExecutionEnabled: m.contract_execution_enabled,
                         readRequestsEnabled: m.read_requests_enabled,
@@ -691,8 +691,8 @@
                 const ev = { event: m.event };
                 if (ev.event == "ledger_created")
                     ev.ledger = msgHelper.deserializeLedger(m.ledger);
-                else if (ev.event == "sync_status")
-                    ev.inSync = m.in_sync;
+                else if (ev.event == "vote_status")
+                    ev.voteStatus = m.vote_status;
                 emitter.emit(events.ledgerEvent, ev);
             }
             else if (m.type == "health_event") {

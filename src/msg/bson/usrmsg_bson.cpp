@@ -20,7 +20,7 @@ namespace msg::usrmsg::bson
      *              "hp_version": "<version>",
      *              "ledger_seq_no": <lcl sequence no>,
      *              "ledger_hash": <binary lcl hash>,
-     *              "votes": "synced" | "desync" | "unreliable",
+     *              "vote_status": "synced" | "desync" | "unreliable",
      *              "roundtime": <roundtime milliseconds>,
      *              "contract_execution_enabled": true | false,
      *              "read_requests_enabled": true | false,
@@ -47,7 +47,7 @@ namespace msg::usrmsg::bson
         encoder.int64_value(lcl_id.seq_no);
         encoder.key(msg::usrmsg::FLD_LEDGER_HASH);
         encoder.byte_string_value(lcl_id.hash.to_string_view());
-        encoder.key(msg::usrmsg::FLD_VOTES);
+        encoder.key(msg::usrmsg::FLD_VOTE_STATUS);
         encoder.string_value(msg::usrmsg::VOTE_STATUSES[vote_status]);
         encoder.key(msg::usrmsg::FLD_ROUND_TIME);
         encoder.uint64_value(conf::cfg.contract.roundtime);
@@ -302,7 +302,7 @@ namespace msg::usrmsg::bson
      *            {
      *              "type": "ledger_event",
      *              "event": "vote_status",
-     *              "votes": "synced" | "desync" | "unreliable"
+     *              "vote_status": "synced" | "desync" | "unreliable"
      *            }
      * @param in_sync Whether the node is in sync or not.
      */
@@ -314,7 +314,7 @@ namespace msg::usrmsg::bson
         encoder.string_value(msg::usrmsg::MSGTYPE_LEDGER_EVENT);
         encoder.key(msg::usrmsg::FLD_EVENT);
         encoder.string_value(msg::usrmsg::LEDGER_EVENT_VOTE_STATUS);
-        encoder.key(msg::usrmsg::FLD_VOTES);
+        encoder.key(msg::usrmsg::FLD_VOTE_STATUS);
         encoder.string_value(msg::usrmsg::VOTE_STATUSES[vote_status]);
         encoder.end_object();
         encoder.flush();

@@ -117,7 +117,7 @@ namespace consensus
 
         LOG_DEBUG << "Started stage " << std::to_string(ctx.stage);
 
-        const bool was_in_sync = status::get_vote_status() == status::VOTE_STATUS::SYNCED;
+        const bool was_in_sync = (status::get_vote_status() == status::VOTE_STATUS::SYNCED);
 
         // Throughout consensus, we continously update and prune the candidate proposals for newly
         // arived ones and expired ones.
@@ -193,11 +193,12 @@ namespace consensus
                 // If we just bacame in-sync after being in a sync cucle, we need to restore consensus context information from the synced ledger.
                 if (!was_in_sync && newly_in_sync && ctx.sync_ongoing)
                     dispatch_synced_ledger_input_statuses(lcl_id);
+
+                status::set_vote_status(new_vote_status);
             }
 
             if (new_vote_status == status::VOTE_STATUS::UNRELIABLE)
             {
-                status::vote_status_changed(new_vote_status);
                 ctx.stage = 0;
                 ctx.unreliable_votes_attempts++;
 
@@ -224,13 +225,8 @@ namespace consensus
                     {
                         // Clear any sync recovery pending state if we enter stage 1 while being in sync.
                         ctx.sync_ongoing = false;
-                        status::vote_status_changed(new_vote_status);
                         LOG_DEBUG << "Sync recovery completed.";
                     }
-                }
-                else
-                {
-                    status::vote_status_changed(new_vote_status);
                 }
             }
 

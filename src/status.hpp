@@ -58,9 +58,9 @@ namespace status
 
     void init_ledger(const util::sequence_hash &ledger_id, const ledger::ledger_record &ledger);
     void ledger_created(const util::sequence_hash &ledger_id, const ledger::ledger_record &ledger);
-    void vote_status_changed(const VOTE_STATUS new_status);
+    void set_vote_status(const VOTE_STATUS new_status);
     const util::sequence_hash get_lcl_id();
-    const VOTE_STATUS get_vote_status();
+    VOTE_STATUS get_vote_status();
     const ledger::ledger_record get_last_ledger();
 
     void init_unl(const std::set<std::string> &init_unl);
@@ -69,11 +69,11 @@ namespace status
 
     void set_peers(const std::set<conf::peer_ip_port> &updated_peers);
     const std::set<conf::peer_ip_port> get_peers();
-    const size_t get_peers_count();
+    size_t get_peers_count();
     void set_weakly_connected(const bool is_weakly_connected);
-    const bool get_weakly_connected();
+    bool get_weakly_connected();
     void set_available_mesh_capacity(const int16_t new_capacity);
-    const int16_t get_available_mesh_capacity();
+    int16_t get_available_mesh_capacity();
 
     void report_proposal_batch(const std::list<p2p::proposal> &proposals);
     void emit_proposal_health();

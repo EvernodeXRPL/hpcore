@@ -37,16 +37,13 @@ namespace status
 
     void ledger_created(const util::sequence_hash &ledger_id, const ledger::ledger_record &ledger)
     {
-        // If currently not-in-sync, report it as in-sync when a ledger is created.
-        vote_status_changed(VOTE_STATUS::SYNCED);
-
         std::unique_lock lock(ledger_mutex);
         lcl_id = ledger_id;
         last_ledger = ledger;
         event_queue.try_enqueue(ledger_created_event{ledger});
     }
 
-    void vote_status_changed(const VOTE_STATUS new_status)
+    void set_vote_status(const VOTE_STATUS new_status)
     {
         if (new_status != vote_status.load())
         {
@@ -61,7 +58,7 @@ namespace status
         return lcl_id;
     }
 
-    const VOTE_STATUS get_vote_status()
+    VOTE_STATUS get_vote_status()
     {
         return vote_status.load();
     }
@@ -116,7 +113,7 @@ namespace status
         return peers;
     }
 
-    const size_t get_peers_count()
+    size_t get_peers_count()
     {
         return peer_count.load();
     }
@@ -132,7 +129,7 @@ namespace status
         }
     }
 
-    const bool get_weakly_connected()
+    bool get_weakly_connected()
     {
         return weakly_connected.load();
     }
@@ -142,7 +139,7 @@ namespace status
         available_mesh_capacity = new_capacity;
     }
 
-    const int16_t get_available_mesh_capacity()
+    int16_t get_available_mesh_capacity()
     {
         return available_mesh_capacity.load();
     }

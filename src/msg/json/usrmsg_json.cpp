@@ -139,7 +139,7 @@ namespace msg::usrmsg::json
      *              "hp_version": "<version>",
      *              "ledger_seq_no": <lcl sequence no>,
      *              "ledger_hash": "<lcl hash hex>",
-     *              "votes": "synced" | "desync" | "unreliable",
+     *              "vote_status": "synced" | "desync" | "unreliable",
      *              "roundtime": <roundtime milliseconds>,
      *              "contract_execution_enabled": true | false,
      *              "read_requests_enabled": true | false,
@@ -174,10 +174,10 @@ namespace msg::usrmsg::json
         msg += SEP_COLON;
         msg += util::to_hex(lcl_id.hash.to_string_view());
         msg += SEP_COMMA;
-        msg += msg::usrmsg::FLD_VOTES;
-        msg += SEP_COLON_NOQUOTE;
+        msg += msg::usrmsg::FLD_VOTE_STATUS;
+        msg += SEP_COLON;
         msg += msg::usrmsg::VOTE_STATUSES[vote_status];
-        msg += SEP_COMMA_NOQUOTE;
+        msg += SEP_COMMA;
         msg += msg::usrmsg::FLD_ROUND_TIME;
         msg += SEP_COLON_NOQUOTE;
         msg += std::to_string(conf::cfg.contract.roundtime);
@@ -532,7 +532,7 @@ namespace msg::usrmsg::json
      *            {
      *              "type": "ledger_event",
      *              "event": "vote_status",
-     *              "votes": "synced" | "desync" | "unreliable"
+     *              "vote_status": "synced" | "desync" | "unreliable"
      *            }
      * @param in_sync Whether the node is in sync or not.
      */
@@ -548,10 +548,10 @@ namespace msg::usrmsg::json
         msg += SEP_COLON;
         msg += msg::usrmsg::LEDGER_EVENT_VOTE_STATUS;
         msg += SEP_COMMA;
-        msg += msg::usrmsg::FLD_VOTES;
-        msg += SEP_COLON_NOQUOTE;
+        msg += msg::usrmsg::FLD_VOTE_STATUS;
+        msg += SEP_COLON;
         msg += msg::usrmsg::VOTE_STATUSES[vote_status];
-        msg += "}";
+        msg += "\"}";
     }
 
     /**
