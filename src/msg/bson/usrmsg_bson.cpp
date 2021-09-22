@@ -20,6 +20,7 @@ namespace msg::usrmsg::bson
      *              "hp_version": "<version>",
      *              "ledger_seq_no": <lcl sequence no>,
      *              "ledger_hash": <binary lcl hash>,
+     *              "vote_status": "synced" | "desync" | "unreliable",
      *              "roundtime": <roundtime milliseconds>,
      *              "contract_execution_enabled": true | false,
      *              "read_requests_enabled": true | false,
@@ -33,7 +34,7 @@ namespace msg::usrmsg::bson
     {
         const util::sequence_hash lcl_id = status::get_lcl_id();
         const std::set<std::string> unl = status::get_unl();
-        const bool in_sync = status::is_in_sync();
+        const status::VOTE_STATUS vote_status = status::get_vote_status();
         const bool weakly_connected = status::get_weakly_connected();
 
         jsoncons::bson::bson_bytes_encoder encoder(msg);
@@ -46,8 +47,8 @@ namespace msg::usrmsg::bson
         encoder.int64_value(lcl_id.seq_no);
         encoder.key(msg::usrmsg::FLD_LEDGER_HASH);
         encoder.byte_string_value(lcl_id.hash.to_string_view());
-        encoder.key(msg::usrmsg::FLD_IN_SYNC);
-        encoder.bool_value(in_sync);
+        encoder.key(msg::usrmsg::FLD_VOTE_STATUS);
+        encoder.string_value(msg::usrmsg::VOTE_STATUSES[vote_status]);
         encoder.key(msg::usrmsg::FLD_ROUND_TIME);
         encoder.uint64_value(conf::cfg.contract.roundtime);
         encoder.key(msg::usrmsg::FLD_CONTARCT_EXECUTION_ENABLED);
@@ -300,21 +301,21 @@ namespace msg::usrmsg::bson
      *            Message format:
      *            {
      *              "type": "ledger_event",
-     *              "event": "sync_status",
-     *              "in_sync": true | false
+     *              "event": "vote_status",
+     *              "vote_status": "synced" | "desync" | "unreliable"
      *            }
      * @param in_sync Whether the node is in sync or not.
      */
-    void create_sync_status_notification(std::vector<uint8_t> &msg, const bool in_sync)
+    void create_vote_status_notification(std::vector<uint8_t> &msg, const status::VOTE_STATUS vote_status)
     {
         jsoncons::bson::bson_bytes_encoder encoder(msg);
         encoder.begin_object();
         encoder.key(msg::usrmsg::FLD_TYPE);
         encoder.string_value(msg::usrmsg::MSGTYPE_LEDGER_EVENT);
         encoder.key(msg::usrmsg::FLD_EVENT);
-        encoder.string_value(msg::usrmsg::LEDGER_EVENT_SYNC_STATUS);
-        encoder.key(msg::usrmsg::FLD_IN_SYNC);
-        encoder.bool_value(in_sync);
+        encoder.string_value(msg::usrmsg::LEDGER_EVENT_VOTE_STATUS);
+        encoder.key(msg::usrmsg::FLD_VOTE_STATUS);
+        encoder.string_value(msg::usrmsg::VOTE_STATUSES[vote_status]);
         encoder.end_object();
         encoder.flush();
     }

@@ -139,6 +139,7 @@ namespace msg::usrmsg::json
      *              "hp_version": "<version>",
      *              "ledger_seq_no": <lcl sequence no>,
      *              "ledger_hash": "<lcl hash hex>",
+     *              "vote_status": "synced" | "desync" | "unreliable",
      *              "roundtime": <roundtime milliseconds>,
      *              "contract_execution_enabled": true | false,
      *              "read_requests_enabled": true | false,
@@ -152,7 +153,7 @@ namespace msg::usrmsg::json
     {
         const util::sequence_hash lcl_id = status::get_lcl_id();
         const std::set<std::string> unl = status::get_unl();
-        const bool in_sync = status::is_in_sync();
+        const status::VOTE_STATUS vote_status = status::get_vote_status();
         const bool weakly_connected = status::get_weakly_connected();
 
         msg.reserve(1024);
@@ -173,10 +174,10 @@ namespace msg::usrmsg::json
         msg += SEP_COLON;
         msg += util::to_hex(lcl_id.hash.to_string_view());
         msg += SEP_COMMA;
-        msg += msg::usrmsg::FLD_IN_SYNC;
-        msg += SEP_COLON_NOQUOTE;
-        msg += in_sync ? STR_TRUE : STR_FALSE;
-        msg += SEP_COMMA_NOQUOTE;
+        msg += msg::usrmsg::FLD_VOTE_STATUS;
+        msg += SEP_COLON;
+        msg += msg::usrmsg::VOTE_STATUSES[vote_status];
+        msg += SEP_COMMA;
         msg += msg::usrmsg::FLD_ROUND_TIME;
         msg += SEP_COLON_NOQUOTE;
         msg += std::to_string(conf::cfg.contract.roundtime);
@@ -530,12 +531,12 @@ namespace msg::usrmsg::json
      *            Message format:
      *            {
      *              "type": "ledger_event",
-     *              "event": "sync_status",
-     *              "in_sync": true | false
+     *              "event": "vote_status",
+     *              "vote_status": "synced" | "desync" | "unreliable"
      *            }
      * @param in_sync Whether the node is in sync or not.
      */
-    void create_sync_status_notification(std::vector<uint8_t> &msg, const bool in_sync)
+    void create_vote_status_notification(std::vector<uint8_t> &msg, const status::VOTE_STATUS vote_status)
     {
         msg.reserve(128);
         msg += "{\"";
@@ -545,12 +546,12 @@ namespace msg::usrmsg::json
         msg += SEP_COMMA;
         msg += msg::usrmsg::FLD_EVENT;
         msg += SEP_COLON;
-        msg += msg::usrmsg::LEDGER_EVENT_SYNC_STATUS;
+        msg += msg::usrmsg::LEDGER_EVENT_VOTE_STATUS;
         msg += SEP_COMMA;
-        msg += msg::usrmsg::FLD_IN_SYNC;
-        msg += SEP_COLON_NOQUOTE;
-        msg += in_sync ? STR_TRUE : STR_FALSE;
-        msg += "}";
+        msg += msg::usrmsg::FLD_VOTE_STATUS;
+        msg += SEP_COLON;
+        msg += msg::usrmsg::VOTE_STATUSES[vote_status];
+        msg += "\"}";
     }
 
     /**

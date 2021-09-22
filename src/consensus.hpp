@@ -80,11 +80,6 @@ namespace consensus
         }
     };
 
-#define VOTES_UNKNOWN -3
-#define VOTES_UNRELIABLE -2
-#define VOTES_DESYNC -1
-#define VOTES_SYNCED 0
-
     /**
      * This is used to store consensus information
      */
@@ -118,7 +113,6 @@ namespace consensus
         uint32_t stage_reset_wait_threshold = 0; // Minimum stage wait time to reset the stage.
         uint64_t round_boundry_offset = 0;       // Time window boundry offset based on contract id.
         uint16_t unreliable_votes_attempts = 0;  // No. of times we failed to get reliable votes continously.
-        int vote_status = VOTES_UNKNOWN;         // Current status of votes.
 
         // Indicates whether we are inside a sync cycle or not. Sync cycle is considered to being when we first detect that we are out of sync
         // and considered to end when we detect to be in sync inside stage 1 of a round for the first time after we began a sync.
@@ -179,7 +173,7 @@ namespace consensus
 
     int commit_consensus_results(const p2p::proposal &cons_prop, const consensus::consensed_user_map &consensed_users);
 
-    int check_sync_status(const size_t unl_count, vote_counter &votes, const util::sequence_hash &lcl_id);
+    status::VOTE_STATUS check_vote_status(const size_t unl_count, vote_counter &votes, const util::sequence_hash &lcl_id);
 
     void revise_candidate_proposals(const bool in_sync);
 

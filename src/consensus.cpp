@@ -117,12 +117,14 @@ namespace consensus
 
         LOG_DEBUG << "Started stage " << std::to_string(ctx.stage);
 
+        const bool was_in_sync = (status::get_vote_status() == status::VOTE_STATUS::SYNCED);
+
         // Throughout consensus, we continously update and prune the candidate proposals for newly
         // arived ones and expired ones.
-        revise_candidate_proposals(ctx.vote_status == VOTES_SYNCED);
+        revise_candidate_proposals(was_in_sync);
 
         // Attempt to close the ledger after scanning last round stage 3 proposals.
-        if (ctx.stage == 0 && ctx.vote_status == VOTES_SYNCED)
+        if (ctx.stage == 0 && was_in_sync)
             attempt_ledger_close();
 
         // Get current lcl, state, patch, primary shard and raw shard info.
@@ -160,10 +162,12 @@ namespace consensus
             vote_counter votes;
 
             // Check whether we are in sync with other nodes using the proposals we received.
+            status::VOTE_STATUS new_vote_status = status::VOTE_STATUS::UNKNOWN;
             {
-                int new_sync_status = check_sync_status(unl_count, votes, lcl_id);
+                new_vote_status = check_vote_status(unl_count, votes, lcl_id);
+                bool newly_in_sync = (new_vote_status == status::VOTE_STATUS::SYNCED);
 
-                if (ctx.vote_status != VOTES_SYNCED && new_sync_status == VOTES_SYNCED)
+                if (!was_in_sync && newly_in_sync)
                 {
                     // If we are just becoming 'in-sync' after being out-of-sync, check the vote status again after the proper
                     // pruning of candidate proposals. This is because we relax the proposal pruning rules when we are not in sync,
@@ -173,15 +177,12 @@ namespace consensus
                     // Reset the voter for the new votes.
                     votes.reset();
                     revise_candidate_proposals(true);
-                    new_sync_status = check_sync_status(unl_count, votes, lcl_id);
+                    new_vote_status = check_vote_status(unl_count, votes, lcl_id);
+                    newly_in_sync = (new_vote_status == status::VOTE_STATUS::SYNCED);
                 }
 
-                // Update the node's status if we went from in-sync to not-in-sync. We will report back as being in-sync only when ledger is created.
-                if (new_sync_status == VOTES_DESYNC)
-                    status::sync_status_changed(false);
-
-                // This marks entering into a new sync cycle.
-                if (new_sync_status == VOTES_DESYNC && !ctx.sync_ongoing)
+                // This marks starting a new sync cycle.
+                if (new_vote_status == status::VOTE_STATUS::DESYNC && !ctx.sync_ongoing)
                 {
                     // Cleanup any unconsensed contract outputs we may have had before the sync cycle began because those are going to be
                     // irrelavant after the sync.
@@ -189,14 +190,14 @@ namespace consensus
                     ctx.sync_ongoing = true;
                 }
 
-                // If we just bacame in-sync after being in desync, we need to restore consensus context information from the synced ledger.
-                if (ctx.vote_status != VOTES_SYNCED && new_sync_status == VOTES_SYNCED && ctx.sync_ongoing)
+                // If we just bacame in-sync after being in a sync cucle, we need to restore consensus context information from the synced ledger.
+                if (!was_in_sync && newly_in_sync && ctx.sync_ongoing)
                     dispatch_synced_ledger_input_statuses(lcl_id);
 
-                ctx.vote_status = new_sync_status;
+                status::set_vote_status(new_vote_status);
             }
 
-            if (ctx.vote_status == VOTES_UNRELIABLE)
+            if (new_vote_status == status::VOTE_STATUS::UNRELIABLE)
             {
                 ctx.stage = 0;
                 ctx.unreliable_votes_attempts++;
@@ -213,7 +214,7 @@ namespace consensus
             {
                 ctx.unreliable_votes_attempts = 0;
 
-                if (ctx.vote_status == VOTES_SYNCED)
+                if (new_vote_status == status::VOTE_STATUS::SYNCED)
                 {
                     // If we are in sync, vote and broadcast the winning votes to next stage.
                     const p2p::proposal p = create_stage123_proposal(votes, unl_count, state_hash, patch_hash, last_primary_shard_id, last_raw_shard_id);
@@ -224,7 +225,6 @@ namespace consensus
                     {
                         // Clear any sync recovery pending state if we enter stage 1 while being in sync.
                         ctx.sync_ongoing = false;
-                        status::sync_status_changed(true);
                         LOG_DEBUG << "Sync recovery completed.";
                     }
                 }
@@ -357,7 +357,7 @@ namespace consensus
      * Checks whether we are in sync with the received votes.
      * @return 0 if we are in sync. -1 on ledger or contract state desync. -2 if majority last ledger primary shard hash unreliable.
      */
-    int check_sync_status(const size_t unl_count, vote_counter &votes, const util::sequence_hash &lcl_id)
+    status::VOTE_STATUS check_vote_status(const size_t unl_count, vote_counter &votes, const util::sequence_hash &lcl_id)
     {
         bool is_last_primary_shard_desync = false;
         util::sequence_hash majority_primary_shard_id;
@@ -438,14 +438,14 @@ namespace consensus
 
             // Proceed further only if last primary shard, last raw shard, state and patch hashes are in sync with majority.
             if (!is_last_primary_shard_desync && !is_last_raw_shard_desync && !is_state_desync && !is_patch_desync)
-                return VOTES_SYNCED;
+                return status::VOTE_STATUS::SYNCED;
 
             // Last primary shard hash, last raw shard hash, patch or state desync.
-            return VOTES_DESYNC;
+            return status::VOTE_STATUS::DESYNC;
         }
 
         // Majority last primary shard hash couldn't be detected reliably.
-        return VOTES_UNRELIABLE;
+        return status::VOTE_STATUS::UNRELIABLE;
     }
 
     /**

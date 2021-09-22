@@ -232,7 +232,7 @@ async function establishClientConnection(node) {
         const lastLedger = await hpc.getLedgerBySeqNo(stat.ledgerSeqNo);
 
         node.failureCount = 0;
-        reportEvent(node, { event: "online", ledger: lastLedger });
+        reportEvent(node, { event: "online", ledger: lastLedger, voteStatus: stat.voteStatus });
         await hpc.subscribe(HotPocket.notificationChannels.ledgerEvent);
     }
 }
@@ -272,14 +272,15 @@ async function reportEvent(node, ev) {
         node.status = 'in_sync';
         node.lastLedger = ev.ledger;
     }
-    else if (ev.event == 'sync_status') {
-        node.status = ev.inSync ? 'in_sync' : 'desync';
+    else if (ev.event == 'vote_status') {
+        // ev.voteStatus - possible values: 'unreliable', 'desync', 'synced'
+        node.status = ev.voteStatus == 'desync' ? 'desync' : 'in_sync';
 
         if (synclog == "on")
-            await fs.appendFile("sync_ops.log", `${new Date(ts).toUTCString()}, Node${node.idx}, ${node.uri}, ${node.status}, at ${node.lastLedger.seqNo}\n`);
+            await fs.appendFile("sync_ops.log", `${new Date(ts).toUTCString()}, Node${node.idx}, ${node.uri}, ${ev.voteStatus}, at ${node.lastLedger.seqNo}\n`);
     }
     else if (ev.event == 'online') {
-        node.status = 'online';
+        node.status = ev.voteStatus == 'desync' ? 'desync' : 'in_sync';
         node.lastLedger = ev.ledger;
     }
     else if (ev.event == 'offline') {
