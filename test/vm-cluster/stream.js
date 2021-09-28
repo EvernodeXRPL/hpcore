@@ -71,10 +71,18 @@ async function main() {
 }
 
 async function resolveHosts(cluster) {
-    // If first host is an element with the pattern "vultr:", then we fetch hosts from vultr.
-    if (cluster.hosts.length > 0 && cluster.hosts[0].startsWith("vultr:"))
-        cluster.hosts = await getVultrHosts(cluster.hosts[0].split(":")[1]);
 
+    // If a host has the pattern "vultr:", then we fetch hosts from vultr.
+
+    const resolvedHosts = [];
+    for (const host of cluster.hosts) {
+        if (host.startsWith("vultr:"))
+            resolvedHosts.push(...await getVultrHosts(host.split(":")[1]));
+        else
+            resolvedHosts.push(host);
+    }
+
+    cluster.hosts = resolvedHosts;
     console.log(`${cluster.hosts.length} hosts in '${cluster.name}' cluster.`)
 }
 
@@ -307,6 +315,12 @@ function getVultrHosts(group) {
         });
 
         const vms = (await resp.json()).instances;
+        if (!vms) {
+            console.log("Failed to get vultr instances.");
+            resolve([]);
+            return;
+        }
+
         const ips = vms.sort((a, b) => (a.label < b.label) ? -1 : 1).map(i => i.main_ip);
         resolve(ips);
     })
