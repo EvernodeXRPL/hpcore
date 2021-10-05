@@ -7,11 +7,12 @@
 # ./vultr.sh delete mycluster
 # ./vultr.sh expand mycluster 2
 # ./vultr.sh shrink mycluster 2
+# ./vultr.sh regions
 
 planid="vc2-1c-1gb" # $5/month
 osid=387 # Ubuntu 20.04
 # Order of Vultr regions to distribute servers across the globe.
-regions=("syd" "yto" "ams" "atl" "cdg" "dfw" "ewr" "fra" "icn" "lax" "lhr" "mia" "nrt" "ord" "sea" "sgp" "sjc")
+regions=("syd" "yto" "ams" "atl" "cdg" "dfw" "ewr" "fra" "icn" "lax" "lhr" "mia" "nrt" "ord" "sea" "sgp" "sjc" "sto" "mex")
 
 # jq command is used for json manipulation.
 if ! command -v jq &> /dev/null
@@ -209,11 +210,12 @@ mode=$1
 name=$2
 num=$3
 
-if [ "$mode" = "create" ] || [ "$mode" = "info" ] || [ "$mode" = "delete" ] || [ "$mode" = "expand" ] || [ "$mode" = "shrink" ]; then
+if [ "$mode" = "create" ] || [ "$mode" = "info" ] || [ "$mode" = "delete" ] ||
+   [ "$mode" = "expand" ] || [ "$mode" = "shrink" ] || [ "$mode" = "regions" ]; then
     echo "mode: $mode"
 else
     echo "Invalid command."
-    echo " Expected: create <name> <count> | info <name> | delete <name> | expand <name> <by> | shrink <name> <by>"
+    echo " Expected: create <name> <count> | info <name> | delete <name> | expand <name> <by> | shrink <name> <by> | regions"
     exit 1
 fi
 
@@ -239,5 +241,10 @@ fi
 
 if [ $mode = "shrink" ]; then
     shrinkvmgroup $name $num
+    exit 0
+fi
+
+if [ $mode = "regions" ]; then
+    getregions
     exit 0
 fi
