@@ -27,6 +27,7 @@ namespace ledger
             get_last_ledger_and_update_context(hpfs::RW_SESSION_NAME, last_primary_shard_id, true) == -1 ||
             get_last_shard_info(hpfs::RW_SESSION_NAME, last_raw_shard_id, RAW_DIR) == -1)
         {
+            release_rw_session();
             LOG_ERROR << "Failed to prepare initial fs at mount " << mount_dir << ".";
             return -1;
         }
