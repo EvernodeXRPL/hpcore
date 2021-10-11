@@ -1,4 +1,4 @@
-const HotPocket = require('../../examples/js_client/lib/hp-client-lib');
+const HotPocket = require('hotpocket-js-client');
 const azure = require('azure-storage');
 const fs = require('fs').promises;
 const https = require('https');

@@ -1,4 +1,4 @@
-const HotPocket = require("./hp-contract-lib");
+const HotPocket = require("hotpocket-nodejs-contract");
 const fs = require('fs');
 
 const exectsFile = "exects.txt";

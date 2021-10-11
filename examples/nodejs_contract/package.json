@@ -5,6 +5,7 @@
         "build-diag": "ncc build diagnostic_contract.js -o dist/diagnostic-contract"
     },
     "dependencies": {
+        "hotpocket-nodejs-contract": "0.5.0",
         "bson": "4.0.4",
         "seedrandom": "3.0.5"
     }

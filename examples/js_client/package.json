@@ -1,17 +1,6 @@
 {
-    "scripts": {
-        "merge-browser": "rm -f -r dist ; mkdir -p dist && cp lib/bson-browser.js dist/hp-client-lib.js && cat lib/hp-client-lib.js >> dist/hp-client-lib.js",
-        "minify-browser": "terser --compress --mangle reserved=['Binary','Buffer'] -- dist/hp-client-lib.js > dist/hp-client-lib.min.js && rm dist/hp-client-lib.js",
-        "build-browser": "npm run merge-browser && npm run minify-browser",
-        "build-nodejs": "ncc build lib/hp-client-lib.js -o dist/hp-client"
-    },
     "dependencies": {
-        "libsodium-wrappers": "0.7.6",
-        "blake3": "2.1.4",
-        "ws": "7.1.2",
-        "bson": "4.0.4"
-    },
-    "devDependencies": {
-        "terser": "5.7.0"
+        "hotpocket-js-client": "0.5.1",
+        "bson": "4.5.3"
     }
 }

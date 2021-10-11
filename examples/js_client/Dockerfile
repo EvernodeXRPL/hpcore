@@ -6,7 +6,6 @@ COPY package*.json ./
 RUN npm install
 
 COPY text-client.js ./
-COPY hp-client-lib.js ./
 
 ENTRYPOINT ["node", "text-client.js"]
 
