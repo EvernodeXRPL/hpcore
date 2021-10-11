@@ -1,5 +1,5 @@
 const readline = require('readline');
-const HotPocket = require('./lib/hp-client-lib');
+const HotPocket = require('hotpocket-js-client');
 
 async function main() {
 
