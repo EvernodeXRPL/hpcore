@@ -462,7 +462,7 @@ namespace p2p
      * @param peers Incoming peer list.
      * @param from The session that sent us the peer list.
      */
-    void merge_peer_list(const std::vector<peer_properties> &peers, const p2p::peer_comm_session &from)
+    void merge_peer_list(const std::vector<peer_properties> &peers, const p2p::peer_comm_session *from)
     {
         std::scoped_lock<std::mutex> lock(ctx.server->req_known_remotes_mutex);
 
@@ -470,9 +470,9 @@ namespace p2p
         {
             // If the peer address is indicated as empty, that is the entry for the peer who sent us this.
             // We then fill that up with the host address we see for that peer.
-            // if (peer.ip_port.host_address.empty())
+            // if (from && peer.ip_port.host_address.empty())
             // {
-            //     peer.ip_port.host_address = from.host_address;
+            //     peer.ip_port.host_address = from->host_address;
             // }
 
             // If the peer is self, we won't add to the known peer list.

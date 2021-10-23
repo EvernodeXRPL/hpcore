@@ -237,7 +237,7 @@ namespace p2p
 
     void update_known_peer_available_capacity(const conf::peer_ip_port &ip_port, const int16_t available_capacity, const uint64_t &timestamp);
 
-    void merge_peer_list(const std::vector<peer_properties> &peers, const p2p::peer_comm_session &from);
+    void merge_peer_list(const std::vector<peer_properties> &peers, const p2p::peer_comm_session *from = NULL);
 
     void sort_known_remotes();
 

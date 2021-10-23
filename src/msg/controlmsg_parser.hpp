@@ -2,6 +2,7 @@
 #define _HP_MSG_CONTROLMSG_PARSER_
 
 #include "../pchheader.hpp"
+#include "../p2p/p2p.hpp"
 
 namespace msg::controlmsg
 {
@@ -12,6 +13,7 @@ namespace msg::controlmsg
     public:
         int parse(std::string_view message);
         int extract_type(std::string &extracted_type) const;
+        int extract_peer_changeset(std::vector<p2p::peer_properties> &added_peers) const;
     };
 
 } // namespace msg::controlmsg

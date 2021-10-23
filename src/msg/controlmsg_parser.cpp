@@ -16,4 +16,9 @@ namespace msg::controlmsg
         return jctlmsg::extract_type(extracted_type, jdoc);
     }
 
+    int controlmsg_parser::extract_peer_changeset(std::vector<p2p::peer_properties> &added_peers) const
+    {
+        return jctlmsg::extract_peer_changeset(added_peers, jdoc);
+    }
+
 } // namespace msg::controlmsg

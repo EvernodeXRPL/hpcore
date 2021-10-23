@@ -406,20 +406,13 @@ namespace conf
                 cfg.mesh.known_peers.clear();
                 for (auto &v : mesh["known_peers"].array_range())
                 {
-                    const char *ipport_concat = v.as<const char *>();
-                    // Split the address:port text into two
-                    util::split_string(splitted_peers, ipport_concat, ":");
-
-                    // Push the peer address and the port to peers set
-                    if (splitted_peers.size() != 2)
+                    peer_ip_port ipp;
+                    std::string_view ipport_concat = v.as<std::string_view>();
+                    if (ipp.from_string(ipport_concat) == -1)
                     {
                         std::cerr << "Invalid peer: " << ipport_concat << "\n";
                         return -1;
                     }
-
-                    peer_ip_port ipp;
-                    ipp.host_address = splitted_peers.front();
-                    ipp.port = std::stoi(splitted_peers.back());
                     cfg.mesh.known_peers.emplace(ipp);
                     splitted_peers.clear();
                 }

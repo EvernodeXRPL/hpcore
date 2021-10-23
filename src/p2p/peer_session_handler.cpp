@@ -149,7 +149,7 @@ namespace p2p
 
         if (mi.type == p2pmsg::P2PMsgContent_PeerListResponseMsg)
         {
-            p2p::merge_peer_list(p2pmsg::create_peer_list_response_from_msg(mi), session);
+            p2p::merge_peer_list(p2pmsg::create_peer_list_response_from_msg(mi), &session);
         }
         else if (mi.type == p2pmsg::P2PMsgContent_PeerListRequestMsg)
         {

@@ -12,14 +12,11 @@ namespace msg::controlmsg::json
     constexpr const char *SEP_COMMA_NOQUOTE = ",\"";
     constexpr const char *SEP_COLON_NOQUOTE = "\":";
 
-    // Message types
-    constexpr const char *MSGTYPE_HANDSHAKE_CHALLENGE = "handshake_challenge";
-
     /**
      * Parses a json control message sent by the contract.
      * @param d Jsoncons document to which the parsed json should be loaded.
      * @param message The message to parse.
-     *                Accepted message format:
+     *                Message format:
      *                {
      *                  'type': '<message type>'
      *                  ...
@@ -54,6 +51,46 @@ namespace msg::controlmsg::json
     int extract_type(std::string &extracted_type, const jsoncons::json &d)
     {
         extracted_type = d[msg::controlmsg::FLD_TYPE].as<std::string>();
+        return 0;
+    }
+
+    /**
+     * Extracts the peer changes from a peer changeset message.
+     * Message format:
+     * {
+     *   'type': 'peer_changeset',
+     *   'add': ['<ip1>','<ip2>', ...]
+     * }
+     */
+    int extract_peer_changeset(std::vector<p2p::peer_properties> &added_peers, const jsoncons::json &d)
+    {
+        if (d.contains(msg::controlmsg::FLD_ADD))
+        {
+            if (!d[msg::controlmsg::FLD_ADD].is_array())
+            {
+                LOG_ERROR << "Peer changeset json message 'add' field invalid.";
+                return -1;
+            }
+
+            for (auto &peer : d[msg::controlmsg::FLD_ADD].array_range())
+            {
+                if (!peer.is<std::string>())
+                {
+                    LOG_ERROR << "Peer changeset json message invalid peer entry in 'add'.";
+                    return -1;
+                }
+
+                conf::peer_ip_port ipp;
+                if (ipp.from_string(peer.as<std::string_view>()) == -1)
+                {
+                    LOG_ERROR << "Peer changeset json message invalid peer format in 'add'.";
+                    return -1;
+                }
+
+                added_peers.push_back(p2p::peer_properties{ipp, -1, 0, 0});
+            }
+        }
+
         return 0;
     }
 
