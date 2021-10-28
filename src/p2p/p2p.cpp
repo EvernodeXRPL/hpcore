@@ -454,7 +454,9 @@ namespace p2p
         p2pmsg::create_msg_from_peer_list_request(fbuf);
         std::string target_pubkey;
         send_message_to_random_peer(fbuf, target_pubkey);
-        LOG_DEBUG << "Peer list request: Requesting from [" << target_pubkey.substr(0, 10) << "]";
+
+        if (!target_pubkey.empty())
+            LOG_DEBUG << "Peer list requested from [" << target_pubkey.substr(0, 10) << "]";
     }
 
     /**
