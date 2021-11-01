@@ -65,48 +65,39 @@ namespace msg::controlmsg::json
      */
     int extract_peer_changeset(std::vector<p2p::peer_properties> &added_peers, std::vector<p2p::peer_properties> &removed_peers, const jsoncons::json &d)
     {
-        if (d.contains(msg::controlmsg::FLD_ADD))
+        if (extract_peers_from_array(added_peers, msg::controlmsg::FLD_ADD, d) == -1 ||
+            extract_peers_from_array(removed_peers, msg::controlmsg::FLD_ADD, d) == -1)
+            return -1;
+
+        return 0;
+    }
+
+    int extract_peers_from_array(std::vector<p2p::peer_properties> &peers, std::string_view field, const jsoncons::json &d)
+    {
+        if (d.contains(field))
         {
-            if (!d[msg::controlmsg::FLD_ADD].is_array())
+            if (!d[field].is_array())
             {
-                LOG_ERROR << "Peer changeset json message 'add' field invalid.";
+                LOG_ERROR << "Extract peers: Invalid array field: " << field;
                 return -1;
             }
 
-            for (auto &peer : d[msg::controlmsg::FLD_ADD].array_range())
+            for (auto &peer : d[field].array_range())
             {
                 if (!peer.is<std::string>())
                 {
-                    LOG_ERROR << "Peer changeset json message invalid peer entry in 'add'.";
+                    LOG_ERROR << "Extract peers: Invalid peer entry in field: " << field;
                     return -1;
                 }
 
                 conf::peer_ip_port ipp;
                 if (ipp.from_string(peer.as<std::string_view>()) == -1)
                 {
-                    LOG_ERROR << "Peer changeset json message invalid peer format in 'add'.";
+                    LOG_ERROR << "Extract peers: Invalid peer format in field: " << field;
                     return -1;
                 }
 
-                added_peers.push_back(p2p::peer_properties{ipp, -1, 0, 0});
-            }
-
-            for (auto &peer : d[msg::controlmsg::FLD_REMOVE].array_range())
-            {
-                if (!peer.is<std::string>())
-                {
-                    LOG_ERROR << "Peer changeset json message invalid peer entry in 'remove'.";
-                    return -1;
-                }
-
-                conf::peer_ip_port ipp;
-                if (ipp.from_string(peer.as<std::string_view>()) == -1)
-                {
-                    LOG_ERROR << "Peer changeset json message invalid peer format in 'remove'.";
-                    return -1;
-                }
-
-                removed_peers.push_back(p2p::peer_properties{ipp, -1, 0, 0});
+                peers.push_back(p2p::peer_properties{ipp, -1, 0, 0});
             }
         }
 
