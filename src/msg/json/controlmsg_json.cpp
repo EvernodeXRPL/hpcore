@@ -59,10 +59,11 @@ namespace msg::controlmsg::json
      * Message format:
      * {
      *   'type': 'peer_changeset',
-     *   'add': ['<ip1>','<ip2>', ...]
+     *   'add': ['<ip1>','<ip2>', ...],
+     *   'remove': ['<ip1>','<ip2>', ...]
      * }
      */
-    int extract_peer_changeset(std::vector<p2p::peer_properties> &added_peers, const jsoncons::json &d)
+    int extract_peer_changeset(std::vector<p2p::peer_properties> &added_peers, std::vector<p2p::peer_properties> &removed_peers, const jsoncons::json &d)
     {
         if (d.contains(msg::controlmsg::FLD_ADD))
         {
@@ -88,6 +89,24 @@ namespace msg::controlmsg::json
                 }
 
                 added_peers.push_back(p2p::peer_properties{ipp, -1, 0, 0});
+            }
+
+            for (auto &peer : d[msg::controlmsg::FLD_REMOVE].array_range())
+            {
+                if (!peer.is<std::string>())
+                {
+                    LOG_ERROR << "Peer changeset json message invalid peer entry in 'remove'.";
+                    return -1;
+                }
+
+                conf::peer_ip_port ipp;
+                if (ipp.from_string(peer.as<std::string_view>()) == -1)
+                {
+                    LOG_ERROR << "Peer changeset json message invalid peer format in 'remove'.";
+                    return -1;
+                }
+
+                removed_peers.push_back(p2p::peer_properties{ipp, -1, 0, 0});
             }
         }
 

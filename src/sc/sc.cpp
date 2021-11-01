@@ -1097,10 +1097,9 @@ namespace sc
         else if (type == msg::controlmsg::MSGTYPE_PEER_CHANGESET)
         {
             std::vector<p2p::peer_properties> added_peers;
-            if (parser.extract_peer_changeset(added_peers) != -1)
-            {
-                p2p::merge_peer_list(added_peers);
-            }
+            std::vector<p2p::peer_properties> removed_peers;
+            if (parser.extract_peer_changeset(added_peers, removed_peers) != -1)
+                p2p::merge_peer_list(&added_peers, &removed_peers);
         }
     }
 
