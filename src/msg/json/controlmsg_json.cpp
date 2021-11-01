@@ -66,7 +66,7 @@ namespace msg::controlmsg::json
     int extract_peer_changeset(std::vector<p2p::peer_properties> &added_peers, std::vector<p2p::peer_properties> &removed_peers, const jsoncons::json &d)
     {
         if (extract_peers_from_array(added_peers, msg::controlmsg::FLD_ADD, d) == -1 ||
-            extract_peers_from_array(removed_peers, msg::controlmsg::FLD_ADD, d) == -1)
+            extract_peers_from_array(removed_peers, msg::controlmsg::FLD_REMOVE, d) == -1)
             return -1;
 
         return 0;
