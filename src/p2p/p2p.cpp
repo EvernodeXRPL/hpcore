@@ -454,62 +454,84 @@ namespace p2p
         p2pmsg::create_msg_from_peer_list_request(fbuf);
         std::string target_pubkey;
         send_message_to_random_peer(fbuf, target_pubkey);
-        LOG_DEBUG << "Peer list request: Requesting from [" << target_pubkey.substr(0, 10) << "]";
+
+        if (!target_pubkey.empty())
+            LOG_DEBUG << "Peer list requested from [" << target_pubkey.substr(0, 10) << "]";
     }
 
     /**
      * Merging the response peer list with the own known peer list.
-     * @param peers Incoming peer list.
+     * @param merge_peers Peers that must be merged with existing known peers.
+     * @param remove_peers Peers that must be removed from existing known peers.
      * @param from The session that sent us the peer list.
      */
-    void merge_peer_list(const std::vector<peer_properties> &peers, const p2p::peer_comm_session &from)
+    void merge_peer_list(const std::vector<peer_properties> *merge_peers, const std::vector<peer_properties> *remove_peers, const p2p::peer_comm_session *from)
     {
         std::scoped_lock<std::mutex> lock(ctx.server->req_known_remotes_mutex);
 
-        for (const peer_properties &peer : peers)
+        if (merge_peers)
         {
-            // If the peer address is indicated as empty, that is the entry for the peer who sent us this.
-            // We then fill that up with the host address we see for that peer.
-            // if (peer.ip_port.host_address.empty())
-            // {
-            //     peer.ip_port.host_address = from.host_address;
-            // }
-
-            // If the peer is self, we won't add to the known peer list.
-            if (self::ip_port.has_value() && self::ip_port == peer.ip_port)
+            for (const peer_properties &peer : *merge_peers)
             {
-                LOG_DEBUG << "Rejecting " + peer.ip_port.host_address + ":" + std::to_string(peer.ip_port.port) + ". Loopback connection.";
-                continue;
-            }
+                // If the peer address is indicated as empty, that is the entry for the peer who sent us this.
+                // We then fill that up with the host address we see for that peer.
+                // if (from && peer.ip_port.host_address.empty())
+                // {
+                //     peer.ip_port.host_address = from->host_address;
+                // }
 
-            const auto itr = std::find_if(ctx.server->req_known_remotes.begin(), ctx.server->req_known_remotes.end(), [&](peer_properties &p)
-                                          { return p.ip_port == peer.ip_port; });
-
-            // If the new peer is not in the peer list then add to the req_known_remotes
-            // Otherwise if new peer is recently updated (timestamp >) replace with the current one.
-            if (itr == ctx.server->req_known_remotes.end())
-            {
-                // If maximum number of peer list reached skip the rest of peers.
-                if (ctx.server->req_known_remotes.size() < p2p::PEER_LIST_CAP)
+                // If the peer is self, we won't add to the known peer list.
+                if (self::ip_port.has_value() && self::ip_port == peer.ip_port)
                 {
-                    ctx.server->req_known_remotes.push_back(peer);
-                    LOG_DEBUG << "Adding " + peer.ip_port.host_address + ":" + std::to_string(peer.ip_port.port) + " to the known peer list.";
+                    LOG_DEBUG << "Rejecting " + peer.ip_port.to_string() + ". Loopback connection.";
+                    continue;
                 }
-                else
+
+                const auto itr = std::find_if(ctx.server->req_known_remotes.begin(), ctx.server->req_known_remotes.end(), [&](peer_properties &p)
+                                              { return p.ip_port == peer.ip_port; });
+
+                // If the new peer is not in the peer list then add to the req_known_remotes
+                // Otherwise if new peer is recently updated (timestamp >) replace with the current one.
+                if (itr == ctx.server->req_known_remotes.end())
                 {
-                    LOG_DEBUG << "Rejecting " + peer.ip_port.host_address + ":" + std::to_string(peer.ip_port.port) + ". Maximum peer count reached.";
+                    // If maximum number of peer list reached skip the rest of peers.
+                    if (ctx.server->req_known_remotes.size() < p2p::PEER_LIST_CAP)
+                    {
+                        ctx.server->req_known_remotes.push_back(peer);
+                        LOG_DEBUG << "Adding " + peer.ip_port.to_string() + " to the known peer list.";
+                    }
+                    else
+                    {
+                        LOG_DEBUG << "Rejecting " + peer.ip_port.to_string() + ". Maximum peer count reached.";
+                    }
+                }
+                else if (itr->timestamp < peer.timestamp)
+                {
+                    itr->available_capacity = peer.available_capacity;
+                    itr->timestamp = peer.timestamp;
+                    LOG_DEBUG << "Replacing " + peer.ip_port.to_string() + " in the known peer list.";
                 }
             }
-            else if (itr->timestamp < peer.timestamp)
+        }
+
+        if (remove_peers)
+        {
+            for (const peer_properties &peer : *remove_peers)
             {
-                itr->available_capacity = peer.available_capacity;
-                itr->timestamp = peer.timestamp;
-                LOG_DEBUG << "Replacing " + peer.ip_port.host_address + ":" + std::to_string(peer.ip_port.port) + " in the known peer list.";
+                const auto itr = std::find_if(ctx.server->req_known_remotes.begin(), ctx.server->req_known_remotes.end(), [&](peer_properties &p)
+                                              { return p.ip_port == peer.ip_port; });
+
+                if (itr != ctx.server->req_known_remotes.end())
+                {
+                    LOG_DEBUG << "Removing " << peer.ip_port.to_string() << " from known peer list.";
+                    ctx.server->req_known_remotes.erase(itr);
+                }
             }
         }
 
         // Sorting the known remote list according to the weight value after merging the peer list.
-        sort_known_remotes();
+        if (merge_peers || remove_peers)
+            sort_known_remotes();
     }
 
     /**

@@ -149,7 +149,8 @@ namespace p2p
 
         if (mi.type == p2pmsg::P2PMsgContent_PeerListResponseMsg)
         {
-            p2p::merge_peer_list(p2pmsg::create_peer_list_response_from_msg(mi), session);
+            const std::vector<p2p::peer_properties> merge_peers = p2pmsg::create_peer_list_response_from_msg(mi);
+            p2p::merge_peer_list(&merge_peers, NULL, &session);
         }
         else if (mi.type == p2pmsg::P2PMsgContent_PeerListRequestMsg)
         {

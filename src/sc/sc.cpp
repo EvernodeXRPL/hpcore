@@ -8,6 +8,7 @@
 #include "../msg/controlmsg_parser.hpp"
 #include "../unl.hpp"
 #include "../util/version.hpp"
+#include "../p2p/p2p.hpp"
 #include "contract_serve.hpp"
 #include "sc.hpp"
 #include "hpfs_log_sync.hpp"
@@ -1092,6 +1093,13 @@ namespace sc
         if (type == msg::controlmsg::MSGTYPE_CONTRACT_END)
         {
             ctx.termination_signaled = true;
+        }
+        else if (type == msg::controlmsg::MSGTYPE_PEER_CHANGESET)
+        {
+            std::vector<p2p::peer_properties> added_peers;
+            std::vector<p2p::peer_properties> removed_peers;
+            if (parser.extract_peer_changeset(added_peers, removed_peers) != -1)
+                p2p::merge_peer_list(&added_peers, &removed_peers);
         }
     }
 

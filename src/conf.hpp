@@ -20,6 +20,29 @@ namespace conf
         std::string host_address;
         uint16_t port = 0;
 
+        /**
+         * Populates ip/port pair from a string format of "<ip>:<port>"
+         */
+        int from_string(std::string_view str)
+        {
+            // Split the address:port text into two
+            std::vector<std::string> split;
+            util::split_string(split, str, ":");
+
+            if (split.size() != 2)
+                return -1;
+
+            host_address = split.front();
+            if (host_address.empty())
+                return -1;
+
+            port = std::stoi(split.back());
+            if (port == 0)
+                return -1;
+
+            return 0;
+        }
+
         bool operator==(const peer_ip_port &other) const
         {
             return host_address == other.host_address && port == other.port;

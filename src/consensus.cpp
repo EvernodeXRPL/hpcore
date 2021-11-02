@@ -194,6 +194,7 @@ namespace consensus
                 if (!was_in_sync && newly_in_sync && ctx.sync_ongoing)
                     dispatch_synced_ledger_input_statuses(lcl_id);
 
+                LOG_DEBUG << "Vote status: " << new_vote_status;
                 status::set_vote_status(new_vote_status);
             }
 

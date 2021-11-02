@@ -23,8 +23,9 @@ const char *__HP_PATCH_FILE_PATH = "../patch.cfg";
 
 // Public constants.
 #define HP_NPL_MSG_MAX_SIZE __HP_SEQPKT_MAX_SIZE
-#define HP_KEY_SIZE 66  // Hex pubkey size. (64 char key + 2 chars for key type prfix)
-#define HP_HASH_SIZE 64 // Hex hash size.
+#define HP_KEY_SIZE 66         // Hex pubkey size. (64 char key + 2 chars for key type prfix)
+#define HP_HASH_SIZE 64        // Hex hash size.
+#define HP_CONTRACT_ID_SIZE 36 // Contract Id UUIDv4 string length.
 const char *HP_POST_EXEC_SCRIPT_NAME = "post_exec.sh";
 
 #define __HP_ASSIGN_STRING(dest, elem)                                                        \
@@ -170,9 +171,10 @@ struct hp_contract_context
 {
     bool readonly;
     uint64_t timestamp;
-    char pubkey[HP_KEY_SIZE + 1];    // +1 for null char.
-    uint64_t lcl_seq_no;             // lcl sequence no.
-    char lcl_hash[HP_HASH_SIZE + 1]; // +1 for null char.
+    char contract_id[HP_CONTRACT_ID_SIZE + 1]; // +1 for null char.
+    char pubkey[HP_KEY_SIZE + 1];              // +1 for null char.
+    uint64_t lcl_seq_no;                       // lcl sequence no.
+    char lcl_hash[HP_HASH_SIZE + 1];           // +1 for null char.
     struct hp_users_collection users;
     struct hp_unl_collection unl;
 };
@@ -197,6 +199,7 @@ int hp_writev_npl_msg(const struct iovec *bufs, const int buf_count);
 int hp_read_npl_msg(void *msg_buf, char *pubkey_buf, const int timeout);
 struct hp_config *hp_get_config();
 int hp_update_config(const struct hp_config *config);
+int hp_update_peers(const char *add_peers[], const size_t add_peers_count, const char *remove_peers[], const size_t remove_peers_count);
 void hp_set_config_string(char **config_str, const char *value, const size_t value_size);
 void hp_set_config_unl(struct hp_config *config, const struct hp_unl_node *new_unl, const size_t new_unl_count);
 void hp_free_config(struct hp_config *config);
@@ -206,6 +209,8 @@ int __hp_write_control_msg(const void *buf, const uint32_t len);
 void __hp_populate_patch_from_json_object(struct hp_config *config, const struct json_object_s *object);
 int __hp_write_to_patch_file(const int fd, const struct hp_config *config);
 struct hp_config *__hp_read_from_patch_file(const int fd);
+size_t __hp_get_json_string_array_encoded_len(const char *elems[], const size_t count);
+int __hp_encode_json_string_array(char *buf, const char *elems[], const size_t count);
 
 static struct __hp_contract __hpc = {};
 
@@ -278,9 +283,10 @@ int hp_deinit_contract()
     __HP_FREE(cctx);
 
     // Send termination control message.
-    __hp_write_control_msg("{\"type\":\"contract_end\"}", 23);
+    const int ret = __hp_write_control_msg("{\"type\":\"contract_end\"}", 23);
+
     close(__hpc.control_fd);
-    return 0;
+    return ret;
 }
 
 const struct hp_contract_context *hp_get_context()
@@ -357,7 +363,7 @@ int hp_write_npl_msg(const void *buf, const uint32_t len)
 {
     if (len > HP_NPL_MSG_MAX_SIZE)
     {
-        fprintf(stderr, "NPL message exceeds max length %d.", HP_NPL_MSG_MAX_SIZE);
+        fprintf(stderr, "NPL message exceeds max length %d.\n", HP_NPL_MSG_MAX_SIZE);
         return -1;
     }
 
@@ -372,7 +378,7 @@ int hp_writev_npl_msg(const struct iovec *bufs, const int buf_count)
 
     if (len > HP_NPL_MSG_MAX_SIZE)
     {
-        fprintf(stderr, "NPL message exceeds max length %d.", HP_NPL_MSG_MAX_SIZE);
+        fprintf(stderr, "NPL message exceeds max length %d.\n", HP_NPL_MSG_MAX_SIZE);
         return -1;
     }
 
@@ -583,6 +589,83 @@ void hp_free_config(struct hp_config *config)
     __HP_FREE(config->appbill.mode);
     __HP_FREE(config->appbill.bin_args);
     __HP_FREE(config);
+}
+
+/**
+ * Updates the known-peers this node must attempt connections to.
+ * @param add_peers Array of strings containing peers to be added. Each string must be in the format of "<ip>:<port>".
+ * @param add_peers_count No. of peers to be added.
+ * @param remove_peers Array of strings containing peers to be removed. Each string must be in the format of "<ip>:<port>".
+ * @param remove_peers_count No. of peers to be removed.
+ */
+int hp_update_peers(const char *add_peers[], const size_t add_peers_count, const char *remove_peers[], const size_t remove_peers_count)
+{
+    const size_t add_json_len = __hp_get_json_string_array_encoded_len(add_peers, add_peers_count);
+    char add_json[add_json_len];
+    if (__hp_encode_json_string_array(add_json, add_peers, add_peers_count) == -1)
+    {
+        fprintf(stderr, "Error when encoding peer update changeset 'add'.\n");
+        return -1;
+    }
+
+    const size_t remove_json_len = __hp_get_json_string_array_encoded_len(remove_peers, remove_peers_count);
+    char remove_json[remove_json_len];
+    if (__hp_encode_json_string_array(remove_json, remove_peers, remove_peers_count) == -1)
+    {
+        fprintf(stderr, "Error when encoding peer update changeset 'remove'.\n");
+        return -1;
+    }
+
+    const size_t msg_len = 47 + (add_json_len - 1) + (remove_json_len - 1);
+    char msg[msg_len];
+    sprintf(msg, "{\"type\":\"peer_changeset\",\"add\":[%s],\"remove\":[%s]}", add_json, remove_json);
+
+    if (__hp_write_control_msg(msg, msg_len - 1) == -1)
+        return -1;
+
+    return 0;
+}
+
+/**
+ * Returns the null-terminated string length required to encode as a json string array without enclosing brackets.
+ * @param elems Array of strings.
+ * @param count No. of strings.
+ */
+size_t __hp_get_json_string_array_encoded_len(const char *elems[], const size_t count)
+{
+    size_t len = 1; // +1 for null terminator.
+    for (size_t i = 0; i < count; i++)
+    {
+        len += (strlen(elems[i]) + 2); // Quoted string.
+        if (i < count - 1)
+            len += 1; // Comma
+    }
+
+    return len;
+}
+
+/**
+ * Formats a string array in JSON notation without enclosing brackets.
+ * @param buf Buffer to populate the encoded output.
+ * @param elems Array of strings.
+ * @param count No. of strings.
+ */
+int __hp_encode_json_string_array(char *buf, const char *elems[], const size_t count)
+{
+    size_t pos = 0;
+    for (size_t i = 0; i < count; i++)
+    {
+        const char *elem = elems[i];
+        buf[pos++] = '\"';
+        strcpy((buf + pos), elem);
+        pos += strlen(elem);
+        buf[pos++] = '\"';
+
+        if (i < count - 1)
+            buf[pos++] = ',';
+    }
+    buf[pos] = '\0';
+    return 0;
 }
 
 /**
@@ -848,7 +931,11 @@ void __hp_parse_args_json(const struct json_object_s *object)
     {
         const struct json_string_s *k = elem->name;
 
-        if (strcmp(k->string, "pubkey") == 0)
+        if (strcmp(k->string, "contract_id") == 0)
+        {
+            __HP_ASSIGN_STRING(cctx->contract_id, elem);
+        }
+        else if (strcmp(k->string, "pubkey") == 0)
         {
             __HP_ASSIGN_STRING(cctx->pubkey, elem);
         }
@@ -959,7 +1046,7 @@ int __hp_write_control_msg(const void *buf, const uint32_t len)
 {
     if (len > __HP_SEQPKT_MAX_SIZE)
     {
-        fprintf(stderr, "Control message exceeds max length %d.", __HP_SEQPKT_MAX_SIZE);
+        fprintf(stderr, "Control message exceeds max length %d.\n", __HP_SEQPKT_MAX_SIZE);
         return -1;
     }
 
