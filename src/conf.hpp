@@ -33,7 +33,13 @@ namespace conf
                 return -1;
 
             host_address = split.front();
+            if (host_address.empty())
+                return -1;
+
             port = std::stoi(split.back());
+            if (port == 0)
+                return -1;
+
             return 0;
         }
 
