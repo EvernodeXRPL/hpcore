@@ -36,9 +36,16 @@ namespace conf
             if (host_address.empty())
                 return -1;
 
-            port = std::stoi(split.back());
-            if (port == 0)
+            try
+            {
+                port = std::stoi(split.back());
+                if (port == 0)
+                    return -1;
+            }
+            catch (...)
+            {
                 return -1;
+            }
 
             return 0;
         }
