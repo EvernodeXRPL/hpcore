@@ -199,7 +199,7 @@ int hp_writev_npl_msg(const struct iovec *bufs, const int buf_count);
 int hp_read_npl_msg(void *msg_buf, char *pubkey_buf, const int timeout);
 struct hp_config *hp_get_config();
 int hp_update_config(const struct hp_config *config);
-int hp_update_peers(const char *add_peers[], const size_t add_peers_count);
+int hp_update_peers(const char *add_peers[], const size_t add_peers_count, const char *remove_peers[], const size_t remove_peers_count);
 void hp_set_config_string(char **config_str, const char *value, const size_t value_size);
 void hp_set_config_unl(struct hp_config *config, const struct hp_unl_node *new_unl, const size_t new_unl_count);
 void hp_free_config(struct hp_config *config);
@@ -595,20 +595,30 @@ void hp_free_config(struct hp_config *config)
  * Updates the known-peers this node must attempt connections to.
  * @param add_peers Array of strings containing peers to be added. Each string must be in the format of "<ip>:<port>".
  * @param add_peers_count No. of peers to be added.
+ * @param remove_peers Array of strings containing peers to be removed. Each string must be in the format of "<ip>:<port>".
+ * @param remove_peers_count No. of peers to be removed.
  */
-int hp_update_peers(const char *add_peers[], const size_t add_peers_count)
+int hp_update_peers(const char *add_peers[], const size_t add_peers_count, const char *remove_peers[], const size_t remove_peers_count)
 {
     const size_t add_json_len = __hp_get_json_string_array_encoded_len(add_peers, add_peers_count);
     char add_json[add_json_len];
     if (__hp_encode_json_string_array(add_json, add_peers, add_peers_count) == -1)
     {
-        fprintf(stderr, "Error when encoding peer update changeset.\n");
+        fprintf(stderr, "Error when encoding peer update changeset 'add'.\n");
         return -1;
     }
 
-    const size_t msg_len = 35 + add_json_len - 1;
+    const size_t remove_json_len = __hp_get_json_string_array_encoded_len(remove_peers, remove_peers_count);
+    char remove_json[remove_json_len];
+    if (__hp_encode_json_string_array(remove_json, remove_peers, remove_peers_count) == -1)
+    {
+        fprintf(stderr, "Error when encoding peer update changeset 'remove'.\n");
+        return -1;
+    }
+
+    const size_t msg_len = 47 + (add_json_len - 1) + (remove_json_len - 1);
     char msg[msg_len];
-    sprintf(msg, "{\"type\":\"peer_changeset\",\"add\":[%s]}", add_json);
+    sprintf(msg, "{\"type\":\"peer_changeset\",\"add\":[%s],\"remove\":[%s]}", add_json, remove_json);
 
     if (__hp_write_control_msg(msg, msg_len - 1) == -1)
         return -1;
@@ -617,15 +627,12 @@ int hp_update_peers(const char *add_peers[], const size_t add_peers_count)
 }
 
 /**
- * Returns the total string length required to encode as a json string array without enclosing brackets.
+ * Returns the null-terminated string length required to encode as a json string array without enclosing brackets.
  * @param elems Array of strings.
  * @param count No. of strings.
  */
 size_t __hp_get_json_string_array_encoded_len(const char *elems[], const size_t count)
 {
-    if (count == 0)
-        return 0;
-
     size_t len = 1; // +1 for null terminator.
     for (size_t i = 0; i < count; i++)
     {
@@ -645,9 +652,6 @@ size_t __hp_get_json_string_array_encoded_len(const char *elems[], const size_t 
  */
 int __hp_encode_json_string_array(char *buf, const char *elems[], const size_t count)
 {
-    if (count == 0)
-        return 0;
-
     size_t pos = 0;
     for (size_t i = 0; i < count; i++)
     {

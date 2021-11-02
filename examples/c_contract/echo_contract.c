@@ -53,6 +53,10 @@ int main(int argc, char **argv)
     //     printf("Received %.*s from %.*s", len, msg, HP_KEY_SIZE, sender);
     // free(msg);
 
+    // Peers update example:
+    // const char *add_peers[2] = {"localhost:4444", "localhost:3333"};
+    // hp_update_peers(add_peers, 2, NULL, 0);
+
     // Config update example:
     // struct hp_config *config = hp_get_config();
     // hp_set_config_string(&config->version, "2.0", 4);
