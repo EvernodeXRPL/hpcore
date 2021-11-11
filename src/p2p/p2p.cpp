@@ -476,6 +476,7 @@ namespace p2p
                 if (peer.ip_port.host_address.empty())
                 {
                     LOG_WARNING << caller << " BLANKIP RECEIVED " << peer.ip_port.to_string() << " from:" << (from ? from->display_name() : "");
+                    continue;
                 }
 
                 // If the peer address is indicated as empty, that is the entry for the peer who sent us this.

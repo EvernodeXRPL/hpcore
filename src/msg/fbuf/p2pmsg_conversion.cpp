@@ -653,6 +653,7 @@ namespace msg::fbuf::p2pmsg
             if (peer.ip_port.host_address.empty())
             {
                 LOG_WARNING << "SENDPEERLIST BLANKIP " << peer.ip_port.to_string();
+                continue;
             }
 
             // Skipping the requestedc peer from the peer list response.

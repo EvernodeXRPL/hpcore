@@ -151,6 +151,12 @@ namespace p2p
             if (peer.available_capacity == 0)
                 continue;
 
+            if (peer.ip_port.host_address.empty())
+            {
+                LOG_WARNING << "MAINTAINCONN BLANKIP " << peer.ip_port.to_string();
+                continue;
+            }
+
             // Check if we are already connected to this remote party.
             if (std::find(known_remotes.begin(), known_remotes.end(), peer.ip_port) != known_remotes.end())
                 continue;
