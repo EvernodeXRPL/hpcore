@@ -648,8 +648,13 @@ namespace msg::fbuf::p2pmsg
     {
         std::vector<flatbuffers::Offset<PeerProperties>> fbvec;
         fbvec.reserve(peers.size());
-        for (auto peer : peers)
+        for (const auto &peer : peers)
         {
+            if (peer.ip_port.host_address.empty())
+            {
+                LOG_WARNING << "SENDPEERLIST BLANKIP " << peer.ip_port.to_string();
+            }
+
             // Skipping the requestedc peer from the peer list response.
             if (!skipping_ip_port.has_value() || peer.ip_port != skipping_ip_port.value())
                 fbvec.push_back(CreatePeerProperties(

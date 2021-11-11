@@ -465,7 +465,7 @@ namespace p2p
      * @param remove_peers Peers that must be removed from existing known peers.
      * @param from The session that sent us the peer list.
      */
-    void merge_peer_list(const std::vector<peer_properties> *merge_peers, const std::vector<peer_properties> *remove_peers, const p2p::peer_comm_session *from)
+    void merge_peer_list(const std::string &caller, const std::vector<peer_properties> *merge_peers, const std::vector<peer_properties> *remove_peers, const p2p::peer_comm_session *from)
     {
         std::scoped_lock<std::mutex> lock(ctx.server->req_known_remotes_mutex);
 
@@ -473,6 +473,11 @@ namespace p2p
         {
             for (const peer_properties &peer : *merge_peers)
             {
+                if (peer.ip_port.host_address.empty())
+                {
+                    LOG_WARNING << caller << " BLANKIP RECEIVED " << peer.ip_port.to_string() << " from:" << (from ? from->display_name() : "");
+                }
+
                 // If the peer address is indicated as empty, that is the entry for the peer who sent us this.
                 // We then fill that up with the host address we see for that peer.
                 // if (from && peer.ip_port.host_address.empty())
