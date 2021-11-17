@@ -172,9 +172,15 @@ function metricsTracker() {
 async function streamCluster(cluster) {
     console.log(`Starting to stream cluster '${cluster.name}'...`);
 
-    // TODO: Resolve Vultr vm groups.
-
-    cluster.hosts.forEach((h, idx) => streamNode(cluster.name, (idx + 1), h, cluster.userPort));
+    cluster.hosts.forEach((host, idx) => {
+        let port = cluster.userPort;
+        if (host.includes(":")) {
+            const parts = host.split(":");
+            host = parts[0];
+            port = parseInt(parts[1]);
+        }
+        streamNode(cluster.name, (idx + 1), host, cluster.userPort);
+    });
 }
 
 function streamNode(clusterName, nodeIdx, host, port) {
