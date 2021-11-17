@@ -179,7 +179,7 @@ async function streamCluster(cluster) {
             host = parts[0];
             port = parseInt(parts[1]);
         }
-        streamNode(cluster.name, (idx + 1), host, cluster.userPort);
+        streamNode(cluster.name, (idx + 1), host, port);
     });
 }
 
