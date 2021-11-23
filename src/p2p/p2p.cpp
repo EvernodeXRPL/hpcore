@@ -113,6 +113,8 @@ namespace p2p
         if (res == 0)
         {
             LOG_DEBUG << "Pubkey violation. Rejecting new peer connection [" << session.display_name() << "]";
+            if (!session.known_ipport.has_value() || (session.known_ipport.has_value() && session.known_ipport.value().host_address.empty()))
+                LOG_WARNING << "Pubkey violation. Rejecting new peer connection [" << session.display_name() << "].";
 
             // It's possible, Self node might've been added to the known peers by peer discovery.
             // If so remove the self from known peers.
@@ -130,6 +132,8 @@ namespace p2p
                     ctx.server->known_remote_count = ctx.server->req_known_remotes.size();
                 }
                 LOG_DEBUG << "Loopback connection detected: Removed self from the peer list.";
+                if (!session.known_ipport.has_value() || (session.known_ipport.has_value() && session.known_ipport.value().host_address.empty()))
+                    LOG_WARNING << "Loopback connection detected: Removed self from the peer list. address: |" << (session.known_ipport.has_value() ? session.known_ipport.value().to_string() : "") << "|.";
             }
 
             return -1;
@@ -150,6 +154,8 @@ namespace p2p
             ctx.peer_connections.try_emplace(session.pubkey, &session);
 
             LOG_DEBUG << "Accepted verified connection [" << session.display_name() << "]";
+            if (!session.known_ipport.has_value() || (session.known_ipport.has_value() && session.known_ipport.value().host_address.empty()))
+                LOG_WARNING << "Accepted verified connection [" << session.display_name() << "]. address: |" << (session.known_ipport.has_value() ? session.known_ipport.value().to_string() : "") << "|.";
             return 0;
         }
         else // Peer pub key already exists in our sessions.
@@ -180,6 +186,8 @@ namespace p2p
                     ctx.peer_connections.try_emplace(session.pubkey, &session); // add new session.
 
                     LOG_DEBUG << "Replacing existing connection [" << ex_session.display_name() << "] with [" << session.display_name() << "]";
+                    if (!session.known_ipport.has_value() || (session.known_ipport.has_value() && session.known_ipport.value().host_address.empty()))
+                        LOG_WARNING << "Replacing existing connection [" << ex_session.display_name() << "] with [" << session.display_name() << "]. address: |" << (session.known_ipport.has_value() ? session.known_ipport.value().to_string() : "") << "|.";
                     return 0;
                 }
                 else if (!ex_session.known_ipport.has_value() || session.known_ipport.has_value())
@@ -187,11 +195,15 @@ namespace p2p
                     // If we have any known ip-port info from the new session, transfer them to the existing session.
                     ex_session.known_ipport.swap(session.known_ipport);
                     LOG_DEBUG << "Merging new connection [" << session.display_name() << "] with [" << ex_session.display_name() << "]";
+                    if (!session.known_ipport.has_value() || (session.known_ipport.has_value() && session.known_ipport.value().host_address.empty()))
+                        LOG_WARNING << "Merging new connection [" << session.display_name() << "] with [" << ex_session.display_name() << "]. address: |" << (session.known_ipport.has_value() ? session.known_ipport.value().to_string() : "") << "|.";
                 }
             }
 
             // Reaching this point means we don't need the new session.
             LOG_DEBUG << "Rejecting new connection [" << session.display_name() << "] in favour of [" << ex_session.display_name() << "]";
+            if (!session.known_ipport.has_value() || (session.known_ipport.has_value() && session.known_ipport.value().host_address.empty()))
+                LOG_WARNING << "Rejecting new connection [" << session.display_name() << "] in favour of [" << ex_session.display_name() << "]. address: |" << (session.known_ipport.has_value() ? session.known_ipport.value().to_string() : "") << "|.";
             return -1;
         }
     }
