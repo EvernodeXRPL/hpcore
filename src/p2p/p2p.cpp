@@ -144,6 +144,9 @@ namespace p2p
         const auto iter = ctx.peer_connections.find(challenge_resp.pubkey);
         if (iter == ctx.peer_connections.end())
         {
+            if (!session.known_ipport.has_value() || (session.known_ipport.has_value() && session.known_ipport.value().host_address.empty()))
+                LOG_WARNING << "Accepted verified connection [" << session.display_name() << "]. address: |" << (session.known_ipport.has_value() ? session.known_ipport.value().to_string() : "") << "|.";
+
             // Add the new connection straight away, if we haven't seen it before.
             session.uniqueid.swap(pubkeyhex);
             session.pubkey = challenge_resp.pubkey;
@@ -154,8 +157,6 @@ namespace p2p
             ctx.peer_connections.try_emplace(session.pubkey, &session);
 
             LOG_DEBUG << "Accepted verified connection [" << session.display_name() << "]";
-            if (!session.known_ipport.has_value() || (session.known_ipport.has_value() && session.known_ipport.value().host_address.empty()))
-                LOG_WARNING << "Accepted verified connection [" << session.display_name() << "]. address: |" << (session.known_ipport.has_value() ? session.known_ipport.value().to_string() : "") << "|.";
             return 0;
         }
         else // Peer pub key already exists in our sessions.
@@ -168,6 +169,9 @@ namespace p2p
                 const bool replace_needed = ((res < 0 && !ex_session.is_inbound) || (res > 0 && ex_session.is_inbound));
                 if (replace_needed)
                 {
+                    if (!session.known_ipport.has_value() || (session.known_ipport.has_value() && session.known_ipport.value().host_address.empty()))
+                        LOG_WARNING << "Replacing existing connection [" << ex_session.display_name() << "] with [" << session.display_name() << "]. address: |" << (session.known_ipport.has_value() ? session.known_ipport.value().to_string() : "") << "|.";
+
                     // If we happen to replace a peer session with known IP, transfer required details to the new session.
                     if (!session.known_ipport.has_value())
                         session.known_ipport.swap(ex_session.known_ipport);
@@ -186,8 +190,6 @@ namespace p2p
                     ctx.peer_connections.try_emplace(session.pubkey, &session); // add new session.
 
                     LOG_DEBUG << "Replacing existing connection [" << ex_session.display_name() << "] with [" << session.display_name() << "]";
-                    if (!session.known_ipport.has_value() || (session.known_ipport.has_value() && session.known_ipport.value().host_address.empty()))
-                        LOG_WARNING << "Replacing existing connection [" << ex_session.display_name() << "] with [" << session.display_name() << "]. address: |" << (session.known_ipport.has_value() ? session.known_ipport.value().to_string() : "") << "|.";
                     return 0;
                 }
                 else if (!ex_session.known_ipport.has_value() || session.known_ipport.has_value())
