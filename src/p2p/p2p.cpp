@@ -125,8 +125,9 @@ namespace p2p
                     ctx.server->req_known_remotes.erase(std::remove_if(ctx.server->req_known_remotes.begin(), ctx.server->req_known_remotes.end(),
                                                                        [&](const p2p::peer_properties &peer)
                                                                        {
-                                                                           return peer.ip_port.port == session.known_ipport->port;
-                                                                       }));
+                                                                           return peer.ip_port == session.known_ipport;
+                                                                       }),
+                                                        ctx.server->req_known_remotes.end());
                     ctx.server->known_remote_count = ctx.server->req_known_remotes.size();
                 }
                 LOG_DEBUG << "Loopback connection detected: Removed self from the peer list.";
@@ -465,7 +466,7 @@ namespace p2p
      * @param remove_peers Peers that must be removed from existing known peers.
      * @param from The session that sent us the peer list.
      */
-    void merge_peer_list(const std::vector<peer_properties> *merge_peers, const std::vector<peer_properties> *remove_peers, const p2p::peer_comm_session *from)
+    void merge_peer_list(const std::string &caller, const std::vector<peer_properties> *merge_peers, const std::vector<peer_properties> *remove_peers, const p2p::peer_comm_session *from)
     {
         std::scoped_lock<std::mutex> lock(ctx.server->req_known_remotes_mutex);
 
@@ -473,6 +474,12 @@ namespace p2p
         {
             for (const peer_properties &peer : *merge_peers)
             {
+                if (peer.ip_port.host_address.empty())
+                {
+                    LOG_DEBUG << caller << " : Skip received peer with blank host address " << peer.ip_port.to_string() << " from " << peer.ip_port.to_string();
+                    continue;
+                }
+
                 // If the peer address is indicated as empty, that is the entry for the peer who sent us this.
                 // We then fill that up with the host address we see for that peer.
                 // if (from && peer.ip_port.host_address.empty())
