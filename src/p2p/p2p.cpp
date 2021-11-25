@@ -113,8 +113,6 @@ namespace p2p
         if (res == 0)
         {
             LOG_DEBUG << "Pubkey violation. Rejecting new peer connection [" << session.display_name() << "]";
-            if (!session.known_ipport.has_value() || (session.known_ipport.has_value() && session.known_ipport.value().host_address.empty()))
-                LOG_WARNING << "Pubkey violation. Rejecting new peer connection [" << session.display_name() << "].";
 
             // It's possible, Self node might've been added to the known peers by peer discovery.
             // If so remove the self from known peers.
@@ -127,13 +125,12 @@ namespace p2p
                     ctx.server->req_known_remotes.erase(std::remove_if(ctx.server->req_known_remotes.begin(), ctx.server->req_known_remotes.end(),
                                                                        [&](const p2p::peer_properties &peer)
                                                                        {
-                                                                           return peer.ip_port.port == session.known_ipport->port;
-                                                                       }));
+                                                                           return peer.ip_port == session.known_ipport;
+                                                                       }),
+                                                        ctx.server->req_known_remotes.end());
                     ctx.server->known_remote_count = ctx.server->req_known_remotes.size();
                 }
                 LOG_DEBUG << "Loopback connection detected: Removed self from the peer list.";
-                if (!session.known_ipport.has_value() || (session.known_ipport.has_value() && session.known_ipport.value().host_address.empty()))
-                    LOG_WARNING << "Loopback connection detected: Removed self from the peer list. address: |" << (session.known_ipport.has_value() ? session.known_ipport.value().to_string() : "") << "|.";
             }
 
             return -1;
@@ -144,9 +141,6 @@ namespace p2p
         const auto iter = ctx.peer_connections.find(challenge_resp.pubkey);
         if (iter == ctx.peer_connections.end())
         {
-            if (!session.known_ipport.has_value() || (session.known_ipport.has_value() && session.known_ipport.value().host_address.empty()))
-                LOG_WARNING << "Accepted verified connection [" << session.display_name() << "]. address: |" << (session.known_ipport.has_value() ? session.known_ipport.value().to_string() : "") << "|.";
-
             // Add the new connection straight away, if we haven't seen it before.
             session.uniqueid.swap(pubkeyhex);
             session.pubkey = challenge_resp.pubkey;
@@ -169,9 +163,6 @@ namespace p2p
                 const bool replace_needed = ((res < 0 && !ex_session.is_inbound) || (res > 0 && ex_session.is_inbound));
                 if (replace_needed)
                 {
-                    if (!session.known_ipport.has_value() || (session.known_ipport.has_value() && session.known_ipport.value().host_address.empty()))
-                        LOG_WARNING << "Replacing existing connection [" << ex_session.display_name() << "] with [" << session.display_name() << "]. address: |" << (session.known_ipport.has_value() ? session.known_ipport.value().to_string() : "") << "|.";
-
                     // If we happen to replace a peer session with known IP, transfer required details to the new session.
                     if (!session.known_ipport.has_value())
                         session.known_ipport.swap(ex_session.known_ipport);
@@ -197,15 +188,11 @@ namespace p2p
                     // If we have any known ip-port info from the new session, transfer them to the existing session.
                     ex_session.known_ipport.swap(session.known_ipport);
                     LOG_DEBUG << "Merging new connection [" << session.display_name() << "] with [" << ex_session.display_name() << "]";
-                    if (!session.known_ipport.has_value() || (session.known_ipport.has_value() && session.known_ipport.value().host_address.empty()))
-                        LOG_WARNING << "Merging new connection [" << session.display_name() << "] with [" << ex_session.display_name() << "]. address: |" << (session.known_ipport.has_value() ? session.known_ipport.value().to_string() : "") << "|.";
                 }
             }
 
             // Reaching this point means we don't need the new session.
             LOG_DEBUG << "Rejecting new connection [" << session.display_name() << "] in favour of [" << ex_session.display_name() << "]";
-            if (!session.known_ipport.has_value() || (session.known_ipport.has_value() && session.known_ipport.value().host_address.empty()))
-                LOG_WARNING << "Rejecting new connection [" << session.display_name() << "] in favour of [" << ex_session.display_name() << "]. address: |" << (session.known_ipport.has_value() ? session.known_ipport.value().to_string() : "") << "|.";
             return -1;
         }
     }
@@ -489,7 +476,7 @@ namespace p2p
             {
                 if (peer.ip_port.host_address.empty())
                 {
-                    LOG_WARNING << caller << " BLANKIP RECEIVED " << peer.ip_port.to_string() << " from:" << (from ? from->display_name() : "");
+                    LOG_DEBUG << caller << " Skip received peer with blank host address " << peer.ip_port.to_string() << " from: " << peer.ip_port.to_string();
                     continue;
                 }
 

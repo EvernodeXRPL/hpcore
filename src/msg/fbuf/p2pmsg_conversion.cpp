@@ -652,7 +652,7 @@ namespace msg::fbuf::p2pmsg
         {
             if (peer.ip_port.host_address.empty())
             {
-                LOG_WARNING << "SENDPEERLIST BLANKIP " << peer.ip_port.to_string();
+                LOG_DEBUG << "Skip sending peer with blank host address : " << peer.ip_port.to_string();
                 continue;
             }
 

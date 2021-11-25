@@ -153,7 +153,7 @@ namespace p2p
 
             if (peer.ip_port.host_address.empty())
             {
-                LOG_WARNING << "MAINTAINCONN BLANKIP " << peer.ip_port.to_string();
+                LOG_DEBUG << "Skip connecting to known peer with blank host address " << peer.ip_port.to_string();
                 continue;
             }
 
