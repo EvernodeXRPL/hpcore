@@ -1099,7 +1099,7 @@ namespace sc
             std::vector<p2p::peer_properties> added_peers;
             std::vector<p2p::peer_properties> removed_peers;
             if (parser.extract_peer_changeset(added_peers, removed_peers) != -1)
-                p2p::merge_peer_list("CONTRACT", &added_peers, &removed_peers);
+                p2p::merge_peer_list("Control_MSG", &added_peers, &removed_peers);
         }
     }
 

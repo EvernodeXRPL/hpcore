@@ -476,7 +476,7 @@ namespace p2p
             {
                 if (peer.ip_port.host_address.empty())
                 {
-                    LOG_DEBUG << caller << " Skip received peer with blank host address " << peer.ip_port.to_string() << " from: " << peer.ip_port.to_string();
+                    LOG_DEBUG << caller << " : Skip received peer with blank host address " << peer.ip_port.to_string() << " from " << peer.ip_port.to_string();
                     continue;
                 }
 
