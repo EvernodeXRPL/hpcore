@@ -494,8 +494,7 @@ namespace p2p
                     continue;
                 }
 
-                const auto removed_itr = std::find(ctx.server->dead_known_peers.begin(), ctx.server->dead_known_peers.end(), peer.ip_port);
-                if (removed_itr != ctx.server->dead_known_peers.end())
+                if (ctx.server->dead_known_peers.exists(peer.ip_port.to_string()))
                 {
                     LOG_DEBUG << "Rejecting " + peer.ip_port.to_string() + ". Peer was removed prior due to unavailability.";
                     continue;

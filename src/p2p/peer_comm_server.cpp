@@ -12,6 +12,8 @@ namespace p2p
 {
     constexpr float WEAKLY_CONNECTED_THRESHOLD = 0.7;
     constexpr int16_t PEER_FAILED_THRESHOLD = 10;
+    // Peer will be removed from the dead known peers collection after this period of time.
+    constexpr int32_t DEAD_PEER_TIMEOUT = 5 * 60 * 1000; // 5 minutes.
 
     peer_comm_server::peer_comm_server(const uint16_t port, const uint64_t (&metric_thresholds)[5], const uint64_t max_msg_size,
                                        const uint64_t max_in_connections, const uint64_t max_in_connections_per_host,
@@ -231,7 +233,7 @@ namespace p2p
                 {
                     LOG_INFO << "Removed " << it->ip_port.to_string() << " from known peer list due to unavailability.";
                     // Add the dead nodes ip data to reject same peer from peer discovery responses.
-                    dead_known_peers.push_back(it->ip_port);
+                    dead_known_peers.emplace(it->ip_port.to_string(), DEAD_PEER_TIMEOUT);
                     it = req_known_remotes.erase(it);
                 }
                 else
