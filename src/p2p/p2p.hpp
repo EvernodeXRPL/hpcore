@@ -31,6 +31,7 @@ namespace p2p
         int16_t available_capacity = -1;
         uint64_t timestamp = 0;
         int64_t weight = 0;
+        int32_t failed_attempts = 0;
     };
 
     struct proposal

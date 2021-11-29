@@ -134,6 +134,9 @@ namespace p2p
             peer_check_list = req_known_remotes;
         }
 
+        bool connections_changed = false;
+        std::vector<conf::peer_ip_port> failed_nodes;
+
         for (const auto &peer : peer_check_list)
         {
             if (is_shutting_down)
@@ -171,7 +174,14 @@ namespace p2p
             {
                 const hpws::error error = std::get<hpws::error>(client_result);
                 if (error.first != 202)
+                {
                     LOG_DEBUG << "Outbound connection hpws error:" << error.first << " " << error.second;
+                    if (conf::cfg.mesh.peer_discovery.enabled)
+                    {
+                        failed_nodes.push_back(peer.ip_port);
+                        connections_changed = true;
+                    }
+                }
             }
             else
             {
@@ -199,7 +209,31 @@ namespace p2p
 
                     std::scoped_lock<std::mutex> lock(new_sessions_mutex);
                     new_sessions.emplace_back(std::move(session));
+                    connections_changed = true;
                 }
+            }
+        }
+        if (conf::cfg.mesh.peer_discovery.enabled && connections_changed)
+        {
+            // Copy failed attempt data from failed_nodes to req_known_remotes.
+            std::scoped_lock<std::mutex> lock(req_known_remotes_mutex);
+
+            for (auto it = req_known_remotes.begin(); it != req_known_remotes.end();)
+            {
+                const auto itr = std::find(failed_nodes.begin(), failed_nodes.end(), it->ip_port);
+                if (itr != failed_nodes.end())
+                    it->failed_attempts++;
+                else if (it->failed_attempts > 0) // Reset failed attempts count if the connection succeeds.
+                    it->failed_attempts = 0;
+
+                if (it->failed_attempts >= 10)
+                {
+                    // Add the removed nodes ip data to reject same peer from peer discovery.
+                    removed_nodes.push_back(it->ip_port);
+                    it = req_known_remotes.erase(it);
+                }
+                else
+                    ++it;
             }
         }
     }

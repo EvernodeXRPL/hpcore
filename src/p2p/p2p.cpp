@@ -494,6 +494,13 @@ namespace p2p
                     continue;
                 }
 
+                const auto removed_itr = std::find(ctx.server->removed_nodes.begin(), ctx.server->removed_nodes.end(), peer.ip_port);
+                if (removed_itr != ctx.server->removed_nodes.end())
+                {
+                    LOG_DEBUG << "Rejecting " + peer.ip_port.to_string() + ". Peer was removed prior due to unavailability.";
+                    continue;
+                }
+
                 const auto itr = std::find_if(ctx.server->req_known_remotes.begin(), ctx.server->req_known_remotes.end(), [&](peer_properties &p)
                                               { return p.ip_port == peer.ip_port; });
 
