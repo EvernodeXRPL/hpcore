@@ -28,7 +28,7 @@ namespace p2p
         std::atomic<uint16_t> known_remote_count = 0;
         std::mutex req_known_remotes_mutex;
         std::vector<peer_properties> req_known_remotes;
-        std::vector<conf::peer_ip_port> removed_nodes;
+        std::vector<conf::peer_ip_port> dead_known_peers;
         peer_comm_server(const uint16_t port, const uint64_t (&metric_thresholds)[5], const uint64_t max_msg_size,
                          const uint64_t max_in_connections, const uint64_t max_in_connections_per_host,
                          const std::vector<peer_properties> &req_known_remotes);

@@ -230,8 +230,8 @@ namespace p2p
                 if (it->failed_attempts >= PEER_FAILED_THRESHOLD)
                 {
                     LOG_INFO << "Removed " << it->ip_port.to_string() << " from known peer list due to unavailability.";
-                    // Add the removed nodes ip data to reject same peer from peer discovery.
-                    removed_nodes.push_back(it->ip_port);
+                    // Add the dead nodes ip data to reject same peer from peer discovery responses.
+                    dead_known_peers.push_back(it->ip_port);
                     it = req_known_remotes.erase(it);
                 }
                 else
