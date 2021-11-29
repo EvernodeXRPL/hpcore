@@ -11,6 +11,7 @@
 namespace p2p
 {
     constexpr float WEAKLY_CONNECTED_THRESHOLD = 0.7;
+    constexpr int16_t PEER_FAILED_THRESHOLD = 10;
 
     peer_comm_server::peer_comm_server(const uint16_t port, const uint64_t (&metric_thresholds)[5], const uint64_t max_msg_size,
                                        const uint64_t max_in_connections, const uint64_t max_in_connections_per_host,
@@ -226,8 +227,9 @@ namespace p2p
                 else if (it->failed_attempts > 0) // Reset failed attempts count if the connection succeeds.
                     it->failed_attempts = 0;
 
-                if (it->failed_attempts >= 10)
+                if (it->failed_attempts >= PEER_FAILED_THRESHOLD)
                 {
+                    LOG_INFO << "Removed " << it->ip_port.to_string() << " from known peer list due to unavailability.";
                     // Add the removed nodes ip data to reject same peer from peer discovery.
                     removed_nodes.push_back(it->ip_port);
                     it = req_known_remotes.erase(it);
