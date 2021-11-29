@@ -11,6 +11,9 @@
 namespace p2p
 {
     constexpr float WEAKLY_CONNECTED_THRESHOLD = 0.7;
+    constexpr int16_t PEER_FAILED_THRESHOLD = 10;
+    // Peer will be removed from the dead known peers collection after this period of time.
+    constexpr int32_t DEAD_PEER_TIMEOUT = 5 * 60 * 1000; // 5 minutes.
 
     peer_comm_server::peer_comm_server(const uint16_t port, const uint64_t (&metric_thresholds)[5], const uint64_t max_msg_size,
                                        const uint64_t max_in_connections, const uint64_t max_in_connections_per_host,
@@ -134,6 +137,9 @@ namespace p2p
             peer_check_list = req_known_remotes;
         }
 
+        bool connections_changed = false;
+        std::vector<conf::peer_ip_port> failed_nodes;
+
         for (const auto &peer : peer_check_list)
         {
             if (is_shutting_down)
@@ -171,7 +177,14 @@ namespace p2p
             {
                 const hpws::error error = std::get<hpws::error>(client_result);
                 if (error.first != 202)
+                {
                     LOG_DEBUG << "Outbound connection hpws error:" << error.first << " " << error.second;
+                    if (conf::cfg.mesh.peer_discovery.enabled)
+                    {
+                        failed_nodes.push_back(peer.ip_port);
+                        connections_changed = true;
+                    }
+                }
             }
             else
             {
@@ -199,7 +212,32 @@ namespace p2p
 
                     std::scoped_lock<std::mutex> lock(new_sessions_mutex);
                     new_sessions.emplace_back(std::move(session));
+                    connections_changed = true;
                 }
+            }
+        }
+        if (conf::cfg.mesh.peer_discovery.enabled && connections_changed)
+        {
+            // Copy failed attempt data from failed_nodes to req_known_remotes.
+            std::scoped_lock<std::mutex> lock(req_known_remotes_mutex);
+
+            for (auto it = req_known_remotes.begin(); it != req_known_remotes.end();)
+            {
+                const auto itr = std::find(failed_nodes.begin(), failed_nodes.end(), it->ip_port);
+                if (itr != failed_nodes.end())
+                    it->failed_attempts++;
+                else if (it->failed_attempts > 0) // Reset failed attempts count if the connection succeeds.
+                    it->failed_attempts = 0;
+
+                if (it->failed_attempts >= PEER_FAILED_THRESHOLD)
+                {
+                    LOG_INFO << "Removed " << it->ip_port.to_string() << " from known peer list due to unavailability.";
+                    // Add the dead nodes ip data to reject same peer from peer discovery responses.
+                    dead_known_peers.emplace(it->ip_port.to_string(), DEAD_PEER_TIMEOUT);
+                    it = req_known_remotes.erase(it);
+                }
+                else
+                    ++it;
             }
         }
     }
