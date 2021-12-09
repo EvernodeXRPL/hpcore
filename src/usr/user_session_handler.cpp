@@ -1,7 +1,6 @@
 #include "../pchheader.hpp"
 #include "../hplog.hpp"
 #include "../msg/json/usrmsg_json.hpp"
-#include "../bill/corebill.h"
 #include "usr.hpp"
 #include "user_session_handler.hpp"
 #include "user_comm_session.hpp"
@@ -83,7 +82,7 @@ namespace usr
         // If for any reason we reach this point, we should drop the connection because none of the
         // valid cases match.
         LOG_DEBUG << "Dropping the user connection " << session.display_name();
-        corebill::report_violation(session.host_address);
+        ctx.server->violation_tracker.report_violation(session.host_address, session.is_ipv4);
         return -1;
     }
 

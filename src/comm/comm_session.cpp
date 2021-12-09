@@ -2,7 +2,7 @@
 #include "../hplog.hpp"
 #include "../util/util.hpp"
 #include "../conf.hpp"
-#include "../bill/corebill.h"
+#include "../corebill/tracker.hpp"
 #include "hpws.hpp"
 #include "comm_session.hpp"
 
@@ -12,11 +12,13 @@ namespace comm
     constexpr uint32_t UNVERIFIED_INACTIVE_TIMEOUT = 5000; // Time threshold ms for unverified inactive connections.
     constexpr uint16_t MAX_IN_MSG_QUEUE_SIZE = 255;        // Maximum in message queue size, The size passed is rounded to next number in binary sequence 1(1),11(3),111(7),1111(15),11111(31)....
 
-    comm_session::comm_session(
-        std::string_view host_address, hpws::client &&hpws_client, const bool is_inbound, const uint64_t (&metric_thresholds)[5])
-        : uniqueid(host_address),
+    comm_session::comm_session(corebill::tracker &violation_tracker,
+                               std::string_view host_address, hpws::client &&hpws_client, const bool is_ipv4, const bool is_inbound, const uint64_t (&metric_thresholds)[5])
+        : violation_tracker(violation_tracker),
+          uniqueid(host_address),
           host_address(host_address),
           hpws_client(std::move(hpws_client)),
+          is_ipv4(is_ipv4),
           is_inbound(is_inbound),
           in_msg_queue1(MAX_IN_MSG_QUEUE_SIZE),
           in_msg_queue2(MAX_IN_MSG_QUEUE_SIZE)
@@ -333,7 +335,7 @@ namespace comm
             t.counter_value = 0;
 
             LOG_INFO << "Session " << display_name() << " threshold exceeded. (type:" << threshold_type << " limit:" << t.threshold_limit << ")";
-            corebill::report_violation(host_address);
+            this->violation_tracker.report_violation(host_address, is_ipv4);
         }
         else if (elapsed_time > t.intervalms)
         {

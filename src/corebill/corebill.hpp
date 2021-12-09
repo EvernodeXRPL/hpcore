@@ -15,9 +15,13 @@ struct violation_stat
     uint64_t timestamp = 0;
 };
 
-void report_violation(const std::string host);
-void add_to_whitelist(const std::string host);
-bool is_banned(const std::string &host);
+struct ban_update
+{
+    bool is_band = false; // Whether to ban or unban.
+    bool is_ipv4 = false; // If host is ipv4 or ipv6.
+    std::string host;
+    uint32_t ttl_sec; // Time in seconds to enforce the ban. Relevent only for bans.
+};
 
 } // namespace corebill
 

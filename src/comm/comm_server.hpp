@@ -4,7 +4,7 @@
 #include "../pchheader.hpp"
 #include "../hplog.hpp"
 #include "../util/util.hpp"
-#include "../bill/corebill.h"
+#include "../corebill/tracker.hpp"
 #include "hpws.hpp"
 #include "comm_session.hpp"
 
@@ -106,6 +106,14 @@ namespace comm
             LOG_INFO << name << " listener stopped.";
         }
 
+        void push_ban_update()
+        {
+        }
+
+        void apply_ban_updates()
+        {
+        }
+
         void check_for_new_connection()
         {
             if (listen_port == 0)
@@ -134,18 +142,12 @@ namespace comm
             else
             {
                 const std::string &host_address = std::get<std::string>(host_result);
-                if (!corebill::is_banned(host_address))
-                {
-                    // We do not directly add to sessions list. We simply add to new_sessions list under a lock so the main server
-                    // loop will take care of initialize the new sessions. This is because inherited classes (eg. peer_comm_server)
-                    // need a way to safely inject new sessions from another thread.
-                    std::scoped_lock<std::mutex> lock(new_sessions_mutex);
-                    new_sessions.emplace_back(host_address, std::move(client), true, metric_thresholds);
-                }
-                else
-                {
-                    LOG_DEBUG << "Dropping " << name << " connection for banned host " << host_address;
-                }
+
+                // We do not directly add to sessions list. We simply add to new_sessions list under a lock so the main server
+                // loop will take care of initialize the new sessions. This is because inherited classes (eg. peer_comm_server)
+                // need a way to safely inject new sessions from another thread.
+                std::scoped_lock<std::mutex> lock(new_sessions_mutex);
+                new_sessions.emplace_back(this->violation_tracker, host_address, std::move(client), client.is_ipv4, true, metric_thresholds);
             }
 
             // If the hpws client object was not added to a session so far, in will get dstructed and the channel will close.
@@ -233,6 +235,8 @@ namespace comm
         }
 
     public:
+        corebill::tracker violation_tracker;
+
         comm_server(std::string_view name, const uint16_t port, const uint64_t (&metric_thresholds)[5], const uint64_t max_msg_size,
                     const uint64_t max_in_connections, const uint64_t max_in_connections_per_host, const bool use_priority_queues)
             : name(name),

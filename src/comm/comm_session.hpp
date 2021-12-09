@@ -3,6 +3,7 @@
 
 #include "../pchheader.hpp"
 #include "../conf.hpp"
+#include "../corebill/tracker.hpp"
 #include "hpws.hpp"
 #include "comm_session_threshold.hpp"
 
@@ -30,6 +31,7 @@ namespace comm
     class comm_session
     {
     private:
+        corebill::tracker &violation_tracker;
         std::optional<hpws::client> hpws_client;
         std::vector<session_threshold> thresholds; // track down various communication thresholds
 
@@ -53,14 +55,15 @@ namespace comm
         std::string uniqueid; // Verified session: Pubkey in hex format, Unverified session: IP address.
         std::string pubkey;   // Pubkey in binary format.
         const bool is_inbound;
+        const bool is_ipv4;   // Whether the host is ipv4 or ipv6.
         const std::string host_address; // Connection host address of the remote party.
         std::string issued_challenge;
         SESSION_STATE state = SESSION_STATE::NONE;
         CHALLENGE_STATUS challenge_status = CHALLENGE_STATUS::NOT_ISSUED;
         uint64_t last_activity_timestamp; // Keep track of the last activity timestamp in milliseconds.
 
-        comm_session(
-            std::string_view host_address, hpws::client &&hpws_client, const bool is_inbound, const uint64_t (&metric_thresholds)[5]);
+        comm_session(corebill::tracker &violation_tracker,
+            std::string_view host_address, hpws::client &&hpws_client, const bool is_ipv4, const bool is_inbound, const uint64_t (&metric_thresholds)[5]);
         int init();
         int process_next_inbound_message(const uint16_t priority);
         int send(const std::vector<uint8_t> &message, const uint16_t priority = 2);
