@@ -200,6 +200,13 @@ namespace p2p
                     const std::string &host_address = std::get<std::string>(host_result);
                     p2p::peer_comm_session session(this->violation_tracker, host_address, std::move(client), client.is_ipv4, false, metric_thresholds);
 
+                    // Skip if this peer is banned due to corebill violations.
+                    if (violation_tracker.is_banned(host_address))
+                    {
+                        LOG_DEBUG << "Skipping connecting to banned peer " << host_address;
+                        continue;
+                    }
+
                     session.known_ipport.emplace(peer.ip_port);
                     known_remote_count++;
 

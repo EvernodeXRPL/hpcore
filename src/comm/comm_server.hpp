@@ -4,6 +4,7 @@
 #include "../pchheader.hpp"
 #include "../hplog.hpp"
 #include "../util/util.hpp"
+#include "../corebill/corebill.hpp"
 #include "../corebill/tracker.hpp"
 #include "hpws.hpp"
 #include "comm_session.hpp"
@@ -57,6 +58,8 @@ namespace comm
             {
                 util::sleep(100);
 
+                apply_ban_updates();
+
                 // Accept any new incoming connection if available.
                 check_for_new_connection();
 
@@ -106,12 +109,27 @@ namespace comm
             LOG_INFO << name << " listener stopped.";
         }
 
-        void push_ban_update()
-        {
-        }
-
         void apply_ban_updates()
         {
+            corebill::ban_update b;
+            while (violation_tracker.ban_updates.try_dequeue(b))
+            {
+                in_addr ia4 = {};
+                in6_addr ia6 = {};
+
+                if (inet_pton((b.is_ipv4 ? AF_INET : AF_INET6), b.host.c_str(), (b.is_ipv4 ? (void *)&ia4 : (void *)&ia6)) == 1)
+                {
+                    const uint32_t *addr = b.is_ipv4 ? (uint32_t *)&ia4.s_addr : ia6.__in6_u.__u6_addr32;
+                    if (b.is_ban)
+                        hpws_server->ban_ip(addr, b.ttl_sec, b.is_ipv4);
+                    else
+                        hpws_server->unban_ip(addr, b.is_ipv4);
+                }
+                else
+                {
+                    LOG_ERROR << "Invalid host " << b.host << " in ban update.";
+                }
+            }
         }
 
         void check_for_new_connection()

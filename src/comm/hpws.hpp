@@ -619,7 +619,7 @@ namespace hpws
             buf[1] = '+';
             buf[2] = ipv4 ? '4' : '6';
 
-            uint32_t *addr_buf = (uint32_t *)&buf[7];
+            uint32_t *addr_buf = (uint32_t *)&buf[3];
             if (ipv4)
             {
                 addr_buf[0] = addr[0];
@@ -645,7 +645,7 @@ namespace hpws
             buf[1] = '-';
             buf[2] = ipv4 ? '4' : '6';
 
-            uint32_t *addr_buf = (uint32_t *)&buf[7];
+            uint32_t *addr_buf = (uint32_t *)&buf[3];
             if (ipv4)
             {
                 addr_buf[0] = addr[0];

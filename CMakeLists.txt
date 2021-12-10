@@ -38,7 +38,7 @@ add_executable(hpcore
     src/crypto.cpp
     src/conf.cpp
     src/hplog.cpp
-    src/bill/corebill.cpp
+    src/corebill/tracker.cpp
     src/hpfs/hpfs_mount.cpp
     src/hpfs/hpfs_serve.cpp
     src/hpfs/hpfs_sync.cpp
