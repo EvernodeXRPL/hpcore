@@ -10,7 +10,6 @@
 #include "../msg/fbuf/p2pmsg_generated.h"
 #include "peer_comm_server.hpp"
 #include "peer_comm_session.hpp"
-#include "peer_session_handler.hpp"
 
 namespace p2p
 {

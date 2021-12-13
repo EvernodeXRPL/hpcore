@@ -7,7 +7,6 @@
 #include "msg/fbuf/p2pmsg_conversion.hpp"
 #include "msg/usrmsg_parser.hpp"
 #include "msg/usrmsg_common.hpp"
-#include "p2p/peer_session_handler.hpp"
 #include "hplog.hpp"
 #include "crypto.hpp"
 #include "util/h32.hpp"

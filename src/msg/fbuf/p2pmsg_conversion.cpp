@@ -17,8 +17,6 @@ namespace msg::fbuf::p2pmsg
 
     /**
      * This section contains Flatbuffer message reading/writing helpers.
-     * These helpers are mainly used by peer_session_handler and other components which sends outgoing p2p messages.
-     * 
      * A p2p flatbuffer message is a bucket with hp version and the message 'content'.
      */
 
