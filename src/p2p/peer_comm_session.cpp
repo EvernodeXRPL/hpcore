@@ -39,7 +39,7 @@ namespace p2p
         std::string_view msg = std::string_view(
             reinterpret_cast<const char *>(fbuf.GetBufferPointer()), fbuf.GetSize());
         send(msg);
-        challenge_status = comm::CHALLENGE_ISSUED;
+        challenge_status = comm::CHALLENGE_STATUS::CHALLENGE_ISSUED;
         return 0;
     }
 
@@ -131,11 +131,11 @@ namespace p2p
         else if (mi.type == p2pmsg::P2PMsgContent_PeerChallengeResponseMsg)
         {
             // Ignore if challenge is already resolved.
-            if (challenge_status == comm::CHALLENGE_ISSUED)
+            if (challenge_status == comm::CHALLENGE_STATUS::CHALLENGE_ISSUED)
                 return p2p::resolve_peer_challenge(*this, p2pmsg::create_peer_challenge_response_from_msg(mi));
         }
 
-        if (challenge_status != comm::CHALLENGE_VERIFIED)
+        if (challenge_status != comm::CHALLENGE_STATUS::CHALLENGE_VERIFIED)
         {
             LOG_DEBUG << "Cannot accept messages. Peer challenge unresolved. " << display_name();
             return 0;

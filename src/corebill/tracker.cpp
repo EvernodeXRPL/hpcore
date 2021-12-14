@@ -5,25 +5,27 @@
 
 namespace corebill
 {
-    // How many violations can occur for a host before being banned.
-    constexpr uint32_t VIOLATION_THRESHOLD = 10;
+    // How many violations can a host make within the refresh interval before being banned.
+    constexpr uint32_t VIOLATION_THRESHOLD = 5;
 
     // Violation cooldown interval.
     constexpr uint32_t VIOLATION_REFRESH_INTERVAL = 600 * 1000; // 10 minutes
 
     // Ban period.
-    constexpr uint32_t BAN_TTL_SEC = 600; // 10 mins.
+    constexpr uint32_t BAN_TTL_SEC = 10; // 10 mins.
 
     /**
-     * Report a violation. Violation means a force disconnection of a socket due to some threshold exceeding.
+     * Report a violation. Violation means the connection has displayed a bad behaviour.
      * When multiple violations occur within a time window, we ban that host from connecting again for a certain duration.
      */
-    void tracker::report_violation(const std::string &host, const bool ipv4)
+    void tracker::report_violation(const std::string &host, const bool ipv4, const std::string &reason)
     {
         std::scoped_lock lock(ban_mutex);
 
         violation_stat &stat = violation_counter[host];
         const uint64_t time_now = util::get_epoch_milliseconds();
+
+        LOG_INFO << "Reported violation '" << reason << "' from " << host;
 
         // Check whether we have exceeded the violation threshold within the time window.
         const uint64_t elapsed_time = time_now - stat.timestamp;
@@ -48,8 +50,6 @@ namespace corebill
         {
             stat.counter++;
         }
-
-        LOG_INFO << "Reported violation from " << host << " (hits:" << stat.counter << ")";
     }
 
     bool tracker::is_banned(const std::string &host)

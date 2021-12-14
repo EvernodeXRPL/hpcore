@@ -83,7 +83,10 @@ namespace comm
                 const int priority = get_message_priority(data);
                 if (priority == 0) // priority 0 means a bad message.
                 {
-                    increment_metric(comm::SESSION_THRESHOLDS::MAX_BADMSGS_PER_MINUTE, 1);
+                    if (challenge_status == comm::CHALLENGE_STATUS::CHALLENGE_VERIFIED)
+                        increment_metric(comm::SESSION_THRESHOLDS::MAX_BADMSGS_PER_MINUTE, 1);
+                    else
+                        should_disconnect = true; // Disconnect if we receive a bad message before challenge verification.
                 }
                 else if (priority == 1 || priority == 2)
                 {
@@ -112,9 +115,14 @@ namespace comm
 
             if (should_disconnect)
             {
+                // Report bad behaviour for connection drops occuring prior to challenge verification.
+                const CLOSE_VIOLATION reason = (challenge_status != comm::CHALLENGE_STATUS::CHALLENGE_VERIFIED)
+                                                   ? CLOSE_VIOLATION::VIOLATION_READ_ERROR
+                                                   : CLOSE_VIOLATION::VIOLATION_NONE;
+
                 // Here we mark the session as needing to close.
                 // The session will be properly "closed" and cleaned up by the global comm_server thread.
-                mark_for_closure();
+                mark_for_closure(reason);
                 break;
             }
         }
@@ -244,12 +252,15 @@ namespace comm
      * Mark the session as needing to close. The session will be properly "closed"
      * and cleaned up by the global comm_server thread.
      */
-    void comm_session::mark_for_closure()
+    void comm_session::mark_for_closure(const CLOSE_VIOLATION reason)
     {
-        if (state == SESSION_STATE::CLOSED)
+        if (state == SESSION_STATE::MUST_CLOSE || state == SESSION_STATE::CLOSED)
             return;
 
         state = SESSION_STATE::MUST_CLOSE;
+
+        if (reason != CLOSE_VIOLATION::VIOLATION_NONE)
+            violation_tracker.report_violation(host_address, is_ipv4, std::to_string(reason));
     }
 
     /**
@@ -325,17 +336,16 @@ namespace comm
             t.timestamp = time_now;
         }
 
-        // Check whether we have exceeded the threshold within the monitering interval.
+        // Check whether we have exceeded the threshold within the monitoring interval.
         const uint64_t elapsed_time = time_now - t.timestamp;
         if (elapsed_time <= t.intervalms && t.counter_value > t.threshold_limit)
         {
-            mark_for_closure();
 
             t.timestamp = 0;
             t.counter_value = 0;
 
             LOG_INFO << "Session " << display_name() << " threshold exceeded. (type:" << threshold_type << " limit:" << t.threshold_limit << ")";
-            this->violation_tracker.report_violation(host_address, is_ipv4);
+            mark_for_closure(CLOSE_VIOLATION::VIOLATION_THRESHOLD_EXCEEDED);
         }
         else if (elapsed_time > t.intervalms)
         {
@@ -358,7 +368,7 @@ namespace comm
         if (util::get_epoch_milliseconds() - last_activity_timestamp >= timeout)
         {
             LOG_DEBUG << "Closing " << display_name() << " connection due to inactivity.";
-            mark_for_closure();
+            mark_for_closure(CLOSE_VIOLATION::VIOLATION_INACTIVITY);
         }
     }
 

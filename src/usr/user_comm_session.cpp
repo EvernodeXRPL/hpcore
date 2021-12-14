@@ -26,7 +26,7 @@ namespace usr
             send(msg);
 
             // Set the challenge-issued value to true.
-            challenge_status = comm::CHALLENGE_ISSUED;
+            challenge_status = comm::CHALLENGE_STATUS::CHALLENGE_ISSUED;
             return 0;
         }
         else
@@ -46,13 +46,15 @@ namespace usr
 
         // First check whether this session is pending challenge.
         // Meaning we have previously issued a challenge to the client.
-        if (challenge_status == comm::CHALLENGE_ISSUED)
+        if (challenge_status == comm::CHALLENGE_STATUS::CHALLENGE_ISSUED)
         {
             if (verify_challenge(msg, *this) == 0)
                 return 0;
+
+            LOG_DEBUG << "User challenge verification failed. " << display_name();
         }
         // Check whether this session belongs to an authenticated (challenge-verified) user.
-        else if (challenge_status == comm::CHALLENGE_VERIFIED)
+        else if (challenge_status == comm::CHALLENGE_STATUS::CHALLENGE_VERIFIED)
         {
             // Check whether this user is among authenticated users
             // and perform authenticated msg processing.
@@ -80,7 +82,6 @@ namespace usr
         // If for any reason we reach this point, we should drop the connection because none of the
         // valid cases match.
         LOG_DEBUG << "Dropping the user connection " << display_name();
-        ctx.server->violation_tracker.report_violation(host_address, is_ipv4);
         return -1;
     }
 
@@ -90,7 +91,7 @@ namespace usr
     void user_comm_session::handle_close()
     {
         // Session belongs to an authed user.
-        if (challenge_status == comm::CHALLENGE_VERIFIED)
+        if (challenge_status == comm::CHALLENGE_STATUS::CHALLENGE_VERIFIED)
             remove_user(pubkey);
     }
 

@@ -9,7 +9,6 @@
 
 namespace comm
 {
-
     enum CHALLENGE_STATUS
     {
         NOT_ISSUED,
@@ -23,6 +22,15 @@ namespace comm
         ACTIVE,     // Session is active and functioning.
         MUST_CLOSE, // Session socket is in unusable state and must be closed.
         CLOSED      // Session is fully closed.
+    };
+
+    enum CLOSE_VIOLATION
+    {
+        VIOLATION_NONE = 0,
+        VIOLATION_MSG_READ = 1,
+        VIOLATION_READ_ERROR = 2,
+        VIOLATION_THRESHOLD_EXCEEDED = 3,
+        VIOLATION_INACTIVITY = 4
     };
 
     /** 
@@ -71,7 +79,7 @@ namespace comm
         int process_outbound_message(std::string_view message);
         void process_outbound_msg_queue();
         void check_last_activity_rules();
-        void mark_for_closure();
+        void mark_for_closure(const CLOSE_VIOLATION reason = CLOSE_VIOLATION::VIOLATION_NONE);
         void close();
         void mark_as_verified();
         virtual const std::string display_name() const;

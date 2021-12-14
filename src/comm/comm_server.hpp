@@ -201,7 +201,7 @@ namespace comm
                                 messages_processed = true;
 
                                 if (result == -1)
-                                    session.mark_for_closure();
+                                    session.mark_for_closure(CLOSE_VIOLATION::VIOLATION_MSG_READ);
                             }
                         }
                     }
@@ -215,7 +215,7 @@ namespace comm
                             messages_processed = true;
 
                         if (result == -1)
-                            session.mark_for_closure();
+                            session.mark_for_closure(CLOSE_VIOLATION::VIOLATION_MSG_READ);
                     }
                 }
 

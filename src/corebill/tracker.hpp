@@ -17,7 +17,7 @@ namespace corebill
 
     public:
         moodycamel::ConcurrentQueue<ban_update> ban_updates;
-        void report_violation(const std::string &host, const bool ipv4);
+        void report_violation(const std::string &host, const bool ipv4, const std::string &reason);
         bool is_banned(const std::string &host);
     };
 }
