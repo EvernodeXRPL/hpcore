@@ -12,7 +12,7 @@ namespace corebill
     constexpr uint32_t VIOLATION_REFRESH_INTERVAL = 600 * 1000; // 10 minutes
 
     // Ban period.
-    constexpr uint32_t BAN_TTL_SEC = 10; // 10 mins.
+    constexpr uint32_t BAN_TTL_SEC = 600; // 10 minutes.
 
     /**
      * Report a violation. Violation means the connection has displayed a bad behaviour.
