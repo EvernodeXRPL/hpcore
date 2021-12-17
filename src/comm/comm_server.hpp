@@ -4,7 +4,8 @@
 #include "../pchheader.hpp"
 #include "../hplog.hpp"
 #include "../util/util.hpp"
-#include "../bill/corebill.h"
+#include "../corebill/corebill.hpp"
+#include "../corebill/tracker.hpp"
 #include "hpws.hpp"
 #include "comm_session.hpp"
 
@@ -57,6 +58,8 @@ namespace comm
             {
                 util::sleep(100);
 
+                apply_ban_updates();
+
                 // Accept any new incoming connection if available.
                 check_for_new_connection();
 
@@ -106,6 +109,29 @@ namespace comm
             LOG_INFO << name << " listener stopped.";
         }
 
+        void apply_ban_updates()
+        {
+            corebill::ban_update b;
+            while (violation_tracker.ban_updates.try_dequeue(b))
+            {
+                in_addr ia4 = {};
+                in6_addr ia6 = {};
+
+                if (inet_pton((b.is_ipv4 ? AF_INET : AF_INET6), b.host.c_str(), (b.is_ipv4 ? (void *)&ia4 : (void *)&ia6)) == 1)
+                {
+                    const uint32_t *addr = b.is_ipv4 ? (uint32_t *)&ia4.s_addr : ia6.__in6_u.__u6_addr32;
+                    if (b.is_ban)
+                        hpws_server->ban_ip(addr, b.ttl_sec, b.is_ipv4);
+                    else
+                        hpws_server->unban_ip(addr, b.is_ipv4);
+                }
+                else
+                {
+                    LOG_ERROR << "Invalid host " << b.host << " in ban update.";
+                }
+            }
+        }
+
         void check_for_new_connection()
         {
             if (listen_port == 0)
@@ -134,18 +160,12 @@ namespace comm
             else
             {
                 const std::string &host_address = std::get<std::string>(host_result);
-                if (!corebill::is_banned(host_address))
-                {
-                    // We do not directly add to sessions list. We simply add to new_sessions list under a lock so the main server
-                    // loop will take care of initialize the new sessions. This is because inherited classes (eg. peer_comm_server)
-                    // need a way to safely inject new sessions from another thread.
-                    std::scoped_lock<std::mutex> lock(new_sessions_mutex);
-                    new_sessions.emplace_back(host_address, std::move(client), true, metric_thresholds);
-                }
-                else
-                {
-                    LOG_DEBUG << "Dropping " << name << " connection for banned host " << host_address;
-                }
+
+                // We do not directly add to sessions list. We simply add to new_sessions list under a lock so the main server
+                // loop will take care of initialize the new sessions. This is because inherited classes (eg. peer_comm_server)
+                // need a way to safely inject new sessions from another thread.
+                std::scoped_lock<std::mutex> lock(new_sessions_mutex);
+                new_sessions.emplace_back(this->violation_tracker, host_address, std::move(client), client.is_ipv4, true, metric_thresholds);
             }
 
             // If the hpws client object was not added to a session so far, in will get dstructed and the channel will close.
@@ -181,7 +201,7 @@ namespace comm
                                 messages_processed = true;
 
                                 if (result == -1)
-                                    session.mark_for_closure();
+                                    session.mark_for_closure(CLOSE_VIOLATION::VIOLATION_MSG_READ);
                             }
                         }
                     }
@@ -195,7 +215,7 @@ namespace comm
                             messages_processed = true;
 
                         if (result == -1)
-                            session.mark_for_closure();
+                            session.mark_for_closure(CLOSE_VIOLATION::VIOLATION_MSG_READ);
                     }
                 }
 
@@ -233,6 +253,8 @@ namespace comm
         }
 
     public:
+        corebill::tracker violation_tracker;
+
         comm_server(std::string_view name, const uint16_t port, const uint64_t (&metric_thresholds)[5], const uint64_t max_msg_size,
                     const uint64_t max_in_connections, const uint64_t max_in_connections_per_host, const bool use_priority_queues)
             : name(name),

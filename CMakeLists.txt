@@ -38,7 +38,7 @@ add_executable(hpcore
     src/crypto.cpp
     src/conf.cpp
     src/hplog.cpp
-    src/bill/corebill.cpp
+    src/corebill/tracker.cpp
     src/hpfs/hpfs_mount.cpp
     src/hpfs/hpfs_serve.cpp
     src/hpfs/hpfs_sync.cpp
@@ -57,11 +57,9 @@ add_executable(hpcore
     src/msg/usrmsg_parser.cpp
     src/p2p/peer_comm_server.cpp
     src/p2p/peer_comm_session.cpp
-    src/p2p/peer_session_handler.cpp
     src/p2p/self_node.cpp
     src/p2p/p2p.cpp
     src/usr/user_comm_session.cpp
-    src/usr/user_session_handler.cpp
     src/usr/input_nonce_map.cpp
     src/usr/usr.cpp
     src/usr/read_req.cpp

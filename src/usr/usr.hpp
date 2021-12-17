@@ -9,7 +9,6 @@
 #include "../msg/usrmsg_parser.hpp"
 #include "user_comm_session.hpp"
 #include "user_comm_server.hpp"
-#include "user_session_handler.hpp"
 #include "user_input.hpp"
 #include "user_common.hpp"
 

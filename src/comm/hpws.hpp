@@ -2,7 +2,6 @@
 #define HPWS_INCLUDE
 #include <signal.h>
 #include <poll.h>
-#include <sys/types.h>
 #include <variant>
 #include <optional>
 #include <functional>
@@ -18,6 +17,7 @@
 #include <fcntl.h>
 #include <sys/wait.h>
 #include <netdb.h>
+#include <arpa/inet.h>
 
 #define DECODE_O_SIZE(control_msg, into)                                             \
     {                                                                                \
@@ -84,6 +84,7 @@ namespace hpws
             pid_t child_pid,
             int buffer_fd[4],
             void *buffer[4]) : endpoint(endpoint),
+                               is_ipv4(endpoint.sa.sa_family == AF_INET),
                                max_buffer_size(max_buffer_size),
                                child_pid(child_pid), get(get)
         {
@@ -100,6 +101,8 @@ namespace hpws
         }
 
     public:
+        bool is_ipv4 = false;
+
         // No copy constructor
         client(const client &) = delete;
 
@@ -107,6 +110,7 @@ namespace hpws
         client(client &&old) : child_pid(old.child_pid),
                                max_buffer_size(old.max_buffer_size),
                                endpoint(old.endpoint),
+                               is_ipv4(old.is_ipv4),
                                get(old.get)
         {
             old.moved = true;
@@ -152,9 +156,11 @@ namespace hpws
         const std::variant<std::string, error> host_address()
         {
             char hostname[NI_MAXHOST];
-            const int ret = getnameinfo((sockaddr *)&endpoint, sizeof(sockaddr), hostname, sizeof(hostname), NULL, 0, NI_NUMERICHOST);
-            if (ret != 0)
-                return error{10, gai_strerror(ret)};
+            const char *ret = (endpoint.sa.sa_family == AF_INET)
+                                  ? inet_ntop(AF_INET, &endpoint.sin.sin_addr, hostname, NI_MAXHOST)
+                                  : inet_ntop(AF_INET6, &endpoint.sin6.sin6_addr, hostname, NI_MAXHOST);
+            if (!ret)
+                return error{10, "error in inet_ntop"};
 
             return hostname;
         }
@@ -603,6 +609,56 @@ namespace hpws
         uint32_t max_buffer_size()
         {
             return max_buffer_size_;
+        }
+
+        void ban_ip(const uint32_t *addr, const uint32_t ttl_sec, const bool ipv4)
+        {
+            const size_t len = ipv4 ? 11 : 23;
+            char buf[len];
+            buf[0] = 'i';
+            buf[1] = '+';
+            buf[2] = ipv4 ? '4' : '6';
+
+            uint32_t *addr_buf = (uint32_t *)&buf[3];
+            if (ipv4)
+            {
+                addr_buf[0] = addr[0];
+            }
+            else
+            {
+                addr_buf[0] = addr[0];
+                addr_buf[1] = addr[2];
+                addr_buf[2] = addr[3];
+                addr_buf[3] = addr[4];
+            }
+
+            *(uint32_t *)&buf[len - 4] = ttl_sec;
+
+            write(this->master_control_fd_, buf, len);
+        }
+
+        void unban_ip(const uint32_t *addr, const bool ipv4)
+        {
+            const size_t len = ipv4 ? 7 : 19;
+            char buf[len];
+            buf[0] = 'i';
+            buf[1] = '-';
+            buf[2] = ipv4 ? '4' : '6';
+
+            uint32_t *addr_buf = (uint32_t *)&buf[3];
+            if (ipv4)
+            {
+                addr_buf[0] = addr[0];
+            }
+            else
+            {
+                addr_buf[0] = addr[0];
+                addr_buf[1] = addr[2];
+                addr_buf[2] = addr[3];
+                addr_buf[3] = addr[4];
+            }
+
+            write(this->master_control_fd_, buf, len);
         }
 
         std::variant<client, error> accept(const bool no_block = false)

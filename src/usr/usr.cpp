@@ -12,7 +12,6 @@
 #include "../hpfs/hpfs_mount.hpp"
 #include "../status.hpp"
 #include "usr.hpp"
-#include "user_session_handler.hpp"
 #include "user_comm_session.hpp"
 #include "user_comm_server.hpp"
 #include "user_input.hpp"
