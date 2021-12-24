@@ -96,7 +96,7 @@ sudo apt-get install -y jq
 curl -fsSL https://deb.nodesource.com/setup_14.x | sudo -E bash -
 sudo apt-get install -y nodejs
 # ncc build utility for nodejs compiled builds.
-npm i -g @vercel/ncc
+sudo npm i -g @vercel/ncc
 
 # Update linker library cache.
 sudo ldconfig

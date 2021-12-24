@@ -5,7 +5,6 @@
 .DS_Store
 build
 hpcore.dir
-.vscode
 **/Makefile
 **/CMakeCache.txt
 **/cmake_install.cmake

@@ -15,7 +15,7 @@ A C++ version of hotpocket designed for production envrionments, original protot
 * Boost Stacktrace - https://www.boost.org
 
 ## Setting up Hot Pocket development environment
-Run the setup script located at the repo root (tested on Ubuntu 18.04).
+Run the setup script located at the repo root (tested on Ubuntu 20.04).
 ```
 ./dev-setup.sh
 ```
