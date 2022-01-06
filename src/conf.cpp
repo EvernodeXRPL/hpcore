@@ -948,6 +948,7 @@ namespace conf
         jdoc.insert_or_assign("unl", unl);
         jdoc.insert_or_assign("bin_path", contract.bin_path);
         jdoc.insert_or_assign("bin_args", contract.bin_args);
+        jdoc.insert_or_assign("environment", contract.environment);
         jdoc.insert_or_assign("roundtime", contract.roundtime.load());
         jdoc.insert_or_assign("stage_slice", contract.stage_slice.load());
         jdoc.insert_or_assign("consensus", contract.is_consensus_public ? PUBLIC : PRIVATE);
@@ -1045,6 +1046,7 @@ namespace conf
 
             contract.bin_path = jdoc["bin_path"].as<std::string>();
             contract.bin_args = jdoc["bin_args"].as<std::string>();
+            contract.environment = jdoc["environment"].as<std::string>();
 
             contract.roundtime = jdoc["roundtime"].as<uint32_t>();
             if (contract.roundtime < 1 || contract.roundtime > MAX_ROUND_TIME)
@@ -1092,6 +1094,11 @@ namespace conf
             print_missing_field_error(jpath, e, is_patch_config);
             return -1;
         }
+
+        contract.runtime_env_args.clear();
+        // Populate runtime environment args.
+        if (!contract.environment.empty())
+            util::split_string(contract.runtime_env_args, contract.environment, " ");
 
         contract.runtime_binexec_args.clear();
         // Populate runtime contract execution args.
