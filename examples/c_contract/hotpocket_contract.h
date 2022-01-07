@@ -158,6 +158,7 @@ struct hp_config
     struct hp_unl_collection unl;
     char *bin_path;
     char *bin_args;
+    char *environment;
     uint32_t roundtime;
     uint32_t stage_slice;
     char *consensus;
@@ -584,6 +585,7 @@ void hp_free_config(struct hp_config *config)
     __HP_FREE(config->unl.list);
     __HP_FREE(config->bin_path);
     __HP_FREE(config->bin_args);
+    __HP_FREE(config->environment);
     __HP_FREE(config->consensus);
     __HP_FREE(config->npl);
     __HP_FREE(config->appbill.mode);
@@ -737,7 +739,7 @@ int __hp_write_to_patch_file(const int fd, const struct hp_config *config)
 
     // Top-level field values.
 
-    const char *json_string = "    \"bin_path\": \"%s\",\n    \"bin_args\": \"%s\",\n    \"roundtime\": %s,\n    \"stage_slice\": %s,\n"
+    const char *json_string = "    \"bin_path\": \"%s\",\n    \"bin_args\": \"%s\",\n    \"environment\": \"%s\",\n    \"roundtime\": %s,\n    \"stage_slice\": %s,\n"
                               "    \"consensus\": \"%s\",\n    \"npl\": \"%s\",\n    \"max_input_ledger_offset\": %s,\n";
 
     char roundtime_str[16];
@@ -749,11 +751,11 @@ int __hp_write_to_patch_file(const int fd, const struct hp_config *config)
     char max_input_ledger_offset_str[16];
     sprintf(max_input_ledger_offset_str, "%d", config->max_input_ledger_offset);
 
-    const size_t json_string_len = 149 + strlen(config->bin_path) + strlen(config->bin_args) +
+    const size_t json_string_len = 172 + strlen(config->bin_path) + strlen(config->bin_args) + strlen(config->environment) +
                                    strlen(roundtime_str) + strlen(stage_slice_str) +
                                    strlen(config->consensus) + strlen(config->npl) + strlen(max_input_ledger_offset_str);
     char json_buf[json_string_len];
-    sprintf(json_buf, json_string, config->bin_path, config->bin_args, roundtime_str, stage_slice_str, config->consensus, config->npl, max_input_ledger_offset_str);
+    sprintf(json_buf, json_string, config->bin_path, config->bin_args, config->environment, roundtime_str, stage_slice_str, config->consensus, config->npl, max_input_ledger_offset_str);
     iov_vec[2].iov_base = json_buf;
     iov_vec[2].iov_len = json_string_len;
 
@@ -843,6 +845,10 @@ void __hp_populate_patch_from_json_object(struct hp_config *config, const struct
         else if (strcmp(k->string, "bin_args") == 0)
         {
             __HP_ASSIGN_CHAR_PTR(config->bin_args, elem);
+        }
+        else if (strcmp(k->string, "environment") == 0)
+        {
+            __HP_ASSIGN_CHAR_PTR(config->environment, elem);
         }
         else if (strcmp(k->string, "roundtime") == 0)
         {
