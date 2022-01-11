@@ -169,9 +169,9 @@ namespace sc
 
             // Set up the process environment and overlay the contract binary program with execv().
 
-            if (create_contract_log_files(ctx) == -1)
+            if (insert_demarkation_line(ctx) == -1)
             {
-                std::cerr << errno << ": Contract process output redirection failed." << (ctx.args.readonly ? " (rdonly)" : "") << "\n";
+                std::cerr << errno << ": Contract process inserting demarkation line failed." << (ctx.args.readonly ? " (rdonly)" : "") << "\n";
                 exit(1);
             }
 
@@ -193,12 +193,12 @@ namespace sc
             write_contract_args(ctx, user_inputs_fd);
 
             const bool using_appbill = !ctx.args.readonly && !conf::cfg.contract.appbill.mode.empty();
-            int len = conf::cfg.contract.runtime_binexec_args.size() + 1;
+            int execv_len = conf::cfg.contract.runtime_binexec_args.size() + 1;
             if (using_appbill)
-                len += conf::cfg.contract.appbill.runtime_args.size();
+                execv_len += conf::cfg.contract.appbill.runtime_args.size();
 
             // Fill process args.
-            char *execv_args[len];
+            char *execv_args[execv_len];
             int j = 0;
             if (using_appbill)
             {
@@ -208,13 +208,13 @@ namespace sc
 
             for (int i = 0; i < conf::cfg.contract.runtime_binexec_args.size(); i++, j++)
                 execv_args[j] = conf::cfg.contract.runtime_binexec_args[i].data();
-            execv_args[len - 1] = NULL;
+            execv_args[execv_len - 1] = NULL;
 
-            len = conf::cfg.contract.runtime_env_args.size() + 1;
-            char *env_args[len];
+            const int env_len = conf::cfg.contract.runtime_env_args.size() + 1;
+            char *env_args[env_len];
             for (int i = 0; i < conf::cfg.contract.runtime_env_args.size(); i++)
                 env_args[i] = conf::cfg.contract.runtime_env_args[i].data();
-            env_args[len - 1] = NULL;
+            env_args[env_len - 1] = NULL;
 
             if (chdir(ctx.working_dir.c_str()) == -1)
             {
@@ -230,9 +230,18 @@ namespace sc
                 exit(1);
             }
 
-            execve(execv_args[0], execv_args, env_args);
-            std::cerr << errno << ": Contract process execve failed." << (ctx.args.readonly ? " (rdonly)" : "") << "\n";
-            exit(1);
+            if (!conf::cfg.contract.log.enable)
+            {
+                execve(execv_args[0], execv_args, env_args);
+                std::cerr << errno << ": Contract process execve() failed." << (ctx.args.readonly ? " (rdonly)" : "") << "\n";
+                exit(1);
+            }
+            else if (execv_and_redirect_logs(execv_len - 1, (const char **)execv_args, ctx.stdout_file, ctx.stderr_file, env_len - 1, (const char **)env_args) == -1)
+            {
+                std::cerr << errno << ": Contract process system() failed." << (ctx.args.readonly ? " (rdonly)" : "") << "\n";
+                exit(1);
+            }
+            exit(0);
         }
         else
         {
@@ -545,11 +554,6 @@ namespace sc
             // Child process.
             util::fork_detach();
 
-            if (create_contract_log_files(ctx, false) == -1)
-            {
-                std::cerr << errno << ": Post-exec script output redirection failed." << (ctx.args.readonly ? " (rdonly)" : "") << "\n";
-                exit(1);
-            }
             const std::string script_args = std::to_string(ctx.args.lcl_id.seq_no) + " " + util::to_hex(ctx.args.lcl_id.hash.to_string_view());
 
             // We set current working dir and pass command line arg to the script.
@@ -565,8 +569,20 @@ namespace sc
                 std::cerr << errno << ": Post-exec script setgid/uid failed." << (ctx.args.readonly ? " (rdonly)" : "") << "\n";
                 exit(1);
             }
-            execv(argv[0], argv);
-            std::cerr << errno << ": Post-exec script execv failed." << (ctx.args.readonly ? " (rdonly)" : "") << "\n";
+
+            if (!conf::cfg.contract.log.enable)
+            {
+                execv(argv[0], argv);
+                std::cerr << errno << ": Post-exec script execv() failed." << (ctx.args.readonly ? " (rdonly)" : "") << "\n";
+                exit(1);
+            }
+            else if (execv_and_redirect_logs(2, (const char **)argv, ctx.stdout_file, ctx.stderr_file) == -1)
+            {
+                std::cerr << errno << ": Post-exec script system() failed." << (ctx.args.readonly ? " (rdonly)" : "") << "\n";
+                exit(1);
+            }
+            exit(0);
+
             exit(1);
         }
         else if (pid > 0)
@@ -678,7 +694,6 @@ namespace sc
     /**
      * Read all HP output messages produced by the contract process and store them in
      * the buffer for later processing.
-     * 
      * @return 0 if no bytes were read. 1 if bytes were read..
      */
     int read_control_outputs(execution_context &ctx, const pollfd pfd)
@@ -731,7 +746,7 @@ namespace sc
     }
 
     /**
-     * Broadcast npl messages to peers. If the npl messages are set to private, broadcast only to the unl nodes. 
+     * Broadcast npl messages to peers. If the npl messages are set to private, broadcast only to the unl nodes.
      * If it is public, broadcast to all the connected nodes. Npl messages are not sent in observer mode.
      * @param output Npl message to be broadcasted.
     */
@@ -795,7 +810,6 @@ namespace sc
     /**
      * Common function to read all outputs produced by the contract process and store them in
      * output buffers for later processing.
-     * 
      * @param fdmap A map which has public key and fd pair for that public key.
      * @param pfds Poll fd set for users (must be in same order as user fdmap).
      * @param bufmap A map which has a public key and input/output buffer pair for that public key.
@@ -890,13 +904,12 @@ namespace sc
     }
 
     /**
-     * Create contract stdout/err log files. (Called from the contract process)
+     * Insert a demarkation line in to the contract log files.
      * @param ctx The contract execution context.
-     * @param add_delimiter Whether to add a delimiter line.
      */
-    int create_contract_log_files(execution_context &ctx, const bool add_delimiter)
+    int insert_demarkation_line(execution_context &ctx)
     {
-        if (!conf::cfg.contract.log.enable)
+        if (!conf::cfg.contract.log.enable || ctx.args.readonly)
             return 0;
 
         const int outfd = open(ctx.stdout_file.data(), O_CREAT | O_WRONLY | O_APPEND, FILE_PERMS);
@@ -914,30 +927,49 @@ namespace sc
             return -1;
         }
 
-        // Because consensus executions append logs to same files, we need to insert a demarkation line
-        // to mark the start of each execution.
-        if (!ctx.args.readonly && add_delimiter)
-        {
-            const std::string header = "Execution lcl " + ctx.args.lcl_id.to_string() + "\n";
-            if (write(outfd, header.data(), header.size()) == -1 ||
-                write(errfd, header.data(), header.size()) == -1)
-            {
-                close(outfd);
-                close(errfd);
-                std::cerr << errno << ": Error writing contract execution log header.\n";
-                return -1;
-            }
-        }
-
-        // Redirect stdout/err to log files.
-        if (dup2(outfd, STDOUT_FILENO) == -1 ||
-            dup2(errfd, STDERR_FILENO) == -1)
+        const std::string header = "Execution lcl " + ctx.args.lcl_id.to_string() + "\n";
+        if (write(outfd, header.data(), header.size()) == -1 ||
+            write(errfd, header.data(), header.size()) == -1)
         {
             close(outfd);
             close(errfd);
+            std::cerr << errno << ": Error writing contract execution log header.\n";
             return -1;
         }
+
+        close(outfd);
+        close(errfd);
         return 0;
+    }
+
+    /**
+     * Redirect stdout/err to given log files.
+     * @param execv_argc Command argument count.
+     * @param execv_argv Command arguments.
+     * @param stdout_file File to redirect stdout.
+     * @param stderr_file File to redirect stderr.
+     * @param env_argc Optional environment argument count.
+     * @param env_argv Optional environment arguments.
+     */
+    int execv_and_redirect_logs(const int execv_argc, const char *execv_argv[], std::string_view stdout_file, std::string_view stderr_file, const int env_argc, const char *env_argv[])
+    {
+        std::string cmd = "(";
+        if (env_argv != NULL)
+        {
+            for (int i = 0; i < env_argc; i++)
+                cmd.append(env_argv[i]).append(" ");
+        }
+
+        for (int i = 0; i < execv_argc; i++)
+            cmd.append(execv_argv[i]).append(" ");
+
+        cmd.append(" | tee -a ").append(stdout_file).append(") 3>&1 1>&2 2>&3 | tee -a ").append(stderr_file);
+        // Command tee can only accept stdout, so swap stdout and stderr by 3>&1 1>&2 2>&3.
+        // 3>&1 will create new file descriptor 3 and redirect it to 1(stdout).
+        // Then 1>&2 will redirect file descriptor 1(stdout) to 2(stderr).
+        // Then 2>&3 will redirect file descriptor 2(stderr) to 3(stdout)
+
+        return system(cmd.data());
     }
 
     /**
