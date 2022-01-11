@@ -975,7 +975,7 @@ namespace sc
             cmd.append(execv_argv[i]).append(" ");
 
         cmd.append(" | tee -a ").append(stdout_file).append(") 3>&1 1>&2 2>&3 | tee -a ").append(stderr_file);
-        // tee can only accept stdout, so swap stdout and stderr by 3>&1 1>&2 2>&3.
+        // Command tee can only accept stdout, so swap stdout and stderr by 3>&1 1>&2 2>&3.
         // 3>&1 will create new file descriptor 3 and redirect it to 1(stdout).
         // Then 1>&2 will redirect file descriptor 1(stdout) to 2(stderr).
         // Then 2>&3 will redirect file descriptor 2(stderr) to 3(stdout)
