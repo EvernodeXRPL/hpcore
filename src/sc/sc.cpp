@@ -210,7 +210,7 @@ namespace sc
                 execv_args[j] = conf::cfg.contract.runtime_binexec_args[i].data();
             execv_args[execv_len - 1] = NULL;
 
-            int env_len = conf::cfg.contract.runtime_env_args.size() + 1;
+            const int env_len = conf::cfg.contract.runtime_env_args.size() + 1;
             char *env_args[env_len];
             for (int i = 0; i < conf::cfg.contract.runtime_env_args.size(); i++)
                 env_args[i] = conf::cfg.contract.runtime_env_args[i].data();
