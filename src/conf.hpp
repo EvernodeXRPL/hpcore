@@ -182,6 +182,7 @@ namespace conf
         std::set<std::string> unl;             // Unique node list (list of binary public keys).
         std::string bin_path;                  // Full path to the contract binary.
         std::string bin_args;                  // CLI arguments to pass to the contract binary.
+        std::string environment;               // Environment variables to be passed into contract.
         std::atomic<uint32_t> roundtime = 0;   // Consensus round time in ms (max: 3,600,000).
         std::atomic<uint32_t> stage_slice = 0; // Percentage slice of round time that stages 0,1,2 get (max: 33).
         bool is_consensus_public = false;      // If true, consensus are broadcasted to non-unl nodes as well.
@@ -192,6 +193,7 @@ namespace conf
 
         // Config element which are initialized in memory (This is not directly loaded from the config file)
         std::vector<std::string> runtime_binexec_args; // Contract binary execution args used during runtime.
+        std::vector<std::string> runtime_env_args;     // Contract environment variables.
     };
 
     struct user_config
