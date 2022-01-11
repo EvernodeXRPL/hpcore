@@ -193,6 +193,8 @@ namespace sc
 
     int create_contract_log_files(execution_context &ctx, const bool add_delimiter = true);
 
+    int execv_and_redirect_logs(const int execv_argc, const char *execv_argv[], std::string_view stdout_file, std::string_view stderr_file, const int env_argc = 0, const char *env_argv[] = NULL);
+
     int create_iosockets(fd_pair &fds, const int socket_type);
 
     int write_iosocket_seq_packet(fd_pair &fds, std::string_view input);

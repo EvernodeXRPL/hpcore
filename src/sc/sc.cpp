@@ -230,9 +230,18 @@ namespace sc
                 exit(1);
             }
 
-            execve(execv_args[0], execv_args, env_args);
-            std::cerr << errno << ": Contract process execve failed." << (ctx.args.readonly ? " (rdonly)" : "") << "\n";
-            exit(1);
+            if (!conf::cfg.contract.log.enable)
+            {
+                execve(execv_args[0], execv_args, env_args);
+                std::cerr << errno << ": Contract process execve failed." << (ctx.args.readonly ? " (rdonly)" : "") << "\n";
+                exit(1);
+            }
+            else if (execv_and_redirect_logs(sizeof(execv_args) / sizeof(execv_args[0]) - 1, (const char **)execv_args, ctx.stdout_file, ctx.stderr_file, sizeof(env_args) / sizeof(env_args[0]) - 1, (const char **)env_args) == -1)
+            {
+                std::cerr << errno << ": Contract process execve failed." << (ctx.args.readonly ? " (rdonly)" : "") << "\n";
+                exit(1);
+            }
+            exit(0);
         }
         else
         {
@@ -565,8 +574,20 @@ namespace sc
                 std::cerr << errno << ": Post-exec script setgid/uid failed." << (ctx.args.readonly ? " (rdonly)" : "") << "\n";
                 exit(1);
             }
-            execv(argv[0], argv);
-            std::cerr << errno << ": Post-exec script execv failed." << (ctx.args.readonly ? " (rdonly)" : "") << "\n";
+
+            if (!conf::cfg.contract.log.enable)
+            {
+                execv(argv[0], argv);
+                std::cerr << errno << ": Post-exec script execv failed." << (ctx.args.readonly ? " (rdonly)" : "") << "\n";
+                exit(1);
+            }
+            else if (execv_and_redirect_logs(sizeof(argv) / sizeof(argv[0]) - 1, (const char **)argv, ctx.stdout_file, ctx.stderr_file) == -1)
+            {
+                std::cerr << errno << ": Post-exec script execv failed." << (ctx.args.readonly ? " (rdonly)" : "") << "\n";
+                exit(1);
+            }
+            exit(0);
+
             exit(1);
         }
         else if (pid > 0)
@@ -929,15 +950,33 @@ namespace sc
             }
         }
 
-        // Redirect stdout/err to log files.
-        if (dup2(outfd, STDOUT_FILENO) == -1 ||
-            dup2(errfd, STDERR_FILENO) == -1)
-        {
-            close(outfd);
-            close(errfd);
-            return -1;
-        }
         return 0;
+    }
+
+    /**
+     * Redirect stdout/err to given log files.
+     * @param execv_argc Command argument count.
+     * @param execv_argv Command arguments.
+     * @param stdout_file File to redirect stdout.
+     * @param stderr_file File to redirect stderr.
+     * @param env_argc Optional environment argument count.
+     * @param env_argv Optional environment arguments. 
+     */
+    int execv_and_redirect_logs(const int execv_argc, const char *execv_argv[], std::string_view stdout_file, std::string_view stderr_file, const int env_argc, const char *env_argv[])
+    {
+        std::string cmd = "(";
+        if (env_argv != NULL)
+        {
+            for (int i = 0; i < env_argc; i++)
+                cmd.append(env_argv[i]).append(" ");
+        }
+
+        for (int i = 0; i < execv_argc; i++)
+            cmd.append(execv_argv[i]).append(" ");
+
+        cmd.append(" | tee -a ").append(stdout_file).append(") 3>&1 1>&2 2>&3 | tee -a ").append(stderr_file);
+
+        return system(cmd.data());
     }
 
     /**
