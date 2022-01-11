@@ -191,7 +191,7 @@ namespace sc
 
     int read_contract_fdmap_outputs(contract_fdmap_t &fdmap, pollfd *pfds, contract_bufmap_t &bufmap);
 
-    int create_contract_log_files(execution_context &ctx, const bool add_delimiter = true);
+    int insert_demarkation_line(execution_context &ctx);
 
     int execv_and_redirect_logs(const int execv_argc, const char *execv_argv[], std::string_view stdout_file, std::string_view stderr_file, const int env_argc = 0, const char *env_argv[] = NULL);
 

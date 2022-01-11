@@ -169,9 +169,9 @@ namespace sc
 
             // Set up the process environment and overlay the contract binary program with execv().
 
-            if (create_contract_log_files(ctx) == -1)
+            if (insert_demarkation_line(ctx) == -1)
             {
-                std::cerr << errno << ": Contract process output redirection failed." << (ctx.args.readonly ? " (rdonly)" : "") << "\n";
+                std::cerr << errno << ": Contract process inserting demarkation line failed." << (ctx.args.readonly ? " (rdonly)" : "") << "\n";
                 exit(1);
             }
 
@@ -554,11 +554,6 @@ namespace sc
             // Child process.
             util::fork_detach();
 
-            if (create_contract_log_files(ctx, false) == -1)
-            {
-                std::cerr << errno << ": Post-exec script output redirection failed." << (ctx.args.readonly ? " (rdonly)" : "") << "\n";
-                exit(1);
-            }
             const std::string script_args = std::to_string(ctx.args.lcl_id.seq_no) + " " + util::to_hex(ctx.args.lcl_id.hash.to_string_view());
 
             // We set current working dir and pass command line arg to the script.
@@ -911,13 +906,13 @@ namespace sc
     }
 
     /**
-     * Create contract stdout/err log files. (Called from the contract process)
+     * Insert a demarkation line in to the contract log files.
      * @param ctx The contract execution context.
      * @param add_delimiter Whether to add a delimiter line.
      */
-    int create_contract_log_files(execution_context &ctx, const bool add_delimiter)
+    int insert_demarkation_line(execution_context &ctx)
     {
-        if (!conf::cfg.contract.log.enable)
+        if (!conf::cfg.contract.log.enable || ctx.args.readonly)
             return 0;
 
         const int outfd = open(ctx.stdout_file.data(), O_CREAT | O_WRONLY | O_APPEND, FILE_PERMS);
@@ -935,21 +930,18 @@ namespace sc
             return -1;
         }
 
-        // Because consensus executions append logs to same files, we need to insert a demarkation line
-        // to mark the start of each execution.
-        if (!ctx.args.readonly && add_delimiter)
+        const std::string header = "Execution lcl " + ctx.args.lcl_id.to_string() + "\n";
+        if (write(outfd, header.data(), header.size()) == -1 ||
+            write(errfd, header.data(), header.size()) == -1)
         {
-            const std::string header = "Execution lcl " + ctx.args.lcl_id.to_string() + "\n";
-            if (write(outfd, header.data(), header.size()) == -1 ||
-                write(errfd, header.data(), header.size()) == -1)
-            {
-                close(outfd);
-                close(errfd);
-                std::cerr << errno << ": Error writing contract execution log header.\n";
-                return -1;
-            }
+            close(outfd);
+            close(errfd);
+            std::cerr << errno << ": Error writing contract execution log header.\n";
+            return -1;
         }
 
+        close(outfd);
+        close(errfd);
         return 0;
     }
 
