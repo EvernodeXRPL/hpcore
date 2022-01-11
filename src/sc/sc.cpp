@@ -694,7 +694,6 @@ namespace sc
     /**
      * Read all HP output messages produced by the contract process and store them in
      * the buffer for later processing.
-     * 
      * @return 0 if no bytes were read. 1 if bytes were read..
      */
     int read_control_outputs(execution_context &ctx, const pollfd pfd)
@@ -747,7 +746,7 @@ namespace sc
     }
 
     /**
-     * Broadcast npl messages to peers. If the npl messages are set to private, broadcast only to the unl nodes. 
+     * Broadcast npl messages to peers. If the npl messages are set to private, broadcast only to the unl nodes.
      * If it is public, broadcast to all the connected nodes. Npl messages are not sent in observer mode.
      * @param output Npl message to be broadcasted.
     */
@@ -811,7 +810,6 @@ namespace sc
     /**
      * Common function to read all outputs produced by the contract process and store them in
      * output buffers for later processing.
-     * 
      * @param fdmap A map which has public key and fd pair for that public key.
      * @param pfds Poll fd set for users (must be in same order as user fdmap).
      * @param bufmap A map which has a public key and input/output buffer pair for that public key.
@@ -908,7 +906,6 @@ namespace sc
     /**
      * Insert a demarkation line in to the contract log files.
      * @param ctx The contract execution context.
-     * @param add_delimiter Whether to add a delimiter line.
      */
     int insert_demarkation_line(execution_context &ctx)
     {
@@ -952,7 +949,7 @@ namespace sc
      * @param stdout_file File to redirect stdout.
      * @param stderr_file File to redirect stderr.
      * @param env_argc Optional environment argument count.
-     * @param env_argv Optional environment arguments. 
+     * @param env_argv Optional environment arguments.
      */
     int execv_and_redirect_logs(const int execv_argc, const char *execv_argv[], std::string_view stdout_file, std::string_view stderr_file, const int env_argc, const char *env_argv[])
     {
