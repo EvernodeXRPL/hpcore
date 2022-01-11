@@ -193,12 +193,12 @@ namespace sc
             write_contract_args(ctx, user_inputs_fd);
 
             const bool using_appbill = !ctx.args.readonly && !conf::cfg.contract.appbill.mode.empty();
-            int len = conf::cfg.contract.runtime_binexec_args.size() + 1;
+            int execv_len = conf::cfg.contract.runtime_binexec_args.size() + 1;
             if (using_appbill)
-                len += conf::cfg.contract.appbill.runtime_args.size();
+                execv_len += conf::cfg.contract.appbill.runtime_args.size();
 
             // Fill process args.
-            char *execv_args[len];
+            char *execv_args[execv_len];
             int j = 0;
             if (using_appbill)
             {
@@ -208,13 +208,13 @@ namespace sc
 
             for (int i = 0; i < conf::cfg.contract.runtime_binexec_args.size(); i++, j++)
                 execv_args[j] = conf::cfg.contract.runtime_binexec_args[i].data();
-            execv_args[len - 1] = NULL;
+            execv_args[execv_len - 1] = NULL;
 
-            len = conf::cfg.contract.runtime_env_args.size() + 1;
-            char *env_args[len];
+            int env_len = conf::cfg.contract.runtime_env_args.size() + 1;
+            char *env_args[env_len];
             for (int i = 0; i < conf::cfg.contract.runtime_env_args.size(); i++)
                 env_args[i] = conf::cfg.contract.runtime_env_args[i].data();
-            env_args[len - 1] = NULL;
+            env_args[env_len - 1] = NULL;
 
             if (chdir(ctx.working_dir.c_str()) == -1)
             {
@@ -236,7 +236,7 @@ namespace sc
                 std::cerr << errno << ": Contract process execve() failed." << (ctx.args.readonly ? " (rdonly)" : "") << "\n";
                 exit(1);
             }
-            else if (execv_and_redirect_logs(sizeof(execv_args) / sizeof(execv_args[0]) - 1, (const char **)execv_args, ctx.stdout_file, ctx.stderr_file, sizeof(env_args) / sizeof(env_args[0]) - 1, (const char **)env_args) == -1)
+            else if (execv_and_redirect_logs(execv_len - 1, (const char **)execv_args, ctx.stdout_file, ctx.stderr_file, env_len - 1, (const char **)env_args) == -1)
             {
                 std::cerr << errno << ": Contract process system() failed." << (ctx.args.readonly ? " (rdonly)" : "") << "\n";
                 exit(1);
@@ -581,7 +581,7 @@ namespace sc
                 std::cerr << errno << ": Post-exec script execv() failed." << (ctx.args.readonly ? " (rdonly)" : "") << "\n";
                 exit(1);
             }
-            else if (execv_and_redirect_logs(sizeof(argv) / sizeof(argv[0]) - 1, (const char **)argv, ctx.stdout_file, ctx.stderr_file) == -1)
+            else if (execv_and_redirect_logs(2, (const char **)argv, ctx.stdout_file, ctx.stderr_file) == -1)
             {
                 std::cerr << errno << ": Post-exec script system() failed." << (ctx.args.readonly ? " (rdonly)" : "") << "\n";
                 exit(1);
