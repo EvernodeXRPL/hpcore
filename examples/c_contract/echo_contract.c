@@ -61,7 +61,7 @@ int main(int argc, char **argv)
     // struct hp_config *config = hp_get_config();
     // hp_set_config_string(&config->version, "2.0", 4);
     // config->round_limits.user_input_bytes = 1024;
-    // struct hp_unl_node new_unl[2] = {{"ed726f9f536904b125bdca10bbdd1e66591b274799b92ac8bcfc75bf45d7da4c0f"},
+    // struct hp_pubkey new_unl[2] = {{"ed726f9f536904b125bdca10bbdd1e66591b274799b92ac8bcfc75bf45d7da4c0f"},
     //                                  {"ed3e63992d62804ea0c182e5b22fe43c4b652fbbf068ec7520f3020f4c3771416a"}};
     // hp_set_config_unl(config, new_unl, 2);
     // hp_update_config(config);
