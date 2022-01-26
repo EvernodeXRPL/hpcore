@@ -10,8 +10,14 @@
  */
 namespace unl
 {
-    std::map<std::string, uint32_t> list; // List of binary pubkeys of UNL and their latest reported time configs.
-    std::string json_list;                // Stringified json array of UNL. (To be fed into the contract args)
+    struct node_stat
+    {
+        uint32_t time_config = 0; // Roundtime config of this node.
+        uint64_t active_on = 0;   // Latest timestamp we received a proposal from this node.
+    };
+
+    std::map<std::string, node_stat> list; // List of binary pubkeys of UNL nodes and their statistics.
+    std::string json_list;                 // Stringified json array of UNL. (To be fed into the contract args)
     std::shared_mutex unl_mutex;
 
     /**
@@ -81,18 +87,27 @@ namespace unl
     }
 
     /**
-     * Updates unl pubkey-->time config information using the specified list of proposals.
+     * Updates unl stats using the specified list of proposals.
      */
-    void update_time_config_stats(const std::list<p2p::proposal> &proposals)
+    void update_unl_stats(const std::list<p2p::proposal> &proposals)
     {
         std::unique_lock lock(unl_mutex);
+        bool changes_made = false;
 
         for (const auto &p : proposals)
         {
             const auto itr = list.find(p.pubkey);
             if (itr != list.end())
-                itr->second = p.time_config;
+            {
+                changes_made = true;
+                itr->second.active_on = p.recv_timestamp;
+                itr->second.time_config = p.time_config;
+            }
         }
+
+        // Update the prepared json list which will be fed into contract args.
+        if (changes_made)
+            json_list = prepare_json_list();
     }
 
     /**
@@ -112,14 +127,14 @@ namespace unl
             for (auto itr = list.begin(); itr != list.end(); itr++)
             {
                 // If time config is 0, attempt to get from peer connection (if available).
-                if (itr->second == 0)
+                if (itr->second.time_config == 0)
                 {
                     const auto peer_itr = p2p::ctx.peer_connections.find(itr->first);
                     if (peer_itr != p2p::ctx.peer_connections.end())
-                        itr->second = peer_itr->second->reported_time_config;
+                        itr->second.time_config = peer_itr->second->reported_time_config;
                 }
 
-                const uint32_t time_config = itr->second;
+                const uint32_t time_config = itr->second.time_config;
                 if (time_config > 0)
                     time_config_votes[time_config]++;
             }
@@ -167,7 +182,7 @@ namespace unl
         {
             if (list.count(pubkey) == 0)
             {
-                list.emplace(pubkey, 0);
+                list.emplace(pubkey, node_stat{});
                 changes_made = true;
             }
         }
@@ -176,7 +191,7 @@ namespace unl
             return false;
 
         // Update the prepared json list which will be fed into contract args.
-        json_list = prepare_json_list(conf::cfg.contract.unl);
+        json_list = prepare_json_list();
 
         // Update the own node's unl status.
         conf::cfg.node.is_unl = (list.count(conf::cfg.node.public_key) == 1);
@@ -184,19 +199,21 @@ namespace unl
         return true; // Changes made.
     }
 
-    const std::string prepare_json_list(const std::set<std::string> &new_list)
+    const std::string prepare_json_list()
     {
         std::ostringstream os;
-        os << "[";
-        for (auto pk = new_list.begin(); pk != new_list.end(); pk++)
+        os << "{";
+        for (auto node = list.begin(); node != list.end(); node++)
         {
-            if (pk != new_list.begin())
+            if (node != list.begin())
                 os << ","; // Trailing comma separator for previous element.
 
             // Convert binary pubkey into hex.
-            os << "\"" << util::to_hex(*pk) << "\"";
+            os << "\"" << util::to_hex(node->first) << "\":{"
+               << "\"active_on\":" << node->second.active_on
+               << "}";
         }
-        os << "]";
+        os << "}";
         return os.str();
     }
 

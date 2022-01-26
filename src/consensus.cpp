@@ -487,7 +487,7 @@ namespace consensus
         }
 
         // Provide latest roundtime information to unl statistics.
-        unl::update_time_config_stats(collected_proposals);
+        unl::update_unl_stats(collected_proposals);
 
         // Move collected propsals to candidate set of proposals.
         for (const auto &p : collected_proposals)

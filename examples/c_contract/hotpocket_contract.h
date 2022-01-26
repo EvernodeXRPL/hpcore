@@ -108,10 +108,15 @@ struct hp_user_inputs_collection
     size_t count;
 };
 
+struct hp_pubkey
+{
+    char data[HP_KEY_SIZE + 1]; // +1 for null char.
+};
+
 // Represents a user that is connected to HP cluster.
 struct hp_user
 {
-    char pubkey[HP_KEY_SIZE + 1]; // +1 for null char.
+    struct hp_pubkey pubkey;
     int outfd;
     struct hp_user_inputs_collection inputs;
 };
@@ -119,7 +124,8 @@ struct hp_user
 // Represents a node that's part of unl.
 struct hp_unl_node
 {
-    char pubkey[HP_KEY_SIZE + 1]; // +1 for null char.
+    struct hp_pubkey pubkey;
+    uint64_t active_on;
 };
 
 struct hp_users_collection
@@ -127,6 +133,12 @@ struct hp_users_collection
     struct hp_user *list;
     size_t count;
     int in_fd;
+};
+
+struct hp_pubkey_collection
+{
+    struct hp_pubkey *list;
+    size_t count;
 };
 
 struct hp_unl_collection
@@ -155,7 +167,7 @@ struct hp_round_limits_config
 struct hp_config
 {
     char *version;
-    struct hp_unl_collection unl;
+    struct hp_pubkey_collection unl;
     char *bin_path;
     char *bin_args;
     char *environment;
@@ -202,7 +214,7 @@ struct hp_config *hp_get_config();
 int hp_update_config(const struct hp_config *config);
 int hp_update_peers(const char *add_peers[], const size_t add_peers_count, const char *remove_peers[], const size_t remove_peers_count);
 void hp_set_config_string(char **config_str, const char *value, const size_t value_size);
-void hp_set_config_unl(struct hp_config *config, const struct hp_unl_node *new_unl, const size_t new_unl_count);
+void hp_set_config_unl(struct hp_config *config, const struct hp_pubkey *new_unl, const size_t new_unl_count);
 void hp_free_config(struct hp_config *config);
 
 void __hp_parse_args_json(const struct json_object_s *object);
@@ -493,20 +505,21 @@ int hp_update_config(const struct hp_config *config)
     {
         for (size_t i = 0; i < config->unl.count; i++)
         {
-            const size_t pubkey_len = strlen(config->unl.list[i].pubkey);
+            const char *pubkey = config->unl.list[i].data;
+            const size_t pubkey_len = strlen(pubkey);
             if (pubkey_len == 0)
                 __HP_UPDATE_CONFIG_ERROR("Unl pubkey cannot be empty.");
 
             if (pubkey_len != HP_KEY_SIZE)
                 __HP_UPDATE_CONFIG_ERROR("Unl pubkey invalid. Invalid length.");
 
-            if (config->unl.list[i].pubkey[0] != 'e' || config->unl.list[i].pubkey[1] != 'd')
+            if (pubkey[0] != 'e' || pubkey[1] != 'd')
                 __HP_UPDATE_CONFIG_ERROR("Unl pubkey invalid. Invalid format.");
 
             // Checking the validity of hexadecimal portion. (without 'ed').
             for (size_t j = 2; j < HP_KEY_SIZE; j++)
             {
-                const char current_char = config->unl.list[i].pubkey[j];
+                const char current_char = pubkey[j];
                 if ((current_char < 'A' || current_char > 'F') && (current_char < 'a' || current_char > 'f') && (current_char < '0' || current_char > '9'))
                     __HP_UPDATE_CONFIG_ERROR("Unl pubkey invalid. Invalid character.");
             }
@@ -564,13 +577,13 @@ void hp_set_config_string(char **config_str, const char *value, const size_t val
 /**
  * Populates the config unl list with the specified values.
  * @param config The config struct to populate the unl to.
- * @param new_unl Pointer to the new unl node array.
- * @param new_unl_count No. of entries in the new unl node array.
+ * @param new_unl Pointer to array of unl pubkeys.
+ * @param new_unl_count No. of entries in the new unl pubkey array.
  */
-void hp_set_config_unl(struct hp_config *config, const struct hp_unl_node *new_unl, const size_t new_unl_count)
+void hp_set_config_unl(struct hp_config *config, const struct hp_pubkey *new_unl, const size_t new_unl_count)
 {
-    const size_t mem_size = sizeof(struct hp_unl_node) * new_unl_count;
-    config->unl.list = (struct hp_unl_node *)realloc(config->unl.list, mem_size);
+    const size_t mem_size = sizeof(struct hp_pubkey) * new_unl_count;
+    config->unl.list = (struct hp_pubkey *)realloc(config->unl.list, mem_size);
     memcpy(config->unl.list, new_unl, mem_size);
     config->unl.count = new_unl_count;
 }
@@ -728,7 +741,7 @@ int __hp_write_to_patch_file(const int fd, const struct hp_config *config)
         strncpy(unl_buf + pos, "\n        ", 9);
         pos += 9;
         unl_buf[pos++] = '"';
-        strncpy(unl_buf + pos, config->unl.list[i].pubkey, HP_KEY_SIZE);
+        strncpy(unl_buf + pos, config->unl.list[i].data, HP_KEY_SIZE);
         pos += HP_KEY_SIZE;
         unl_buf[pos++] = '"';
     }
@@ -825,14 +838,14 @@ void __hp_populate_patch_from_json_object(struct hp_config *config, const struct
                 const size_t unl_count = unl_array->length;
 
                 config->unl.count = unl_count;
-                config->unl.list = unl_count ? (struct hp_unl_node *)malloc(sizeof(struct hp_unl_node) * unl_count) : NULL;
+                config->unl.list = unl_count ? (struct hp_pubkey *)malloc(sizeof(struct hp_pubkey) * unl_count) : NULL;
 
                 if (unl_count > 0)
                 {
                     struct json_array_element_s *unl_elem = unl_array->start;
                     for (int i = 0; i < unl_count; i++)
                     {
-                        __HP_ASSIGN_STRING(config->unl.list[i].pubkey, unl_elem);
+                        __HP_ASSIGN_STRING(config->unl.list[i].data, unl_elem);
                         unl_elem = unl_elem->next;
                     }
                 }
@@ -981,7 +994,7 @@ void __hp_parse_args_json(const struct json_object_s *object)
                     for (int i = 0; i < user_count; i++)
                     {
                         struct hp_user *user = &cctx->users.list[i];
-                        memcpy(user->pubkey, user_elem->name->string, HP_KEY_SIZE);
+                        memcpy(user->pubkey.data, user_elem->name->string, HP_KEY_SIZE);
 
                         if (user_elem->value->type == json_type_array)
                         {
@@ -1020,20 +1033,38 @@ void __hp_parse_args_json(const struct json_object_s *object)
         }
         else if (strcmp(k->string, "unl") == 0)
         {
-            if (elem->value->type == json_type_array)
+            // unl is an object with pubkeys as keys. Each key contains an object with that node statistics.
+            if (elem->value->type == json_type_object)
             {
-                const struct json_array_s *unl_array = (struct json_array_s *)elem->value->payload;
-                const size_t unl_count = unl_array->length;
+                const struct json_object_s *unl_obj = (struct json_object_s *)elem->value->payload;
+                const size_t unl_count = unl_obj->length;
 
                 cctx->unl.count = unl_count;
                 cctx->unl.list = unl_count ? (struct hp_unl_node *)malloc(sizeof(struct hp_unl_node) * unl_count) : NULL;
 
                 if (unl_count > 0)
                 {
-                    struct json_array_element_s *unl_elem = unl_array->start;
+                    struct json_object_element_s *unl_elem = unl_obj->start;
                     for (int i = 0; i < unl_count; i++)
                     {
-                        __HP_ASSIGN_STRING(cctx->unl.list[i].pubkey, unl_elem);
+                        // Each element(key) is named by the pubkey.
+                        strncpy(cctx->unl.list[i].pubkey.data, unl_elem->name->string, unl_elem->name->string_size);
+
+                        if (unl_elem->value->type == json_type_object)
+                        {
+                            const struct json_object_s *stat_obj = (struct json_object_s *)unl_elem->value->payload;
+                            struct json_object_element_s *stat_elem = stat_obj->start;
+                            do
+                            {
+                                const struct json_string_s *k = stat_elem->name;
+                                if (strcmp(k->string, "active_on") == 0)
+                                {
+                                    __HP_ASSIGN_UINT64(cctx->unl.list[i].active_on, stat_elem);
+                                }
+                                stat_elem = stat_elem->next;
+                            } while (stat_elem);
+                        }
+
                         unl_elem = unl_elem->next;
                     }
                 }
