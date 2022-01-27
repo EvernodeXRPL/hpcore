@@ -247,7 +247,7 @@ namespace consensus
         std::map<util::h32, const p2p::proposal> cp_root_hash; // Stores one of proposal to match its root hash.
         util::h32 majority_hash = util::h32_empty;
 
-        int stage3_prop_count = 0; // Keep track of the number of stage 3 proposals received.
+        uint32_t stage3_prop_count = 0; // Keep track of the number of stage 3 proposals received.
 
         // Count votes of all stage 3 proposal hashes.
         for (const auto &[pubkey, cp] : ctx.candidate_proposals)
@@ -330,7 +330,9 @@ namespace consensus
         util::sequence_hash lcl_id = ledger::ctx.get_lcl_id();
 
         if (!ctx.sync_ongoing)
+        {
             LOG_INFO << "****Ledger created**** (lcl:" << lcl_id << " state:" << cons_prop.state_hash << " patch:" << cons_prop.patch_hash << ")";
+        }
 
         // Now that there's a new ledger, prune any newly-expired candidate inputs.
         expire_candidate_inputs(lcl_id);

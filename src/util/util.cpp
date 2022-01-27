@@ -61,7 +61,10 @@ namespace util
     const std::string realpath(const std::string &path)
     {
         std::array<char, PATH_MAX> buffer;
-        ::realpath(path.c_str(), buffer.data());
+        char *res = ::realpath(path.c_str(), buffer.data());
+        if (!res)
+            return {};
+
         buffer[PATH_MAX] = '\0';
         return buffer.data();
     }
@@ -187,11 +190,11 @@ namespace util
         DIR *dr;
 
         // Open the directory stream.
-        if (dr = opendir(path.data()))
+        if ((dr = opendir(path.data())))
         {
             // Take next directory entry from the directory stream.
             struct dirent *en;
-            while (en = readdir(dr))
+            while ((en = readdir(dr)))
             {
                 // Push into the entries list if reading directory entry is not current directory entry
                 // or previous directory entry.
@@ -365,13 +368,13 @@ namespace util
      */
     int read_from_fd(const int fd, void *buf, const size_t size, const off_t offset, std::string_view file_name)
     {
-        const int res = pread(fd, buf, size, offset);
+        const ssize_t res = pread(fd, buf, size, offset);
         if (res == -1)
         {
             LOG_ERROR << errno << ": Error when reading " << file_name;
             return -1;
         }
-        else if (res < size)
+        else if ((size_t)res < size)
         {
             LOG_ERROR << "Not enough bytes read from " << file_name;
             return -1;

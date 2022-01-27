@@ -49,7 +49,7 @@ namespace usr
          * @param pubkey The public key of the user in binary format.
          */
         connected_user(usr::user_comm_session &session, std::string_view pubkey, util::PROTOCOL protocol)
-            : session(session), pubkey(pubkey), protocol(protocol)
+            : pubkey(pubkey), session(session), protocol(protocol)
         {
             // Default subscriptions.
             subscriptions[NOTIFICATION_CHANNEL::UNL_CHANGE] = false;

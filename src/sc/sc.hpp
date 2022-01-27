@@ -213,7 +213,7 @@ namespace sc
 
     void handle_control_msg(execution_context &ctx, std::string_view msg);
 
-    int rename_and_cleanup_contract_log_files(const std::string &prefix, std::string_view postfix, const int depth = 0);
+    int rename_and_cleanup_contract_log_files(const std::string &prefix, std::string_view postfix, const size_t depth = 0);
 
     void clean_extra_contract_log_files(const std::string &session_name, std::string_view postfix, const int start_point);
 

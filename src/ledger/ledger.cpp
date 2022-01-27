@@ -419,11 +419,15 @@ namespace ledger
         const std::string file_path = shard_path + file_name;
         int fd = open(file_path.data(), O_WRONLY | O_APPEND | O_CREAT, FILE_PERMS);
         if (fd == -1)
+        {
             LOG_ERROR << errno << ": Error when creating file " << file_path;
+        }
 
         struct stat st;
         if (fstat(fd, &st) == -1)
+        {
             LOG_ERROR << errno << ": Error when stat of file " << file_path;
+        }
 
         file_size = st.st_size;
         return fd;

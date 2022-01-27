@@ -11,7 +11,7 @@ namespace crypto
 {
 
     // Prefix byte to append to ed25519 keys.
-    static unsigned char KEYPFX_ed25519 = 0xED;
+    constexpr const unsigned char KEYPFX_ed25519 = 0xED;
 
     int init();
 

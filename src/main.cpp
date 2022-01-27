@@ -197,7 +197,8 @@ int main(int argc, char **argv)
 
                 // Set HP process cwd to the contract directory. This will make both HP and contract process
                 // both have the same cwd.
-                chdir(conf::ctx.contract_dir.c_str());
+                if (chdir(conf::ctx.contract_dir.c_str()) != 0)
+                    return -1;
 
                 hplog::init();
 

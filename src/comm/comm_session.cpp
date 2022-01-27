@@ -15,13 +15,13 @@ namespace comm
     comm_session::comm_session(corebill::tracker &violation_tracker,
                                std::string_view host_address, hpws::client &&hpws_client, const bool is_ipv4, const bool is_inbound, const uint64_t (&metric_thresholds)[5])
         : violation_tracker(violation_tracker),
-          uniqueid(host_address),
-          host_address(host_address),
           hpws_client(std::move(hpws_client)),
-          is_ipv4(is_ipv4),
-          is_inbound(is_inbound),
           in_msg_queue1(MAX_IN_MSG_QUEUE_SIZE),
-          in_msg_queue2(MAX_IN_MSG_QUEUE_SIZE)
+          in_msg_queue2(MAX_IN_MSG_QUEUE_SIZE),
+          uniqueid(host_address),
+          is_inbound(is_inbound),
+          is_ipv4(is_ipv4),
+          host_address(host_address)
     {
         // Create new session_thresholds and insert it to thresholds vector.
         // Have to maintain the SESSION_THRESHOLDS enum order in inserting new thresholds to thresholds vector
@@ -69,7 +69,9 @@ namespace comm
                 should_disconnect = true;
                 const hpws::error error = std::get<hpws::error>(read_result);
                 if (error.first != 1) // 1 indicates channel has closed.
+                {
                     LOG_DEBUG << "hpws client read failed:" << error.first << " " << error.second;
+                }
             }
             else
             {
@@ -101,7 +103,9 @@ namespace comm
                         enqueued = in_msg_queue2.try_enqueue(std::move(msg));
 
                     if (!enqueued)
+                    {
                         LOG_WARNING << "Failed to enqueue comm msg.";
+                    }
                 }
 
                 // Signal the hpws client that we are ready for next message.

@@ -355,7 +355,7 @@ namespace hpfs
 
                 std::set<uint32_t> responded_block_ids;
                 {
-                    const flatbuffers::Vector<uint32_t> *fbvec = file_resp.responded_block_ids();
+                    file_resp.responded_block_ids();
                     const uint32_t *ptr = file_resp.responded_block_ids()->data();
                     const size_t count = file_resp.responded_block_ids()->size();
                     for (size_t i = 0; i < count; i++)
@@ -498,7 +498,7 @@ namespace hpfs
         content_hash ^= crypto::get_hash(mode_bytes, sizeof(mode_bytes));
 
         // Then XOR the block hashes to the initial hash.
-        for (int32_t block_id = 0; block_id < hash_count; block_id++)
+        for (size_t block_id = 0; block_id < hash_count; block_id++)
         {
             content_hash ^= hashes[block_id];
         }
@@ -648,7 +648,7 @@ namespace hpfs
                 std::string child_physical_path = fs_mount->physical_path(hpfs::RW_SESSION_NAME, child_vpath);
 
                 if ((entry.is_file && unlink(child_physical_path.c_str()) == -1) ||
-                    !entry.is_file && util::remove_directory_recursively(child_physical_path.c_str()) == -1)
+                    (!entry.is_file && util::remove_directory_recursively(child_physical_path.c_str()) == -1))
                     return -1;
 
                 write_performed = true;
@@ -681,7 +681,6 @@ namespace hpfs
         const size_t existing_hash_count = existing_hashes.size();
 
         // Compare the block hashes and request any differences.
-        auto insert_itr = pending_requests.begin();
         const int32_t max_block_id = MAX(existing_hash_count, hash_count) - 1;
         for (int32_t block_id = 0; block_id <= max_block_id; block_id++)
         {
@@ -690,7 +689,7 @@ namespace hpfs
                 // The peer has already responded with a hint response. So we must start watching for it.
                 submit_request(sync_item{SYNC_ITEM_TYPE::BLOCK, std::string(vpath), block_id, hashes[block_id]}, true);
             }
-            else if (block_id >= existing_hash_count || existing_hashes[block_id] != hashes[block_id])
+            else if (block_id >= (int32_t)existing_hash_count || existing_hashes[block_id] != hashes[block_id])
             {
                 pending_requests.emplace(sync_item{SYNC_ITEM_TYPE::BLOCK, std::string(vpath), block_id, hashes[block_id]});
             }
@@ -735,9 +734,9 @@ namespace hpfs
         }
 
         const off_t offset = block_id * hpfs::BLOCK_SIZE;
-        const int res = pwrite(fd, buf.data(), buf.length(), offset);
+        const ssize_t res = pwrite(fd, buf.data(), buf.length(), offset);
         close(fd);
-        if (res < buf.length())
+        if (res == -1 || (size_t)res < buf.length())
         {
             LOG_ERROR << errno << " Write failed " << file_physical_path;
             return -1;

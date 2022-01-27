@@ -70,8 +70,6 @@ namespace hpfs
 
             prev_requests_processed = !hpfs_requests.empty();
             const uint64_t time_start = util::get_epoch_milliseconds();
-            const util::sequence_hash lcl_id = ledger::ctx.get_lcl_id();
-            const util::sequence_hash last_primary_shard_id = ledger::ctx.get_last_primary_shard_id();
             const uint32_t request_batch_timeout = hpfs::get_request_resubmit_timeout() * 0.9;
 
             if (hpfs_requests.empty())
@@ -474,12 +472,12 @@ namespace hpfs
         }
         else
         {
-            const size_t read_len = MIN(hpfs::BLOCK_SIZE, (st.st_size - block_offset));
+            const size_t read_len = MIN(hpfs::BLOCK_SIZE, (size_t)(st.st_size - block_offset));
             block.resize(read_len);
 
             lseek(fd, block_offset, SEEK_SET);
-            const int res = read(fd, block.data(), read_len);
-            if (res < read_len)
+            const ssize_t res = read(fd, block.data(), read_len);
+            if (res == -1 || (size_t)res < read_len)
             {
                 LOG_ERROR << errno << ": Read failed (result:" << res
                           << " off:" << block_offset << " len:" << read_len << "). " << file_path;

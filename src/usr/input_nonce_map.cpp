@@ -18,8 +18,7 @@ namespace usr
     int input_nonce_map::check(const std::string &pubkey, const uint64_t &nonce, const std::string &sig, const uint64_t &max_ledger_seq_no, const bool no_add)
     {
         int result = 0;
-
-        const uint64_t now = util::get_epoch_milliseconds();
+        
         auto itr = nonce_map.find(pubkey);
         if (itr == nonce_map.end())
         {
