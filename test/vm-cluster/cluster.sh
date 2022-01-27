@@ -335,7 +335,6 @@ if [ $mode = "new" ] || [ $mode = "updatebin" ]; then
     rm -r hpfiles > /dev/null 2>&1
     mkdir -p $hpfiles/{bin,ssl,nodejs_contract}
     strip $hpcore/build/hpcore
-    strip $hpcore/build/appbill
     cp $hpcore/build/{hpcore,hpfs,hpws} $hpfiles/bin/
     pushd $hpcore/examples/nodejs_contract/ > /dev/null 2>&1
     npm install

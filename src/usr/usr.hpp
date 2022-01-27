@@ -108,8 +108,6 @@ namespace usr
     const char *validate_user_input_submission(const std::string &user_pubkey, const usr::extracted_user_input &extracted_input,
                                                const uint64_t lcl_seq_no, size_t &total_input_size, std::string &ordered_hash, util::buffer_view &input);
 
-    bool verify_appbill_check(std::string_view pubkey, const size_t input_len);
-
     void dispatch_change_events();
 
 } // namespace usr

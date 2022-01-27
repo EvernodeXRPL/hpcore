@@ -955,11 +955,6 @@ namespace conf
         jdoc.insert_or_assign("npl", contract.is_npl_public ? PUBLIC : PRIVATE);
         jdoc.insert_or_assign("max_input_ledger_offset", contract.max_input_ledger_offset);
 
-        jsoncons::ojson appbill;
-        appbill.insert_or_assign("mode", contract.appbill.mode);
-        appbill.insert_or_assign("bin_args", contract.appbill.bin_args);
-        jdoc.insert_or_assign("appbill", appbill);
-
         jsoncons::ojson round_limits;
         round_limits.insert_or_assign("user_input_bytes", contract.round_limits.user_input_bytes);
         round_limits.insert_or_assign("user_output_bytes", contract.round_limits.user_output_bytes);
@@ -1077,10 +1072,6 @@ namespace conf
             contract.is_npl_public = jdoc["npl"] == PUBLIC;
             contract.max_input_ledger_offset = jdoc["max_input_ledger_offset"].as<uint16_t>();
 
-            jpath = "contract.appbill";
-            contract.appbill.mode = jdoc["appbill"]["mode"].as<std::string>();
-            contract.appbill.bin_args = jdoc["appbill"]["bin_args"].as<std::string>();
-
             jpath = "contract.round_limits";
             contract.round_limits.user_input_bytes = jdoc["round_limits"]["user_input_bytes"].as<size_t>();
             contract.round_limits.user_output_bytes = jdoc["round_limits"]["user_output_bytes"].as<size_t>();
@@ -1105,13 +1096,7 @@ namespace conf
         if (!contract.bin_args.empty())
             util::split_string(contract.runtime_binexec_args, contract.bin_args, " ");
         contract.runtime_binexec_args.insert(contract.runtime_binexec_args.begin(), contract.bin_path);
-
-        contract.appbill.runtime_args.clear();
-        // Populate runtime app bill args.
-        if (!contract.appbill.bin_args.empty())
-            util::split_string(contract.appbill.runtime_args, contract.appbill.bin_args, " ");
-        contract.appbill.runtime_args.insert(contract.appbill.runtime_args.begin(), contract.appbill.mode);
-
+        
         // Uncomment for docker-based execution.
         // std::string volumearg;
         // volumearg.append("type=bind,source=").append(ctx.contract_hpfs_dir).append(",target=/hpfs");

@@ -145,15 +145,6 @@ namespace conf
         history_configuration history_config; // Holds history config values. Only applicable if history=custom.
     };
 
-    struct appbill_config
-    {
-        std::string mode;     // Binary to execute for appbill.
-        std::string bin_args; // Any arguments to supply to appbill binary by default.
-
-        // Config element which are initialized in memory (This is not directly loaded from the config file)
-        std::vector<std::string> runtime_args; // Appbill execution args used during runtime.
-    };
-
     struct round_limits_config
     {
         size_t user_input_bytes = 0;  // Max contract input bytes per user per round.
@@ -188,7 +179,6 @@ namespace conf
         bool is_consensus_public = false;      // If true, consensus are broadcasted to non-unl nodes as well.
         bool is_npl_public = false;            // If true, npl messages are broadcasted to non-unl nodes as well.
         uint16_t max_input_ledger_offset;      // Maximum ledger sequence number offset that can be specified in the input.
-        appbill_config appbill;
         round_limits_config round_limits;
 
         // Config element which are initialized in memory (This is not directly loaded from the config file)
