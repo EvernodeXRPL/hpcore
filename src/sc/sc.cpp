@@ -192,19 +192,10 @@ namespace sc
             // Write the contract execution args from HotPocket to the stdin (0) of the contract process.
             write_contract_args(ctx, user_inputs_fd);
 
-            const bool using_appbill = !ctx.args.readonly && !conf::cfg.contract.appbill.mode.empty();
-            int execv_len = conf::cfg.contract.runtime_binexec_args.size() + 1;
-            if (using_appbill)
-                execv_len += conf::cfg.contract.appbill.runtime_args.size();
-
             // Fill process args.
+            int execv_len = conf::cfg.contract.runtime_binexec_args.size() + 1;
             char *execv_args[execv_len];
             int j = 0;
-            if (using_appbill)
-            {
-                for (int i = 0; i < conf::cfg.contract.appbill.runtime_args.size(); i++, j++)
-                    execv_args[i] = conf::cfg.contract.appbill.runtime_args[i].data();
-            }
 
             for (int i = 0; i < conf::cfg.contract.runtime_binexec_args.size(); i++, j++)
                 execv_args[j] = conf::cfg.contract.runtime_binexec_args[i].data();

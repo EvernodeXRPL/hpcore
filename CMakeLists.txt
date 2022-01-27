@@ -12,15 +12,6 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY build)
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unused-result -Wreturn-type")
 
-# We have 2 executable build outputs: appbill and hpcore
-
-
-#-------appbill-------
-
-add_executable(appbill
-    src/bill/appbill.cpp
-)
-
 #-------hpcore-------
 
 add_subdirectory(src/killswitch)
@@ -83,13 +74,9 @@ target_link_libraries(hpcore
     sqlite3
     ${CMAKE_DL_LIBS} # Needed for stacktrace support
 )
-add_dependencies(hpcore
-    appbill
-)
 
 add_custom_command(TARGET hpcore POST_BUILD
     # COMMAND strip ./build/hpcore
-    # COMMAND strip ./build/appbill
     COMMAND cp ./test/bin/hpws ./test/bin/hpfs ./build/
 )
 
@@ -99,7 +86,7 @@ target_precompile_headers(hpcore PUBLIC src/pchheader.hpp)
 # Requires docker to be runnable without 'sudo'
 add_custom_target(docker
   COMMAND mkdir -p ./test/local-cluster/bin
-  COMMAND cp ./build/hpcore ./build/appbill ./test/local-cluster/bin/
+  COMMAND cp ./build/hpcore ./test/local-cluster/bin/
   COMMAND cp ./test/bin/libblake3.so ./test/bin/hpws ./test/bin/hpfs ./test/local-cluster/bin/
   COMMAND docker build -t hpcore:latest -f ./test/local-cluster/Dockerfile ./test/local-cluster/bin/
 )

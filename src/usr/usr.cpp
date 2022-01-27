@@ -472,12 +472,6 @@ namespace usr
             return (nonce_status == 1 ? msg::usrmsg::REASON_NONCE_EXPIRED : msg::usrmsg::REASON_ALREADY_SUBMITTED);
         }
 
-        if (!verify_appbill_check(user_pubkey, new_total_input_size))
-        {
-            LOG_DEBUG << "User input app bill balance exceeded.";
-            return msg::usrmsg::REASON_APPBILL_BALANCE_EXCEEDED;
-        }
-
         // Reaching here means the input is successfully validated and we can submit it to consensus.
 
         // Copy the input data into the input store. Contract will read the input from this location.
@@ -487,69 +481,6 @@ namespace usr
         total_input_size = new_total_input_size;
 
         return NULL; // Success. No reject reason.
-    }
-
-    /**
-     * Executes the appbill and verifies whether the user has enough account balance to process the provided input.
-     * @param pubkey User binary pubkey.
-     * @param input_len Total bytes length of user input.
-     * @return Whether the user is allowed to process the input or not.
-     */
-    bool verify_appbill_check(std::string_view pubkey, const size_t input_len)
-    {
-        // If appbill not enabled always green light the input.
-        if (conf::cfg.contract.appbill.mode.empty())
-            return true;
-
-        // execute appbill in --check mode to verify this user can submit a packet/connection to the network
-        // todo: this can be made more efficient, appbill --check can process 7 at a time
-
-        // Fill appbill args
-        const int len = conf::cfg.contract.appbill.runtime_args.size() + 4;
-        char *execv_args[len];
-        for (int i = 0; i < conf::cfg.contract.appbill.runtime_args.size(); i++)
-            execv_args[i] = conf::cfg.contract.appbill.runtime_args[i].data();
-        char option[] = "--check";
-        execv_args[len - 4] = option;
-        // add the hex encoded public key as the last parameter
-        std::string hexpubkey = util::to_hex(pubkey);
-        std::string inputsize = std::to_string(input_len);
-        execv_args[len - 3] = hexpubkey.data();
-        execv_args[len - 2] = inputsize.data();
-        execv_args[len - 1] = NULL;
-
-        int pid = fork();
-        if (pid == 0)
-        {
-            // appbill process.
-            util::fork_detach();
-
-            // before execution chdir into a valid the latest state data directory that contains an appbill.table
-            const std::string appbill_dir = sc::contract_fs.rw_dir + sc::STATE_DIR_PATH;
-            chdir(appbill_dir.c_str());
-            int ret = execv(execv_args[0], execv_args);
-            std::cerr << errno << ": Appbill process execv failed.\n";
-            return false;
-        }
-        else
-        {
-            // app bill in check mode takes a very short period of time to execute, typically 1ms
-            // so we will blocking wait for it here
-            int status = 0;
-            waitpid(pid, &status, 0); //todo: check error conditions here
-            status = WEXITSTATUS(status);
-            if (status != 128 && status != 0)
-            {
-                // this user's key passed appbill
-                return true;
-            }
-            else
-            {
-                // user's key did not pass, do not add to user input candidates
-                LOG_DEBUG << "Appbill validation failed " << hexpubkey << " return code was " << status;
-                return false;
-            }
-        }
     }
 
     /**

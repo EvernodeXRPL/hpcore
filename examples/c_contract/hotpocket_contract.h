@@ -148,12 +148,6 @@ struct hp_unl_collection
     int npl_fd;
 };
 
-struct hp_appbill_config
-{
-    char *mode;
-    char *bin_args;
-};
-
 struct hp_round_limits_config
 {
     size_t user_input_bytes;
@@ -176,7 +170,6 @@ struct hp_config
     char *consensus;
     char *npl;
     uint16_t max_input_ledger_offset;
-    struct hp_appbill_config appbill;
     struct hp_round_limits_config round_limits;
 };
 
@@ -601,8 +594,6 @@ void hp_free_config(struct hp_config *config)
     __HP_FREE(config->environment);
     __HP_FREE(config->consensus);
     __HP_FREE(config->npl);
-    __HP_FREE(config->appbill.mode);
-    __HP_FREE(config->appbill.bin_args);
     __HP_FREE(config);
 }
 
@@ -720,7 +711,7 @@ struct hp_config *__hp_read_from_patch_file(const int fd)
 */
 int __hp_write_to_patch_file(const int fd, const struct hp_config *config)
 {
-    struct iovec iov_vec[5];
+    struct iovec iov_vec[4];
     // {version: + newline + 4 spaces => 21;
     const size_t version_len = 21 + strlen(config->version);
     char version_buf[version_len];
@@ -772,15 +763,6 @@ int __hp_write_to_patch_file(const int fd, const struct hp_config *config)
     iov_vec[2].iov_base = json_buf;
     iov_vec[2].iov_len = json_string_len;
 
-    // Appbill field valiues.
-
-    const char *appbill_json = "    \"appbill\": {\n        \"mode\": \"%s\",\n        \"bin_args\": \"%s\"\n    },\n";
-    const size_t appbill_json_len = 67 + strlen(config->appbill.mode) + strlen(config->appbill.bin_args);
-    char appbill_buf[appbill_json_len];
-    sprintf(appbill_buf, appbill_json, config->appbill.mode, config->appbill.bin_args);
-    iov_vec[3].iov_base = appbill_buf;
-    iov_vec[3].iov_len = appbill_json_len;
-
     // Round limits field valies.
 
     const char *round_limits_json = "    \"round_limits\": {\n"
@@ -804,11 +786,11 @@ int __hp_write_to_patch_file(const int fd, const struct hp_config *config)
     sprintf(round_limits_buf, round_limits_json,
             user_input_bytes_str, user_output_bytes_str, npl_output_bytes_str,
             proc_cpu_seconds_str, proc_mem_bytes_str, proc_ofd_count_str);
-    iov_vec[4].iov_base = round_limits_buf;
-    iov_vec[4].iov_len = round_limits_json_len;
+    iov_vec[3].iov_base = round_limits_buf;
+    iov_vec[3].iov_len = round_limits_json_len;
 
     if (ftruncate(fd, 0) == -1 ||         // Clear any previous content in the file.
-        pwritev(fd, iov_vec, 5, 0) == -1) // Start writing from begining.
+        pwritev(fd, iov_vec, 4, 0) == -1) // Start writing from begining.
         return -1;
 
     return 0;
@@ -885,23 +867,6 @@ void __hp_populate_patch_from_json_object(struct hp_config *config, const struct
         else if (strcmp(k->string, "npl") == 0)
         {
             __HP_ASSIGN_CHAR_PTR(config->npl, elem);
-        }
-        else if (strcmp(k->string, "appbill") == 0)
-        {
-            struct json_object_s *object = (struct json_object_s *)elem->value->payload;
-            struct json_object_element_s *sub_ele = object->start;
-            do
-            {
-                if (strcmp(sub_ele->name->string, "mode") == 0)
-                {
-                    __HP_ASSIGN_CHAR_PTR(config->appbill.mode, sub_ele);
-                }
-                else if (strcmp(sub_ele->name->string, "bin_args") == 0)
-                {
-                    __HP_ASSIGN_CHAR_PTR(config->appbill.bin_args, sub_ele);
-                }
-                sub_ele = sub_ele->next;
-            } while (sub_ele);
         }
         else if (strcmp(k->string, "round_limits") == 0)
         {

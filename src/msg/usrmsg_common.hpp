@@ -101,7 +101,6 @@ namespace msg::usrmsg
     constexpr const char *REASON_BAD_MSG_FORMAT = "bad_msg_format";
     constexpr const char *REASON_INVALID_MSG_TYPE = "invalid_msg_type";
     constexpr const char *REASON_BAD_SIG = "bad_sig";
-    constexpr const char *REASON_APPBILL_BALANCE_EXCEEDED = "appbill_balance_exceeded";
     constexpr const char *REASON_MAX_LEDGER_EXPIRED = "max_ledger_expired";
     constexpr const char *REASON_MAX_LEDGER_OFFSET_EXCEEDED = "max_ledger_offset_exceeded";
     constexpr const char *REASON_NONCE_EXPIRED = "nonce_expired";
