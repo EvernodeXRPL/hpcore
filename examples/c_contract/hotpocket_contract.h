@@ -722,14 +722,14 @@ int __hp_write_to_patch_file(const int fd, const struct hp_config *config)
     const size_t unl_buf_size = 20 + (69 * config->unl.count - (config->unl.count ? 1 : 0)) + (9 * config->unl.count);
     char unl_buf[unl_buf_size];
 
-    strncpy(unl_buf, "    \"unl\": [", 12);
+    memcpy(unl_buf, "    \"unl\": [", 12);
     size_t pos = 12;
     for (int i = 0; i < config->unl.count; i++)
     {
         if (i > 0)
             unl_buf[pos++] = ',';
 
-        strncpy(unl_buf + pos, "\n        ", 9);
+        memcpy(unl_buf + pos, "\n        ", 9);
         pos += 9;
         unl_buf[pos++] = '"';
         strncpy(unl_buf + pos, config->unl.list[i].data, HP_KEY_SIZE);
@@ -737,7 +737,7 @@ int __hp_write_to_patch_file(const int fd, const struct hp_config *config)
         unl_buf[pos++] = '"';
     }
 
-    strncpy(unl_buf + pos, "\n    ],\n", 8);
+    memcpy(unl_buf + pos, "\n    ],\n", 8);
     iov_vec[1].iov_base = unl_buf;
     iov_vec[1].iov_len = unl_buf_size;
 
