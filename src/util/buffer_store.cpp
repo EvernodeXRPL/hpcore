@@ -23,7 +23,7 @@ namespace util
     const buffer_view buffer_store::write_buf(const void *buf, const uint32_t size)
     {
         buffer_view view = {0, 0};
-        int res = pwrite(fd, buf, size, next_write_pos);
+        ssize_t res = pwrite(fd, buf, size, next_write_pos);
         if (res < size)
         {
             LOG_ERROR << errno << ": Error writing to buffer store fd " << fd;
@@ -51,7 +51,7 @@ namespace util
     int buffer_store::read_buf(const buffer_view &view, std::string &buf)
     {
         buf.resize(view.size);
-        const int res = pread(fd, buf.data(), view.size, view.offset);
+        const ssize_t res = pread(fd, buf.data(), view.size, view.offset);
         if (res < view.size)
         {
             LOG_ERROR << errno << ": Error reading from buffer store fd " << fd;

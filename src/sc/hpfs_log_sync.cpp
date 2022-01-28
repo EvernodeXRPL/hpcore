@@ -135,10 +135,12 @@ namespace sc::hpfs_log_sync
                 std::string target_pubkey;
                 p2p::send_message_to_random_peer(fbuf, target_pubkey, true);
                 if (!target_pubkey.empty())
+                {
                     LOG_DEBUG << "Hpfs log sync: Requesting from [" << target_pubkey.substr(2, 8) << "]."
                               << " min:" << sync_ctx.min_log_record.seq_no
                               << " target:" << sync_ctx.target_log_seq_no;
-
+                }
+                
                 sync_ctx.target_requested_on = time_now;
                 sync_ctx.request_submissions++;
             }

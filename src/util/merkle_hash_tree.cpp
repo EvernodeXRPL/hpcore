@@ -24,7 +24,7 @@ namespace util
             std::list<merkle_hash_node> parents;
 
             const size_t blocks = (nodes.size() + block_size - 1) / block_size;
-            for (int i = 0; i < blocks; i++)
+            for (size_t i = 0; i < blocks; i++)
             {
                 parents.push_back({});
                 merkle_hash_node &parent = parents.back();

@@ -152,7 +152,9 @@ namespace usr
                 if (parser.extract_read_request(content) != -1)
                 {
                     if (read_req::populate_read_req_queue(user.pubkey, std::move(content)) == -1)
+                    {
                         LOG_WARNING << "Failed to enqueue read request.";
+                    }
                     return 0;
                 }
                 else
@@ -402,7 +404,7 @@ namespace usr
     int remove_user(const std::string &pubkey)
     {
         std::scoped_lock<std::mutex> lock(ctx.users_mutex);
-        const auto itr = ctx.users.erase(pubkey);
+        ctx.users.erase(pubkey);
         return 0;
     }
 

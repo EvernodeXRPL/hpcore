@@ -65,13 +65,13 @@ namespace hpws
     private:
         pid_t child_pid = 0; // if this client was created by a connect this is set
         // this value can't be changed once it's established between the processes
-        uint32_t max_buffer_size;
+        uint32_t max_buffer_size = 0;
         bool moved = false;
-        addr_t endpoint;
-        std::string get;             // the get req this websocket was opened with
-        int control_line_fd[2];      // see below in client constructor
-        int buffer_fd[4];            // 0 1 - in buffers, 2 3 - out buffers
-        int buffer_lock[2] = {0, 0}; // this records if buffers 2 and 3 have been sent out awaiting an ack or not
+        addr_t endpoint = {};
+        std::string get;                 // the get req this websocket was opened with
+        int control_line_fd[2] = {0, 0}; // see below in client constructor
+        int buffer_fd[4] = {0, 0, 0, 0}; // 0 1 - in buffers, 2 3 - out buffers
+        int buffer_lock[2] = {0, 0};     // this records if buffers 2 and 3 have been sent out awaiting an ack or not
         void *buffer[4];
 
         // private constructor
@@ -83,10 +83,11 @@ namespace hpws
             uint32_t max_buffer_size,
             pid_t child_pid,
             int buffer_fd[4],
-            void *buffer[4]) : endpoint(endpoint),
-                               is_ipv4(endpoint.sa.sa_family == AF_INET),
+            void *buffer[4]) : child_pid(child_pid),
                                max_buffer_size(max_buffer_size),
-                               child_pid(child_pid), get(get)
+                               endpoint(endpoint),
+                               get(get),
+                               is_ipv4(endpoint.sa.sa_family == AF_INET)
         {
             control_line_fd[0] = control_line_fd_0;
             control_line_fd[1] = control_line_fd_1;
@@ -110,8 +111,8 @@ namespace hpws
         client(client &&old) : child_pid(old.child_pid),
                                max_buffer_size(old.max_buffer_size),
                                endpoint(old.endpoint),
-                               is_ipv4(old.is_ipv4),
-                               get(old.get)
+                               get(old.get),
+                               is_ipv4(old.is_ipv4)
         {
             old.moved = true;
             for (int i = 0; i <= 1; ++i)
@@ -429,10 +430,10 @@ namespace hpws
                 // first thing we'll receive is the sockaddr union
                 addr_t child_addr;
 
-                int bytes_read =
+                ssize_t bytes_read =
                     recv(child_fd[0], (unsigned char *)(&child_addr), sizeof(child_addr), 0);
 
-                if (bytes_read < sizeof(child_addr))
+                if (bytes_read < (ssize_t)sizeof(child_addr))
                     HPWS_CONNECT_ERROR(202, "received message on control line was not sizeof(addr_t)");
 
                 if (HPWS_DEBUG)
@@ -446,8 +447,7 @@ namespace hpws
                     child_msg.msg_control = cmsgbuf;
                     child_msg.msg_controllen = sizeof(cmsgbuf);
 
-                    int bytes_read =
-                        recvmsg(child_fd[0], &child_msg, 0);
+                    recvmsg(child_fd[0], &child_msg, 0);
                     struct cmsghdr *cmsg = CMSG_FIRSTHDR(&child_msg);
                     if (cmsg == NULL || cmsg->cmsg_type != SCM_RIGHTS)
                         HPWS_CONNECT_ERROR(203, "non-scm_rights message sent on accept child control line");
@@ -578,9 +578,9 @@ namespace hpws
 
             if (pid_child > 0)
             {
-                int ret1 = kill(pid_child, SIGTERM);
+                kill(pid_child, SIGTERM);
                 int wstat;
-                int ret2 = waitpid(pid_child, &wstat, 0);
+                waitpid(pid_child, &wstat, 0);
             }
         }
 
@@ -634,7 +634,8 @@ namespace hpws
 
             *(uint32_t *)&buf[len - 4] = ttl_sec;
 
-            write(this->master_control_fd_, buf, len);
+            if (write(this->master_control_fd_, buf, len) == -1)
+                ; // Do nothing.
         }
 
         void unban_ip(const uint32_t *addr, const bool ipv4)
@@ -658,7 +659,8 @@ namespace hpws
                 addr_buf[3] = addr[4];
             }
 
-            write(this->master_control_fd_, buf, len);
+            if (write(this->master_control_fd_, buf, len) == -1)
+                ;
         }
 
         std::variant<client, error> accept(const bool no_block = false)
@@ -713,8 +715,7 @@ namespace hpws
                 if (HPWS_DEBUG)
                     fprintf(stderr, "[HPWS.HPP] Accept[3] called %d\n", calls);
 
-                int bytes_read =
-                    recvmsg(this->master_control_fd_, &child_msg, 0);
+                recvmsg(this->master_control_fd_, &child_msg, 0);
                 struct cmsghdr *cmsg = CMSG_FIRSTHDR(&child_msg);
                 if (cmsg == NULL || cmsg->cmsg_type != SCM_RIGHTS)
                     HPWS_ACCEPT_ERROR(200, "non-scm_rights message sent on master control line");
@@ -748,7 +749,7 @@ namespace hpws
                 HPWS_ACCEPT_ERROR(202, "timeout waiting for hpws accept child message");
 
             // first thing we'll receive is the pid of the client
-            if (recv(child_fd[0], (unsigned char *)(&pid), sizeof(pid), 0) < sizeof(pid))
+            if (recv(child_fd[0], (unsigned char *)(&pid), sizeof(pid), 0) < (ssize_t)sizeof(pid))
                 HPWS_ACCEPT_ERROR(212, "did not receive expected 4 byte pid of child process on accept");
 
             if (HPWS_DEBUG)
@@ -756,13 +757,13 @@ namespace hpws
 
             // second thing we'll receive is IP address structure of the client
             addr_t buf;
-            int bytes_read =
+            ssize_t bytes_read =
                 recv(child_fd[0], (unsigned char *)(&buf), sizeof(buf), 0);
 
             if (HPWS_DEBUG)
                 fprintf(stderr, "[HPWS.HPP] Accept[8] called %d\n", calls);
 
-            if (bytes_read < sizeof(buf))
+            if (bytes_read < (ssize_t)sizeof(buf))
                 HPWS_ACCEPT_ERROR(202, "received message on master control line was not sizeof(sockaddr_in6)");
 
             // third thing we will receive is the four fds for the buffers
@@ -776,8 +777,7 @@ namespace hpws
                 if (HPWS_DEBUG)
                     fprintf(stderr, "[HPWS.HPP] Accept[9] called %d\n", calls);
 
-                int bytes_read =
-                    recvmsg(child_fd[0], &child_msg, 0);
+                recvmsg(child_fd[0], &child_msg, 0);
                 struct cmsghdr *cmsg = CMSG_FIRSTHDR(&child_msg);
                 if (cmsg == NULL || cmsg->cmsg_type != SCM_RIGHTS)
                     HPWS_ACCEPT_ERROR(203, "non-scm_rights message sent on accept child control line");

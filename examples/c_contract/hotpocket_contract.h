@@ -233,7 +233,7 @@ int hp_init_contract()
     }
 
     char buf[4096];
-    const size_t len = read(STDIN_FILENO, buf, sizeof(buf));
+    const ssize_t len = read(STDIN_FILENO, buf, sizeof(buf));
     if (len == -1)
     {
         perror("Error when reading stdin.");
@@ -271,14 +271,14 @@ int hp_deinit_contract()
 
     // Cleanup user and npl fd.
     close(cctx->users.in_fd);
-    for (int i = 0; i < cctx->users.count; i++)
+    for (size_t i = 0; i < cctx->users.count; i++)
         close(cctx->users.list[i].outfd);
     close(cctx->unl.npl_fd);
 
     // Cleanup user list allocation.
     if (cctx->users.list)
     {
-        for (int i = 0; i < cctx->users.count; i++)
+        for (size_t i = 0; i < cctx->users.count; i++)
             __HP_FREE(cctx->users.list[i].inputs.list);
 
         __HP_FREE(cctx->users.list);
@@ -682,7 +682,7 @@ int __hp_encode_json_string_array(char *buf, const char *elems[], const size_t c
 struct hp_config *__hp_read_from_patch_file(const int fd)
 {
     char buf[4096];
-    const size_t len = read(fd, buf, sizeof(buf));
+    const ssize_t len = read(fd, buf, sizeof(buf));
     if (len == -1)
         return NULL;
 
@@ -722,22 +722,22 @@ int __hp_write_to_patch_file(const int fd, const struct hp_config *config)
     const size_t unl_buf_size = 20 + (69 * config->unl.count - (config->unl.count ? 1 : 0)) + (9 * config->unl.count);
     char unl_buf[unl_buf_size];
 
-    strncpy(unl_buf, "    \"unl\": [", 12);
+    memcpy(unl_buf, "    \"unl\": [", 12);
     size_t pos = 12;
-    for (int i = 0; i < config->unl.count; i++)
+    for (size_t i = 0; i < config->unl.count; i++)
     {
         if (i > 0)
             unl_buf[pos++] = ',';
 
-        strncpy(unl_buf + pos, "\n        ", 9);
+        memcpy(unl_buf + pos, "\n        ", 9);
         pos += 9;
         unl_buf[pos++] = '"';
-        strncpy(unl_buf + pos, config->unl.list[i].data, HP_KEY_SIZE);
+        memcpy(unl_buf + pos, config->unl.list[i].data, HP_KEY_SIZE);
         pos += HP_KEY_SIZE;
         unl_buf[pos++] = '"';
     }
 
-    strncpy(unl_buf + pos, "\n    ],\n", 8);
+    memcpy(unl_buf + pos, "\n    ],\n", 8);
     iov_vec[1].iov_base = unl_buf;
     iov_vec[1].iov_len = unl_buf_size;
 
@@ -825,7 +825,7 @@ void __hp_populate_patch_from_json_object(struct hp_config *config, const struct
                 if (unl_count > 0)
                 {
                     struct json_array_element_s *unl_elem = unl_array->start;
-                    for (int i = 0; i < unl_count; i++)
+                    for (size_t i = 0; i < unl_count; i++)
                     {
                         __HP_ASSIGN_STRING(config->unl.list[i].data, unl_elem);
                         unl_elem = unl_elem->next;
@@ -956,7 +956,7 @@ void __hp_parse_args_json(const struct json_object_s *object)
                 if (user_count > 0)
                 {
                     struct json_object_element_s *user_elem = user_object->start;
-                    for (int i = 0; i < user_count; i++)
+                    for (size_t i = 0; i < user_count; i++)
                     {
                         struct hp_user *user = &cctx->users.list[i];
                         memcpy(user->pubkey.data, user_elem->name->string, HP_KEY_SIZE);
@@ -973,7 +973,7 @@ void __hp_parse_args_json(const struct json_object_s *object)
                             // Subsequent elements are tupels of [offset, size] of input messages for this user.
                             user->inputs.count = arr->length - 1;
                             user->inputs.list = user->inputs.count ? (struct hp_user_input *)malloc(user->inputs.count * sizeof(struct hp_user_input)) : NULL;
-                            for (int i = 0; i < user->inputs.count; i++)
+                            for (size_t i = 0; i < user->inputs.count; i++)
                             {
                                 if (arr_elem->value->type == json_type_array)
                                 {
@@ -1010,7 +1010,7 @@ void __hp_parse_args_json(const struct json_object_s *object)
                 if (unl_count > 0)
                 {
                     struct json_object_element_s *unl_elem = unl_obj->start;
-                    for (int i = 0; i < unl_count; i++)
+                    for (size_t i = 0; i < unl_count; i++)
                     {
                         // Each element(key) is named by the pubkey.
                         strncpy(cctx->unl.list[i].pubkey.data, unl_elem->name->string, unl_elem->name->string_size);

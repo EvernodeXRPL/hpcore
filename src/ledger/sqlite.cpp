@@ -149,7 +149,9 @@ namespace ledger::sqlite
 
         const int ret = exec_sql(db, sql);
         if (ret == -1)
+        {
             LOG_ERROR << "Error when creating sqlite table " << table_name;
+        }
 
         return ret;
     }
@@ -170,7 +172,9 @@ namespace ledger::sqlite
 
         const int ret = exec_sql(db, sql);
         if (ret == -1)
+        {
             LOG_ERROR << "Error when creating sqlite index '" << index_name << "' in table " << table_name;
+        }
 
         return ret;
     }

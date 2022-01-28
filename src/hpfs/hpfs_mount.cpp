@@ -152,7 +152,7 @@ namespace hpfs
                 (char *)(is_full_history ? NULL : "-g"),
                 NULL};
 
-            const int ret = execv(execv_args[0], execv_args);
+            execv(execv_args[0], execv_args);
 
             std::cerr << errno << ": hpfs process execv failed at mount " << mount_dir << ".\n";
             exit(1);
@@ -586,7 +586,7 @@ namespace hpfs
             return -1;
         }
 
-        if (pread(fd, &hash, sizeof(util::h32), offset) < sizeof(util::h32))
+        if (pread(fd, &hash, sizeof(util::h32), offset) < (ssize_t)sizeof(util::h32))
         {
             LOG_ERROR << errno << ": Error reading hash from the given offset " << offset;
             close(fd);

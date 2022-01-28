@@ -29,10 +29,10 @@ namespace crypto
         // Currently using ed25519. So append prefix byte to represent that.
 
         pubkey.resize(crypto_sign_ed25519_PUBLICKEYBYTES + 1);
-        pubkey[0] = KEYPFX_ed25519;
+        pubkey[0] = crypto::KEYPFX_ed25519;
 
         seckey.resize(crypto_sign_ed25519_SECRETKEYBYTES + 1);
-        seckey[0] = KEYPFX_ed25519;
+        seckey[0] = crypto::KEYPFX_ed25519;
 
         crypto_sign_ed25519_keypair(
             reinterpret_cast<unsigned char *>(pubkey.data() + 1),  // +1 to skip the prefix byte.

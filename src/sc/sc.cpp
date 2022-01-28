@@ -197,13 +197,13 @@ namespace sc
             char *execv_args[execv_len];
             int j = 0;
 
-            for (int i = 0; i < conf::cfg.contract.runtime_binexec_args.size(); i++, j++)
+            for (size_t i = 0; i < conf::cfg.contract.runtime_binexec_args.size(); i++, j++)
                 execv_args[j] = conf::cfg.contract.runtime_binexec_args[i].data();
             execv_args[execv_len - 1] = NULL;
 
             const int env_len = conf::cfg.contract.runtime_env_args.size() + 1;
             char *env_args[env_len];
-            for (int i = 0; i < conf::cfg.contract.runtime_env_args.size(); i++)
+            for (size_t i = 0; i < conf::cfg.contract.runtime_env_args.size(); i++)
                 env_args[i] = conf::cfg.contract.runtime_env_args[i].data();
             env_args[env_len - 1] = NULL;
 
@@ -459,7 +459,7 @@ namespace sc
         struct pollfd out_fds[out_fd_count];
 
         auto user_itr = ctx.user_fds.begin();
-        for (int i = 0; i < out_fd_count; i++)
+        for (size_t i = 0; i < out_fd_count; i++)
         {
             const int fd = (user_itr != ctx.user_fds.end()) ? (user_itr++)->second.hpfd
                                                             : (i == control_fd_idx ? ctx.control_fds.hpfd : ctx.npl_fds.hpfd);
@@ -469,7 +469,7 @@ namespace sc
         while (!ctx.is_shutting_down)
         {
             // Reset the revents because we are reusing same pollfd list.
-            for (int i = 0; i < out_fd_count; i++)
+            for (size_t i = 0; i < out_fd_count; i++)
                 out_fds[i].revents = 0;
 
             if (poll(out_fds, out_fd_count, 20) == -1)
@@ -814,7 +814,6 @@ namespace sc
         {
             // Get fds for the pubkey.
             std::string output;
-            fd_pair &fds = fdmap[pubkey];
 
             // This returns the total bytes read from the socket.
             const int total_bytes_read = (pfds[i].fd == -1) ? 0 : read_iosocket(true, pfds[i], output);
@@ -1026,7 +1025,9 @@ namespace sc
                 output.resize(res); // Resize back to the actual bytes read.
 
             if (res == -1)
+            {
                 LOG_ERROR << errno << ": Error reading from contract socket. stream:" << is_stream_socket;
+            }
 
             return res;
         }
@@ -1140,7 +1141,7 @@ namespace sc
      * @param depth Depth of the recursion. Starts with zero and traverse down.
      * @return 0 on success and -1 on error.
     */
-    int rename_and_cleanup_contract_log_files(const std::string &session_name, std::string_view postfix, const int depth)
+    int rename_and_cleanup_contract_log_files(const std::string &session_name, std::string_view postfix, const size_t depth)
     {
         const std::string prefix = (depth == 0) ? session_name : (session_name + "_" + std::to_string(depth));
         const std::string fliename = conf::ctx.contract_log_dir + "/" + prefix + postfix.data();
@@ -1157,7 +1158,9 @@ namespace sc
             // Last allowed file. remove this to make room for the new one.
             const int res = util::remove_file(fliename);
             if (res == -1)
+            {
                 LOG_ERROR << errno << ": Error removing " << fliename << " to make room for new log file.";
+            }
 
             return res;
         }
@@ -1166,7 +1169,9 @@ namespace sc
         const std::string new_filename = conf::ctx.contract_log_dir + "/" + session_name + "_" + std::to_string(depth + 1) + postfix.data();
         const int res = rename(fliename.data(), new_filename.data());
         if (res == -1)
+        {
             LOG_ERROR << errno << ": Error occured while renaming " << fliename << " to " << new_filename;
+        }
 
         return res;
     }
@@ -1185,14 +1190,18 @@ namespace sc
         while (util::is_file_exists(filename))
         {
             if (util::remove_file(filename) == -1)
+            {
                 LOG_ERROR << "Error removing " << filename << " during contract log file cleanup.";
+            }
 
             filename = fliename_common_part + std::to_string(++current) + postfix.data();
         }
 
         const int removed_count = current - start_point;
         if (removed_count > 0)
+        {
             LOG_DEBUG << (current - start_point) << " " << postfix << " contract log files cleaned up with log file count change.";
+        }
     }
 
 } // namespace sc

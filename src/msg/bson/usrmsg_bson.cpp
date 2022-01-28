@@ -218,7 +218,7 @@ namespace msg::usrmsg::bson
 
         encoder.key(msg::usrmsg::FLD_OUTPUTS);
         encoder.begin_array();
-        for (int i = 0; i < outputs.size(); i++)
+        for (size_t i = 0; i < outputs.size(); i++)
             encoder.byte_string_value(outputs[i]);
         encoder.end_array();
 

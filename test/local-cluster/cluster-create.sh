@@ -23,7 +23,7 @@ iprange="172.1.1"
 if [ "$CONTRACT" = "cecho" ]; then # C echo contract
     echo "Using C echo contract."
     pushd $hpcore/examples/c_contract/ > /dev/null 2>&1
-    gcc echo_contract.c -o echo_contract
+    gcc echo_contract.c -o echo_contract -Wall -Werror
     popd > /dev/null 2>&1
     copyfiles="$hpcore/examples/c_contract/echo_contract"
     binary="echo_contract"

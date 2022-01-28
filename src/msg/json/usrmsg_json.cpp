@@ -407,7 +407,7 @@ namespace msg::usrmsg::json
         msg += msg::usrmsg::FLD_OUTPUTS;
         msg += "\":[";
 
-        for (int i = 0; i < outputs.size(); i++)
+        for (size_t i = 0; i < outputs.size(); i++)
         {
             std::string_view output = outputs[i];
 
@@ -446,7 +446,7 @@ namespace msg::usrmsg::json
 
         msg += msg::usrmsg::FLD_UNL_SIG;
         msg += "\":[";
-        for (int i = 0; i < unl_sig.size(); i++)
+        for (size_t i = 0; i < unl_sig.size(); i++)
         {
             const auto &sig = unl_sig[i]; // Pubkey and Signature pair.
             msg += "[\"";
@@ -482,7 +482,7 @@ namespace msg::usrmsg::json
         msg += msg::usrmsg::FLD_UNL;
         msg += "\":[";
 
-        int i = 0;
+        size_t i = 0;
         for (std::string_view unl : unl_list)
         {
             msg += DOUBLE_QUOTE;

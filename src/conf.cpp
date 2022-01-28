@@ -66,7 +66,9 @@ namespace conf
         if (init_success)
         {
             if (persist_updated_configs() == -1)
+            {
                 LOG_ERROR << "Failed to persist config updates.";
+            }
 
             // Releases the config file lock at the termination.
             release_config_lock();
@@ -203,7 +205,8 @@ namespace conf
 
             // We don't mind if this command fails, because when running the contract we'll check and inform the user that
             // tls key files are missing, so they can create them manually.
-            system(tls_command.c_str());
+            if (system(tls_command.c_str()) == -1)
+                std::cerr << errno << ": tls cert generation failed.";
         }
 
         std::cout << "Contract directory created at " << ctx.contract_dir << std::endl;
@@ -217,23 +220,20 @@ namespace conf
      */
     void set_contract_dir_paths(std::string exepath, std::string basedir)
     {
+        // resolving the path through realpath will remove any trailing slash if present
+        exepath = util::realpath(exepath);
+
         if (exepath.empty())
         {
-            // this code branch will never execute the way main is currently coded, but it might change in future
             std::cerr << "Executable path must be specified\n";
             exit(1);
         }
 
         if (basedir.empty())
         {
-            // this code branch will never execute the way main is currently coded, but it might change in future
             std::cerr << "a contract directory must be specified\n";
             exit(1);
         }
-
-        // resolving the path through realpath will remove any trailing slash if present
-        basedir = util::realpath(basedir);
-        exepath = util::realpath(exepath);
 
         // Take the parent directory path.
         ctx.exe_dir = dirname(exepath.data());
@@ -1096,7 +1096,7 @@ namespace conf
         if (!contract.bin_args.empty())
             util::split_string(contract.runtime_binexec_args, contract.bin_args, " ");
         contract.runtime_binexec_args.insert(contract.runtime_binexec_args.begin(), contract.bin_path);
-        
+
         // Uncomment for docker-based execution.
         // std::string volumearg;
         // volumearg.append("type=bind,source=").append(ctx.contract_hpfs_dir).append(",target=/hpfs");

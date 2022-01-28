@@ -374,7 +374,9 @@ namespace p2p
     void handle_npl_message(const p2p::npl_message &npl)
     {
         if (!consensus::push_npl_message(npl))
+        {
             LOG_DEBUG << "NPL message from self enqueue failure.";
+        }
     }
 
     /**
@@ -457,7 +459,9 @@ namespace p2p
         send_message_to_random_peer(fbuf, target_pubkey);
 
         if (!target_pubkey.empty())
+        {
             LOG_DEBUG << "Peer list requested from [" << target_pubkey.substr(0, 10) << "]";
+        }
     }
 
     /**

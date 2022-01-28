@@ -11,7 +11,7 @@
 
 namespace comm
 {
-    constexpr uint32_t DEFAULT_MAX_MSG_SIZE = 5 * 1024 * 1024;
+    constexpr uint64_t DEFAULT_MAX_MSG_SIZE = 5 * 1024 * 1024;
     constexpr uint64_t DEFAULT_MAX_CONNECTIONS = 99999;
     constexpr uint16_t MAX_INBOUND_HIGH_PRIO_BTACH = 2; // Maximum no. of incomning high priority messages to process at a time.
 
@@ -257,13 +257,13 @@ namespace comm
 
         comm_server(std::string_view name, const uint16_t port, const uint64_t (&metric_thresholds)[5], const uint64_t max_msg_size,
                     const uint64_t max_in_connections, const uint64_t max_in_connections_per_host, const bool use_priority_queues)
-            : name(name),
-              listen_port(port),
-              metric_thresholds(metric_thresholds),
+            : metric_thresholds(metric_thresholds),
               max_msg_size(max_msg_size > 0 ? max_msg_size : DEFAULT_MAX_MSG_SIZE),
               max_in_connections(max_in_connections > 0 ? max_in_connections : DEFAULT_MAX_CONNECTIONS),
               max_in_connections_per_host(max_in_connections_per_host > 0 ? max_in_connections_per_host : DEFAULT_MAX_CONNECTIONS),
-              use_priority_queues(use_priority_queues)
+              use_priority_queues(use_priority_queues),
+              name(name),
+              listen_port(port)
         {
         }
 
