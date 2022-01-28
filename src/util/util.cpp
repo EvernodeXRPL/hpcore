@@ -61,8 +61,7 @@ namespace util
     const std::string realpath(const std::string &path)
     {
         std::array<char, PATH_MAX> buffer;
-        char *res = ::realpath(path.c_str(), buffer.data());
-        if (!res)
+        if (!::realpath(path.c_str(), buffer.data()))
             return {};
 
         buffer[PATH_MAX] = '\0';
