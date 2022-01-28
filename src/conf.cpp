@@ -220,23 +220,20 @@ namespace conf
      */
     void set_contract_dir_paths(std::string exepath, std::string basedir)
     {
+        // resolving the path through realpath will remove any trailing slash if present
+        exepath = util::realpath(exepath);
+
         if (exepath.empty())
         {
-            // this code branch will never execute the way main is currently coded, but it might change in future
             std::cerr << "Executable path must be specified\n";
             exit(1);
         }
 
         if (basedir.empty())
         {
-            // this code branch will never execute the way main is currently coded, but it might change in future
             std::cerr << "a contract directory must be specified\n";
             exit(1);
         }
-
-        // resolving the path through realpath will remove any trailing slash if present
-        basedir = util::realpath(basedir);
-        exepath = util::realpath(exepath);
 
         // Take the parent directory path.
         ctx.exe_dir = dirname(exepath.data());
