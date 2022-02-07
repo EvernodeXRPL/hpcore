@@ -93,7 +93,7 @@ namespace conf
                 const int _uid = atoi(ids[0].c_str());
                 const int _gid = atoi(ids[1].c_str());
 
-                if (_uid > 0 && _gid > 0)
+                if (_uid >= 0 && _gid >= 0)
                 {
                     uid = _uid;
                     gid = _gid;

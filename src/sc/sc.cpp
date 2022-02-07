@@ -17,6 +17,7 @@ namespace sc
 {
     constexpr uint32_t READ_BUFFER_SIZE = 128 * 1024; // This has to be minimum 128KB to support sequence packets.
     constexpr int FILE_PERMS = 0644;
+    constexpr int CONTRACT_LOG_PERMS = 0664;
     constexpr const char *STDOUT_LOG = ".stdout.log";
     constexpr const char *STDERR_LOG = ".stderr.log";
     constexpr const char *POST_EXEC_SCRIPT = "post_exec.sh";
@@ -902,20 +903,31 @@ namespace sc
         if (!conf::cfg.contract.log.enable || ctx.args.readonly)
             return 0;
 
-        const int outfd = open(ctx.stdout_file.data(), O_CREAT | O_WRONLY | O_APPEND, FILE_PERMS);
+        // The permissions of a created file are restricted by the process's current umask, so group and world write are always disabled by default.
+        // If we want group or world writable file we need to set temporarily umask(0) and then reset it to old value after creating the file.
+        // Or we can manually change the file permission by chmod().
+        mode_t old_umask = umask(0);
+
+        // Set write permission for the contract logs.
+        // Because if run as user is set, contract logs are modified by the contract user.
+        const int outfd = open(ctx.stdout_file.data(), O_CREAT | O_WRONLY | O_APPEND, CONTRACT_LOG_PERMS);
         if (outfd == -1)
         {
+            umask(old_umask);
             std::cerr << errno << ": Error opening " << ctx.stdout_file << "\n";
             return -1;
         }
 
-        const int errfd = open(ctx.stderr_file.data(), O_CREAT | O_WRONLY | O_APPEND, FILE_PERMS);
+        const int errfd = open(ctx.stderr_file.data(), O_CREAT | O_WRONLY | O_APPEND, CONTRACT_LOG_PERMS);
         if (errfd == -1)
         {
+            umask(old_umask);
             close(outfd);
             std::cerr << errno << ": Error opening " << ctx.stderr_file << "\n";
             return -1;
         }
+
+        umask(old_umask);
 
         const std::string header = "Execution lcl " + ctx.args.lcl_id.to_string() + "\n";
         if (write(outfd, header.data(), header.size()) == -1 ||
@@ -951,9 +963,29 @@ namespace sc
         }
 
         for (int i = 0; i < execv_argc; i++)
-            cmd.append(execv_argv[i]).append(" ");
+        {
+            if (i == 0)
+            {
+                const std::string realpath = util::realpath(execv_argv[i]);
+                if (!realpath.empty())
+                    cmd.append(realpath).append(" ");
+                else
+                {
+                    // If real path fails, we get the current dir as exec bin path.
+                    std::array<char, PATH_MAX> buffer;
+                    if (!getcwd(buffer.data(), buffer.size()))
+                    {
+                        std::cerr << errno << ": Error in executable path." << std::endl;
+                        return -1;
+                    }
+                    cmd.append(buffer.data()).append("/").append(execv_argv[i]).append(" ");
+                }
+            }
+            else
+                cmd.append(execv_argv[i]).append(" ");
+        }
 
-        cmd.append(" | tee -a ").append(stdout_file).append(") 3>&1 1>&2 2>&3 | tee -a ").append(stderr_file);
+        cmd.append("| tee -a ").append(stdout_file).append(") 3>&1 1>&2 2>&3 | tee -a ").append(stderr_file);
         // Command tee can only accept stdout, so swap stdout and stderr by 3>&1 1>&2 2>&3.
         // 3>&1 will create new file descriptor 3 and redirect it to 1(stdout).
         // Then 1>&2 will redirect file descriptor 1(stdout) to 2(stderr).
