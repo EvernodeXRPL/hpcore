@@ -884,8 +884,8 @@ namespace sc
             return 0;
 
         // The permissions of a created file are restricted by the process's current umask, so group and world write are always disabled by default.
-        // If we want group or world writable file we need to set temporarily umask(0) and then reset it to old value after creating the file.
-        // Or we can manually change the file permission by chmod().
+        // We do the fchmod seperatly after opening the file. Because if we give the g+w permission in open() mode param,
+        // The file won't get that permission because of the above mentioned default umask.
 
         // Set write permission for the contract logs.
         // Because if run as user is set, contract logs are modified by the contract user.
