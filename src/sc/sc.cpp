@@ -222,18 +222,9 @@ namespace sc
                 exit(1);
             }
 
-            if (!conf::cfg.contract.log.enable)
-            {
-                execve(execv_args[0], execv_args, env_args);
-                std::cerr << errno << ": Contract process execve() failed." << (ctx.args.readonly ? " (rdonly)" : "") << "\n";
-                exit(1);
-            }
-            else if (execv_and_redirect_logs(execv_len - 1, (const char **)execv_args, ctx.stdout_file, ctx.stderr_file, env_len - 1, (const char **)env_args) == -1)
-            {
-                std::cerr << errno << ": Contract process system() failed." << (ctx.args.readonly ? " (rdonly)" : "") << "\n";
-                exit(1);
-            }
-            exit(0);
+            conf::cfg.contract.log.enable ? execv_and_redirect_logs(execv_len - 1, (const char **)execv_args, ctx.stdout_file, ctx.stderr_file, (const char **)env_args) : execve(execv_args[0], execv_args, env_args);
+            std::cerr << errno << ": Contract process execve() failed." << (ctx.args.readonly ? " (rdonly)" : "") << "\n";
+            exit(1);
         }
         else
         {
@@ -562,19 +553,8 @@ namespace sc
                 exit(1);
             }
 
-            if (!conf::cfg.contract.log.enable)
-            {
-                execv(argv[0], argv);
-                std::cerr << errno << ": Post-exec script execv() failed." << (ctx.args.readonly ? " (rdonly)" : "") << "\n";
-                exit(1);
-            }
-            else if (execv_and_redirect_logs(2, (const char **)argv, ctx.stdout_file, ctx.stderr_file) == -1)
-            {
-                std::cerr << errno << ": Post-exec script system() failed." << (ctx.args.readonly ? " (rdonly)" : "") << "\n";
-                exit(1);
-            }
-            exit(0);
-
+            conf::cfg.contract.log.enable ? execv_and_redirect_logs(2, (const char **)argv, ctx.stdout_file, ctx.stderr_file) : execv(argv[0], argv);
+            std::cerr << errno << ": Post-exec script execv() failed." << (ctx.args.readonly ? " (rdonly)" : "") << "\n";
             exit(1);
         }
         else if (pid > 0)
@@ -906,28 +886,23 @@ namespace sc
         // The permissions of a created file are restricted by the process's current umask, so group and world write are always disabled by default.
         // If we want group or world writable file we need to set temporarily umask(0) and then reset it to old value after creating the file.
         // Or we can manually change the file permission by chmod().
-        mode_t old_umask = umask(0);
 
         // Set write permission for the contract logs.
         // Because if run as user is set, contract logs are modified by the contract user.
-        const int outfd = open(ctx.stdout_file.data(), O_CREAT | O_WRONLY | O_APPEND, CONTRACT_LOG_PERMS);
-        if (outfd == -1)
+        const int outfd = open(ctx.stdout_file.data(), O_CREAT | O_WRONLY | O_APPEND, FILE_PERMS);
+        if (outfd == -1 || fchmod(outfd, CONTRACT_LOG_PERMS))
         {
-            umask(old_umask);
             std::cerr << errno << ": Error opening " << ctx.stdout_file << "\n";
             return -1;
         }
 
-        const int errfd = open(ctx.stderr_file.data(), O_CREAT | O_WRONLY | O_APPEND, CONTRACT_LOG_PERMS);
-        if (errfd == -1)
+        const int errfd = open(ctx.stderr_file.data(), O_CREAT | O_WRONLY | O_APPEND, FILE_PERMS);
+        if (errfd == -1 || fchmod(errfd, CONTRACT_LOG_PERMS))
         {
-            umask(old_umask);
             close(outfd);
             std::cerr << errno << ": Error opening " << ctx.stderr_file << "\n";
             return -1;
         }
-
-        umask(old_umask);
 
         const std::string header = "Execution lcl " + ctx.args.lcl_id.to_string() + "\n";
         if (write(outfd, header.data(), header.size()) == -1 ||
@@ -953,14 +928,9 @@ namespace sc
      * @param env_argc Optional environment argument count.
      * @param env_argv Optional environment arguments.
      */
-    int execv_and_redirect_logs(const int execv_argc, const char *execv_argv[], std::string_view stdout_file, std::string_view stderr_file, const int env_argc, const char *env_argv[])
+    int execv_and_redirect_logs(const int execv_argc, const char *execv_argv[], std::string_view stdout_file, std::string_view stderr_file, const char *env_argv[])
     {
         std::string cmd = "(";
-        if (env_argv != NULL)
-        {
-            for (int i = 0; i < env_argc; i++)
-                cmd.append(env_argv[i]).append(" ");
-        }
 
         for (int i = 0; i < execv_argc; i++)
         {
@@ -989,9 +959,9 @@ namespace sc
         // Command tee can only accept stdout, so swap stdout and stderr by 3>&1 1>&2 2>&3.
         // 3>&1 will create new file descriptor 3 and redirect it to 1(stdout).
         // Then 1>&2 will redirect file descriptor 1(stdout) to 2(stderr).
-        // Then 2>&3 will redirect file descriptor 2(stderr) to 3(stdout)
+        // Then 2>&3 will redirect file descriptor 2(stderr) to 3(stdout).
 
-        return system(cmd.data());
+        return env_argv != NULL ? execle("/bin/sh", "sh", "-c", cmd.data(), (char *) NULL, env_argv) : execl("/bin/sh", "sh", "-c", cmd.data(), (char *) NULL);
     }
 
     /**
