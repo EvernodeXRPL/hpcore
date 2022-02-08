@@ -890,14 +890,14 @@ namespace sc
         // Set write permission for the contract logs.
         // Because if run as user is set, contract logs are modified by the contract user.
         const int outfd = open(ctx.stdout_file.data(), O_CREAT | O_WRONLY | O_APPEND, FILE_PERMS);
-        if (outfd == -1 || fchmod(outfd, CONTRACT_LOG_PERMS))
+        if (outfd == -1 || fchmod(outfd, CONTRACT_LOG_PERMS) == -1)
         {
             std::cerr << errno << ": Error opening " << ctx.stdout_file << "\n";
             return -1;
         }
 
         const int errfd = open(ctx.stderr_file.data(), O_CREAT | O_WRONLY | O_APPEND, FILE_PERMS);
-        if (errfd == -1 || fchmod(errfd, CONTRACT_LOG_PERMS))
+        if (errfd == -1 || fchmod(errfd, CONTRACT_LOG_PERMS) == -1)
         {
             close(outfd);
             std::cerr << errno << ": Error opening " << ctx.stderr_file << "\n";
