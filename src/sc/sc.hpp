@@ -193,7 +193,7 @@ namespace sc
 
     int insert_demarkation_line(execution_context &ctx);
 
-    int execv_and_redirect_logs(const int execv_argc, const char *execv_argv[], std::string_view stdout_file, std::string_view stderr_file, const int env_argc = 0, const char *env_argv[] = NULL);
+    int execv_and_redirect_logs(const int execv_argc, const char *execv_argv[], std::string_view stdout_file, std::string_view stderr_file, const char *env_argv[] = NULL);
 
     int create_iosockets(fd_pair &fds, const int socket_type);
 

@@ -17,6 +17,7 @@ namespace sc
 {
     constexpr uint32_t READ_BUFFER_SIZE = 128 * 1024; // This has to be minimum 128KB to support sequence packets.
     constexpr int FILE_PERMS = 0644;
+    constexpr int CONTRACT_LOG_PERMS = 0664;
     constexpr const char *STDOUT_LOG = ".stdout.log";
     constexpr const char *STDERR_LOG = ".stderr.log";
     constexpr const char *POST_EXEC_SCRIPT = "post_exec.sh";
@@ -221,18 +222,9 @@ namespace sc
                 exit(1);
             }
 
-            if (!conf::cfg.contract.log.enable)
-            {
-                execve(execv_args[0], execv_args, env_args);
-                std::cerr << errno << ": Contract process execve() failed." << (ctx.args.readonly ? " (rdonly)" : "") << "\n";
-                exit(1);
-            }
-            else if (execv_and_redirect_logs(execv_len - 1, (const char **)execv_args, ctx.stdout_file, ctx.stderr_file, env_len - 1, (const char **)env_args) == -1)
-            {
-                std::cerr << errno << ": Contract process system() failed." << (ctx.args.readonly ? " (rdonly)" : "") << "\n";
-                exit(1);
-            }
-            exit(0);
+            conf::cfg.contract.log.enable ? execv_and_redirect_logs(execv_len - 1, (const char **)execv_args, ctx.stdout_file, ctx.stderr_file, (const char **)env_args) : execve(execv_args[0], execv_args, env_args);
+            std::cerr << errno << ": Contract process execve() failed." << (ctx.args.readonly ? " (rdonly)" : "") << "\n";
+            exit(1);
         }
         else
         {
@@ -561,19 +553,8 @@ namespace sc
                 exit(1);
             }
 
-            if (!conf::cfg.contract.log.enable)
-            {
-                execv(argv[0], argv);
-                std::cerr << errno << ": Post-exec script execv() failed." << (ctx.args.readonly ? " (rdonly)" : "") << "\n";
-                exit(1);
-            }
-            else if (execv_and_redirect_logs(2, (const char **)argv, ctx.stdout_file, ctx.stderr_file) == -1)
-            {
-                std::cerr << errno << ": Post-exec script system() failed." << (ctx.args.readonly ? " (rdonly)" : "") << "\n";
-                exit(1);
-            }
-            exit(0);
-
+            conf::cfg.contract.log.enable ? execv_and_redirect_logs(2, (const char **)argv, ctx.stdout_file, ctx.stderr_file) : execv(argv[0], argv);
+            std::cerr << errno << ": Post-exec script execv() failed." << (ctx.args.readonly ? " (rdonly)" : "") << "\n";
             exit(1);
         }
         else if (pid > 0)
@@ -902,15 +883,21 @@ namespace sc
         if (!conf::cfg.contract.log.enable || ctx.args.readonly)
             return 0;
 
+        // The permissions of a created file are restricted by the process's current umask, so group and world write are always disabled by default.
+        // We do the fchmod seperatly after opening the file. Because if we give the g+w permission in open() mode param,
+        // The file won't get that permission because of the above mentioned default umask.
+
+        // Set write permission for the contract logs.
+        // Because if run as user is set, contract logs are modified by the contract user.
         const int outfd = open(ctx.stdout_file.data(), O_CREAT | O_WRONLY | O_APPEND, FILE_PERMS);
-        if (outfd == -1)
+        if (outfd == -1 || fchmod(outfd, CONTRACT_LOG_PERMS) == -1)
         {
             std::cerr << errno << ": Error opening " << ctx.stdout_file << "\n";
             return -1;
         }
 
         const int errfd = open(ctx.stderr_file.data(), O_CREAT | O_WRONLY | O_APPEND, FILE_PERMS);
-        if (errfd == -1)
+        if (errfd == -1 || fchmod(errfd, CONTRACT_LOG_PERMS) == -1)
         {
             close(outfd);
             std::cerr << errno << ": Error opening " << ctx.stderr_file << "\n";
@@ -941,25 +928,40 @@ namespace sc
      * @param env_argc Optional environment argument count.
      * @param env_argv Optional environment arguments.
      */
-    int execv_and_redirect_logs(const int execv_argc, const char *execv_argv[], std::string_view stdout_file, std::string_view stderr_file, const int env_argc, const char *env_argv[])
+    int execv_and_redirect_logs(const int execv_argc, const char *execv_argv[], std::string_view stdout_file, std::string_view stderr_file, const char *env_argv[])
     {
         std::string cmd = "(";
-        if (env_argv != NULL)
-        {
-            for (int i = 0; i < env_argc; i++)
-                cmd.append(env_argv[i]).append(" ");
-        }
 
         for (int i = 0; i < execv_argc; i++)
-            cmd.append(execv_argv[i]).append(" ");
+        {
+            if (i == 0)
+            {
+                const std::string realpath = util::realpath(execv_argv[i]);
+                if (!realpath.empty())
+                    cmd.append(realpath).append(" ");
+                else
+                {
+                    // If real path fails, we get the current dir as exec bin path.
+                    std::array<char, PATH_MAX> buffer;
+                    if (!getcwd(buffer.data(), buffer.size()))
+                    {
+                        std::cerr << errno << ": Error in executable path." << std::endl;
+                        return -1;
+                    }
+                    cmd.append(buffer.data()).append("/").append(execv_argv[i]).append(" ");
+                }
+            }
+            else
+                cmd.append(execv_argv[i]).append(" ");
+        }
 
-        cmd.append(" | tee -a ").append(stdout_file).append(") 3>&1 1>&2 2>&3 | tee -a ").append(stderr_file);
+        cmd.append("| tee -a ").append(stdout_file).append(") 3>&1 1>&2 2>&3 | tee -a ").append(stderr_file);
         // Command tee can only accept stdout, so swap stdout and stderr by 3>&1 1>&2 2>&3.
         // 3>&1 will create new file descriptor 3 and redirect it to 1(stdout).
         // Then 1>&2 will redirect file descriptor 1(stdout) to 2(stderr).
-        // Then 2>&3 will redirect file descriptor 2(stderr) to 3(stdout)
+        // Then 2>&3 will redirect file descriptor 2(stderr) to 3(stdout).
 
-        return system(cmd.data());
+        return env_argv != NULL ? execle("/bin/sh", "sh", "-c", cmd.data(), (char *) NULL, env_argv) : execl("/bin/sh", "sh", "-c", cmd.data(), (char *) NULL);
     }
 
     /**
