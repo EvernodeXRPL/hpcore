@@ -148,10 +148,10 @@ namespace usr
                 if (!conf::cfg.contract.execute || conf::cfg.user.concurrent_read_requests == 0)
                     return 0;
 
-                std::string content;
-                if (parser.extract_read_request(content) != -1)
+                std::string id, content;
+                if (parser.extract_read_request(id, content) != -1)
                 {
-                    if (read_req::populate_read_req_queue(user.pubkey, std::move(content)) == -1)
+                    if (read_req::populate_read_req_queue(user.pubkey, std::move(id), std::move(content)) == -1)
                     {
                         LOG_WARNING << "Failed to enqueue read request.";
                     }

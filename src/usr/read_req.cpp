@@ -157,7 +157,7 @@ namespace read_req
                             for (sc::contract_output &output : user_buf_itr->second.outputs)
                             {
                                 std::vector<uint8_t> msg;
-                                parser.create_contract_read_response_container(msg, output.message);
+                                parser.create_contract_read_response_container(msg, read_request.id, output.message);
                                 user.session.send(msg);
                                 output.message.clear();
                             }
@@ -193,12 +193,14 @@ namespace read_req
     /**
      * Add new read request from users to the read request queue for processing.
      * @param pubkey Public key of the user.
+     * @param id Message id (used to associate replies).
      * @param content Message content.
      * @return 0 on successful addition and -1 on queue overflow
     */
-    int populate_read_req_queue(const std::string &pubkey, const std::string &content)
+    int populate_read_req_queue(const std::string &pubkey, const std::string &id, const std::string &content)
     {
         user_read_req read_request;
+        read_request.id = id;
         read_request.content = read_req_store.write_buf(content.data(), content.size());
         read_request.pubkey = pubkey;
 
