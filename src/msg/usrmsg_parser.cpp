@@ -38,12 +38,12 @@ namespace msg::usrmsg
             busrmsg::create_contract_input_status(msg, status, reason, input_hash, ledger_seq_no, ledger_hash);
     }
 
-    void usrmsg_parser::create_contract_read_response_container(std::vector<uint8_t> &msg, std::string_view content) const
+    void usrmsg_parser::create_contract_read_response_container(std::vector<uint8_t> &msg, std::string_view reply_for, std::string_view content) const
     {
         if (protocol == util::PROTOCOL::JSON)
-            jusrmsg::create_contract_read_response_container(msg, content);
+            jusrmsg::create_contract_read_response_container(msg, reply_for, content);
         else
-            busrmsg::create_contract_read_response_container(msg, content);
+            busrmsg::create_contract_read_response_container(msg, reply_for, content);
     }
 
     void usrmsg_parser::create_contract_output_container(std::vector<uint8_t> &msg, std::string_view hash, const ::std::vector<std::string> &outputs,
@@ -113,12 +113,12 @@ namespace msg::usrmsg
             return busrmsg::extract_type(extracted_type, bdoc);
     }
 
-    int usrmsg_parser::extract_read_request(std::string &extracted_content) const
+    int usrmsg_parser::extract_read_request(std::string &extracted_id, std::string &extracted_content) const
     {
         if (protocol == util::PROTOCOL::JSON)
-            return jusrmsg::extract_read_request(extracted_content, jdoc);
+            return jusrmsg::extract_read_request(extracted_id, extracted_content, jdoc);
         else
-            return busrmsg::extract_read_request(extracted_content, bdoc);
+            return busrmsg::extract_read_request(extracted_id, extracted_content, bdoc);
     }
 
     int usrmsg_parser::extract_signed_input_container(std::string &extracted_input_container, std::string &extracted_sig) const

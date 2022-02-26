@@ -167,16 +167,19 @@ namespace msg::usrmsg::bson
      *            Message format:
      *            {
      *              "type": "contract_read_response",
+     *              "reply_for": "<corresponding request id>",
      *              "content": <contract output>
      *            }
      * @param content The contract binary output content to be put in the message.
      */
-    void create_contract_read_response_container(std::vector<uint8_t> &msg, std::string_view content)
+    void create_contract_read_response_container(std::vector<uint8_t> &msg, std::string_view reply_for, std::string_view content)
     {
         jsoncons::bson::bson_bytes_encoder encoder(msg);
         encoder.begin_object();
         encoder.key(msg::usrmsg::FLD_TYPE);
         encoder.string_value(msg::usrmsg::MSGTYPE_CONTRACT_READ_RESPONSE);
+        encoder.key(msg::usrmsg::FLD_REPLY_FOR);
+        encoder.string_value(reply_for);
         encoder.key(msg::usrmsg::FLD_CONTENT);
         encoder.byte_string_value(content);
         encoder.end_object();
@@ -469,18 +472,26 @@ namespace msg::usrmsg::bson
      *          Accepted signed input container format:
      *          {
      *            "type": "contract_read_request",
+     *            "id": "<any string>",
      *            "content": <binary buffer>
      *          }
      * @return 0 on successful extraction. -1 for failure.
      */
-    int extract_read_request(std::string &extracted_content, const jsoncons::ojson &d)
+    int extract_read_request(std::string &extracted_id, std::string &extracted_content, const jsoncons::ojson &d)
     {
+        if (!d.contains(msg::usrmsg::FLD_ID) || !d[msg::usrmsg::FLD_ID].is<std::string>())
+        {
+            LOG_DEBUG << "Read request 'id' field missing or invalid.";
+            return -1;
+        }
+
         if (!d.contains(msg::usrmsg::FLD_CONTENT) || !d[msg::usrmsg::FLD_CONTENT].is_byte_string_view())
         {
             LOG_DEBUG << "Read request 'content' field missing or invalid.";
             return -1;
         }
 
+        extracted_id = d[msg::usrmsg::FLD_ID].as<std::string>();
         const jsoncons::byte_string_view &bsv = d[msg::usrmsg::FLD_CONTENT].as_byte_string_view();
         extracted_content = std::string_view(reinterpret_cast<const char *>(bsv.data()), bsv.size());
         return 0;

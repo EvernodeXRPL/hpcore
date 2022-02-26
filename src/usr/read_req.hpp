@@ -9,6 +9,7 @@ namespace read_req
     struct user_read_req
     {
         std::string pubkey;
+        std::string id;
         util::buffer_view content;
     };
 
@@ -20,7 +21,7 @@ namespace read_req
 
     void read_request_processor();
 
-    int populate_read_req_queue(const std::string &pubkey, const std::string &content);
+    int populate_read_req_queue(const std::string &pubkey, const std::string &id, const std::string &content);
 
     void initialize_execution_context(const user_read_req &read_request, const pthread_t thread_id, sc::execution_context &contract_ctx);
 

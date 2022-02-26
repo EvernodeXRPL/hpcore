@@ -60,12 +60,6 @@ async function main() {
         });
     })
 
-    // This will get fired when contract sends a read response.
-    hpc.on(HotPocket.events.contractReadResponse, (o) => {
-        const outputLog = o.length <= 512 ? o : `[Big output (${o.length / 1024} KB)]`;
-        console.log("Read response>> " + outputLog);
-    })
-
     // This will get fired when the unl public key list changes.
     hpc.on(HotPocket.events.unlChange, (unl) => {
         console.log("New unl received:");
@@ -114,7 +108,7 @@ async function main() {
 
             if (inp.length > 0) {
                 if (inp.startsWith("read ")) {
-                    hpc.sendContractReadRequest(inp.substr(5));
+                    hpc.submitContractReadRequest(inp.substr(5)).then(reply => console.log(reply));
                 }
                 else if (inp.startsWith("ledger ")) {
                     hpc.getLedgerBySeqNo(parseInt(inp.substr(7)), true, true)
