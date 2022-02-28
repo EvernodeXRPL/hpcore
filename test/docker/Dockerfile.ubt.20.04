@@ -8,6 +8,8 @@ RUN apt-get update \
         libssl1.1 \
         sqlite3 \
         fuse3 \
+        openssl \
+        ca-certificates \
     && rm -rf /var/lib/apt/lists/* \
     && mkdir /usr/local/bin/hotpocket
 
