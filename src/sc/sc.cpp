@@ -90,46 +90,31 @@ namespace sc
         // Set contract working directory.
         ctx.working_dir = contract_fs.physical_path(ctx.args.hpfs_session_name, STATE_DIR_PATH);
 
-        // Setup contract output log file paths.
-        if (conf::cfg.contract.log.enable)
+        // Setup contract output log file paths (for consensus execution only).
+        if (conf::cfg.contract.log.enable && !ctx.args.readonly)
         {
-            // For consensus execution, we keep appending logs to the same out/err files (Rollout log files are maintained according to the hp config settings).
-            // For read request executions, independent log files are created based on read request session names.
-            if (ctx.args.readonly)
-            {
-                const time_t epoch = util::get_epoch_milliseconds() / 1000;
-                std::stringstream now_ss;
-                now_ss << std::put_time(std::localtime(&epoch), "%Y%m%dT%H%M%S");
-                const std::string now = now_ss.str();
+            // We keep appending logs to the same out/err files (Rollout log files are maintained according to the hp config settings).
+            const std::string prefix = ctx.args.hpfs_session_name;
+            ctx.stdout_file = conf::ctx.contract_log_dir + "/" + prefix + STDOUT_LOG;
 
-                const std::string prefix = ctx.args.hpfs_session_name + "_" + now;
-                ctx.stdout_file = conf::ctx.contract_log_dir + "/" + prefix + STDOUT_LOG;
-                ctx.stderr_file = conf::ctx.contract_log_dir + "/" + prefix + STDERR_LOG;
+            struct stat st_stdout;
+            if (stat(ctx.stdout_file.data(), &st_stdout) != -1 &&
+                st_stdout.st_size >= max_sc_log_size_bytes &&
+                rename_and_cleanup_contract_log_files(prefix, STDOUT_LOG) == -1)
+            {
+                LOG_ERROR << "Failed cleaning up and renaming contract stdout log files.";
+                return -1;
             }
-            else
+
+            ctx.stderr_file = conf::ctx.contract_log_dir + "/" + prefix + STDERR_LOG;
+
+            struct stat st_stderr;
+            if (stat(ctx.stderr_file.data(), &st_stderr) != -1 &&
+                st_stderr.st_size >= max_sc_log_size_bytes &&
+                rename_and_cleanup_contract_log_files(prefix, STDERR_LOG) == -1)
             {
-                const std::string prefix = ctx.args.hpfs_session_name;
-                ctx.stdout_file = conf::ctx.contract_log_dir + "/" + prefix + STDOUT_LOG;
-
-                struct stat st_stdout;
-                if (stat(ctx.stdout_file.data(), &st_stdout) != -1 &&
-                    st_stdout.st_size >= max_sc_log_size_bytes &&
-                    rename_and_cleanup_contract_log_files(prefix, STDOUT_LOG) == -1)
-                {
-                    LOG_ERROR << "Failed cleaning up and renaming contract stdout log files.";
-                    return -1;
-                }
-
-                ctx.stderr_file = conf::ctx.contract_log_dir + "/" + prefix + STDERR_LOG;
-
-                struct stat st_stderr;
-                if (stat(ctx.stderr_file.data(), &st_stderr) != -1 &&
-                    st_stderr.st_size >= max_sc_log_size_bytes &&
-                    rename_and_cleanup_contract_log_files(prefix, STDERR_LOG) == -1)
-                {
-                    LOG_ERROR << "Failed cleaning up and renaming contract stderr log files.";
-                    return -1;
-                }
+                LOG_ERROR << "Failed cleaning up and renaming contract stderr log files.";
+                return -1;
             }
         }
 
@@ -222,7 +207,10 @@ namespace sc
                 exit(1);
             }
 
-            conf::cfg.contract.log.enable ? execv_and_redirect_logs(execv_len - 1, (const char **)execv_args, ctx.stdout_file, ctx.stderr_file, (const char **)env_args) : execve(execv_args[0], execv_args, env_args);
+            // We do not create logs files in readonly execution due to the difficulty in managing the log file limits.
+            (conf::cfg.contract.log.enable && !ctx.args.readonly)
+                ? execv_and_redirect_logs(execv_len - 1, (const char **)execv_args, ctx.stdout_file, ctx.stderr_file, (const char **)env_args)
+                : execve(execv_args[0], execv_args, env_args);
             std::cerr << errno << ": Contract process execve() failed." << (ctx.args.readonly ? " (rdonly)" : "") << "\n";
             exit(1);
         }
@@ -553,7 +541,8 @@ namespace sc
                 exit(1);
             }
 
-            conf::cfg.contract.log.enable ? execv_and_redirect_logs(2, (const char **)argv, ctx.stdout_file, ctx.stderr_file) : execv(argv[0], argv);
+            conf::cfg.contract.log.enable ? execv_and_redirect_logs(2, (const char **)argv, ctx.stdout_file, ctx.stderr_file)
+                                          : execv(argv[0], argv);
             std::cerr << errno << ": Post-exec script execv() failed." << (ctx.args.readonly ? " (rdonly)" : "") << "\n";
             exit(1);
         }
@@ -961,7 +950,7 @@ namespace sc
         // Then 1>&2 will redirect file descriptor 1(stdout) to 2(stderr).
         // Then 2>&3 will redirect file descriptor 2(stderr) to 3(stdout).
 
-        return env_argv != NULL ? execle("/bin/sh", "sh", "-c", cmd.data(), (char *) NULL, env_argv) : execl("/bin/sh", "sh", "-c", cmd.data(), (char *) NULL);
+        return env_argv != NULL ? execle("/bin/sh", "sh", "-c", cmd.data(), (char *)NULL, env_argv) : execl("/bin/sh", "sh", "-c", cmd.data(), (char *)NULL);
     }
 
     /**
@@ -1146,9 +1135,9 @@ namespace sc
     int rename_and_cleanup_contract_log_files(const std::string &session_name, std::string_view postfix, const size_t depth)
     {
         const std::string prefix = (depth == 0) ? session_name : (session_name + "_" + std::to_string(depth));
-        const std::string fliename = conf::ctx.contract_log_dir + "/" + prefix + postfix.data();
+        const std::string filename = conf::ctx.contract_log_dir + "/" + prefix + postfix.data();
 
-        if (!util::is_file_exists(fliename) || depth > conf::cfg.contract.log.max_file_count - 1)
+        if (!util::is_file_exists(filename) || depth > conf::cfg.contract.log.max_file_count - 1)
             return 0;
 
         // Abort if an error occured in previous round.
@@ -1158,10 +1147,10 @@ namespace sc
         if (depth == (conf::cfg.contract.log.max_file_count - 1))
         {
             // Last allowed file. remove this to make room for the new one.
-            const int res = util::remove_file(fliename);
+            const int res = util::remove_file(filename);
             if (res == -1)
             {
-                LOG_ERROR << errno << ": Error removing " << fliename << " to make room for new log file.";
+                LOG_ERROR << errno << ": Error removing " << filename << " to make room for new log file.";
             }
 
             return res;
@@ -1169,10 +1158,10 @@ namespace sc
 
         // Rename file one step up. Eg: rw_1.stdout.log to rw_2.stdout.log.
         const std::string new_filename = conf::ctx.contract_log_dir + "/" + session_name + "_" + std::to_string(depth + 1) + postfix.data();
-        const int res = rename(fliename.data(), new_filename.data());
+        const int res = rename(filename.data(), new_filename.data());
         if (res == -1)
         {
-            LOG_ERROR << errno << ": Error occured while renaming " << fliename << " to " << new_filename;
+            LOG_ERROR << errno << ": Error occured while renaming " << filename << " to " << new_filename;
         }
 
         return res;
