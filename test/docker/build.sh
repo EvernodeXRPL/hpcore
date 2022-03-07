@@ -2,7 +2,7 @@
 # Builds all the Hot Pocket docker images.
 
 hpcoredir=$(realpath ../..)
-img=hotpocketdev/hotpocket
+img=evernodedev/hotpocket
 basefile="Dockerfile.ubt.20.04"
 njsfile="Dockerfile.ubt.20.04-njs"
 

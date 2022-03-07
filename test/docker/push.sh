@@ -1,6 +1,6 @@
 #!/bin/bash
 # Pushes all the Hot Pocket images into docker hub.
 
-img=hotpocketdev/hotpocket
+img=evernodedev/hotpocket
 
 docker image push --all-tags $img
