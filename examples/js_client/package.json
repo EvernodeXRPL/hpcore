@@ -1,6 +1,6 @@
 {
     "dependencies": {
-        "hotpocket-js-client": "0.5.2",
+        "hotpocket-js-client": "0.5.3",
         "bson": "4.5.3"
     }
 }
