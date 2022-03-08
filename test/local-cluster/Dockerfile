@@ -1,5 +1,5 @@
 # We are going with Hot Pocket NodeJs docker image because sample contracts need NodeJs to run.
-FROM evernodedev/hotpocket:0.5-ubt.20.04-njs.14
+FROM evernodedev/hotpocket:0.6-ubt.20.04-njs.16
 
 COPY hpcore hpfs hpws /usr/local/bin/hotpocket/
 

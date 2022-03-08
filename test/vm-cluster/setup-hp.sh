@@ -21,7 +21,7 @@ else
    echo "Installing NodeJs..."
    sudo apt-get update
    sudo apt-get -y install curl
-   curl -sL https://deb.nodesource.com/setup_14.x | sudo -E bash -
+   curl -sL https://deb.nodesource.com/setup_16.x | sudo -E bash -
    sudo apt-get install -y nodejs
 fi
 
