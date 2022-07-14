@@ -23,9 +23,10 @@ const char *__HP_PATCH_FILE_PATH = "../patch.cfg";
 
 // Public constants.
 #define HP_NPL_MSG_MAX_SIZE __HP_SEQPKT_MAX_SIZE
-#define HP_KEY_SIZE 66         // Hex pubkey size. (64 char key + 2 chars for key type prfix)
-#define HP_HASH_SIZE 64        // Hex hash size.
-#define HP_CONTRACT_ID_SIZE 36 // Contract Id UUIDv4 string length.
+#define HP_PUBLIC_KEY_SIZE 66   // Hex public_key size. (64 char key + 2 chars for key type prefix)
+#define HP_PRIVATE_KEY_SIZE 130 // Hex public_key size. (128 char key + 2 chars for key type prefix)
+#define HP_HASH_SIZE 64         // Hex hash size.
+#define HP_CONTRACT_ID_SIZE 36  // Contract Id UUIDv4 string length.
 const char *HP_POST_EXEC_SCRIPT_NAME = "post_exec.sh";
 
 #define __HP_ASSIGN_STRING(dest, elem)                                                        \
@@ -108,15 +109,20 @@ struct hp_user_inputs_collection
     size_t count;
 };
 
-struct hp_pubkey
+struct hp_public_key
 {
-    char data[HP_KEY_SIZE + 1]; // +1 for null char.
+    char data[HP_PUBLIC_KEY_SIZE + 1]; // +1 for null char.
+};
+
+struct hp_private_key
+{
+    char data[HP_PRIVATE_KEY_SIZE + 1]; // +1 for null char.
 };
 
 // Represents a user that is connected to HP cluster.
 struct hp_user
 {
-    struct hp_pubkey pubkey;
+    struct hp_public_key public_key;
     int outfd;
     struct hp_user_inputs_collection inputs;
 };
@@ -124,7 +130,7 @@ struct hp_user
 // Represents a node that's part of unl.
 struct hp_unl_node
 {
-    struct hp_pubkey pubkey;
+    struct hp_public_key public_key;
     uint64_t active_on;
 };
 
@@ -135,9 +141,9 @@ struct hp_users_collection
     int in_fd;
 };
 
-struct hp_pubkey_collection
+struct hp_public_key_collection
 {
-    struct hp_pubkey *list;
+    struct hp_public_key *list;
     size_t count;
 };
 
@@ -161,7 +167,7 @@ struct hp_round_limits_config
 struct hp_config
 {
     char *version;
-    struct hp_pubkey_collection unl;
+    struct hp_public_key_collection unl;
     char *bin_path;
     char *bin_args;
     char *environment;
@@ -178,7 +184,8 @@ struct hp_contract_context
     bool readonly;
     uint64_t timestamp;
     char contract_id[HP_CONTRACT_ID_SIZE + 1]; // +1 for null char.
-    char pubkey[HP_KEY_SIZE + 1];              // +1 for null char.
+    struct hp_public_key public_key;
+    struct hp_private_key private_key;
     uint64_t lcl_seq_no;                       // lcl sequence no.
     char lcl_hash[HP_HASH_SIZE + 1];           // +1 for null char.
     struct hp_users_collection users;
@@ -202,12 +209,12 @@ int hp_write_user_msg(const struct hp_user *user, const void *buf, const uint32_
 int hp_writev_user_msg(const struct hp_user *user, const struct iovec *bufs, const int buf_count);
 int hp_write_npl_msg(const void *buf, const uint32_t len);
 int hp_writev_npl_msg(const struct iovec *bufs, const int buf_count);
-int hp_read_npl_msg(void *msg_buf, char *pubkey_buf, const int timeout);
+int hp_read_npl_msg(void *msg_buf, char *public_key_buf, const int timeout);
 struct hp_config *hp_get_config();
 int hp_update_config(const struct hp_config *config);
 int hp_update_peers(const char *add_peers[], const size_t add_peers_count, const char *remove_peers[], const size_t remove_peers_count);
 void hp_set_config_string(char **config_str, const char *value, const size_t value_size);
-void hp_set_config_unl(struct hp_config *config, const struct hp_pubkey *new_unl, const size_t new_unl_count);
+void hp_set_config_unl(struct hp_config *config, const struct hp_public_key *new_unl, const size_t new_unl_count);
 void hp_free_config(struct hp_config *config);
 
 void __hp_parse_args_json(const struct json_object_s *object);
@@ -394,39 +401,39 @@ int hp_writev_npl_msg(const struct iovec *bufs, const int buf_count)
 /**
  * Reads a NPL message while waiting for 'timeout' milliseconds.
  * @param msg_buf The buffer to place the incoming message. Must be of at least 'HP_NPL_MSG_MAX_SIZE' length.
- * @param pubkey_buf The buffer to place the sender pubkey (hex). Must be of at least 'HP_KEY_SIZE' length.
+ * @param public_key_buf The buffer to place the sender public_key (hex). Must be of at least 'HP_PUBLIC_KEY_SIZE' length.
  * @param timeout Maximum milliseoncds to wait until a message arrives. If 0, returns immediately.
  *                If -1, waits forever until message arrives.
  * @return Message length on success. 0 if no message arrived within timeout. -1 on error.
  */
-int hp_read_npl_msg(void *msg_buf, char *pubkey_buf, const int timeout)
+int hp_read_npl_msg(void *msg_buf, char *public_key_buf, const int timeout)
 {
     struct pollfd pfd = {__hpc.cctx->unl.npl_fd, POLLIN, 0};
 
-    // NPL messages consist of alternating SEQ packets of pubkey and data.
-    // So we need to wait for both pubkey and data packets to form a complete NPL message.
+    // NPL messages consist of alternating SEQ packets of public_key and data.
+    // So we need to wait for both public_key and data packets to form a complete NPL message.
 
-    // Wait for the pubkey.
+    // Wait for the public_key.
     if (poll(&pfd, 1, timeout) == -1)
     {
-        perror("NPL channel pubkey poll error");
+        perror("NPL channel public_key poll error");
         return -1;
     }
     else if (pfd.revents & (POLLHUP | POLLERR | POLLNVAL))
     {
-        fprintf(stderr, "NPL channel pubkey poll returned error: %d\n", pfd.revents);
+        fprintf(stderr, "NPL channel public_key poll returned error: %d\n", pfd.revents);
         return -1;
     }
     else if (pfd.revents & POLLIN)
     {
-        // Read pubkey.
-        if (read(pfd.fd, pubkey_buf, HP_KEY_SIZE) == -1)
+        // Read public_key.
+        if (read(pfd.fd, public_key_buf, HP_PUBLIC_KEY_SIZE) == -1)
         {
-            perror("Error reading pubkey from NPL channel");
+            perror("Error reading public_key from NPL channel");
             return -1;
         }
 
-        // Wait for data. (data should be available immediately because we have received the pubkey)
+        // Wait for data. (data should be available immediately because we have received the public_key)
         pfd.revents = 0;
         if (poll(&pfd, 1, 100) == -1)
         {
@@ -444,7 +451,7 @@ int hp_read_npl_msg(void *msg_buf, char *pubkey_buf, const int timeout)
             const int readres = read(pfd.fd, msg_buf, HP_NPL_MSG_MAX_SIZE);
             if (readres == -1)
             {
-                perror("Error reading pubkey from NPL channel");
+                perror("Error reading public_key from NPL channel");
                 return -1;
             }
             return readres;
@@ -457,7 +464,7 @@ int hp_read_npl_msg(void *msg_buf, char *pubkey_buf, const int timeout)
 /**
  * Get the existing config file values.
  * @return returns a pointer to a config structure, returns NULL on error.
-*/
+ */
 struct hp_config *hp_get_config()
 {
     const int fd = open(__HP_PATCH_FILE_PATH, O_RDONLY);
@@ -477,8 +484,8 @@ struct hp_config *hp_get_config()
 
 /**
  * Update the params of the existing config file.
- * @param config Pointer to the updated config struct. 
-*/
+ * @param config Pointer to the updated config struct.
+ */
 int hp_update_config(const struct hp_config *config)
 {
     struct hp_contract_context *cctx = __hpc.cctx;
@@ -498,23 +505,23 @@ int hp_update_config(const struct hp_config *config)
     {
         for (size_t i = 0; i < config->unl.count; i++)
         {
-            const char *pubkey = config->unl.list[i].data;
-            const size_t pubkey_len = strlen(pubkey);
-            if (pubkey_len == 0)
-                __HP_UPDATE_CONFIG_ERROR("Unl pubkey cannot be empty.");
+            const char *public_key = config->unl.list[i].data;
+            const size_t public_key_len = strlen(public_key);
+            if (public_key_len == 0)
+                __HP_UPDATE_CONFIG_ERROR("Unl public_key cannot be empty.");
 
-            if (pubkey_len != HP_KEY_SIZE)
-                __HP_UPDATE_CONFIG_ERROR("Unl pubkey invalid. Invalid length.");
+            if (public_key_len != HP_PUBLIC_KEY_SIZE)
+                __HP_UPDATE_CONFIG_ERROR("Unl public_key invalid. Invalid length.");
 
-            if (pubkey[0] != 'e' || pubkey[1] != 'd')
-                __HP_UPDATE_CONFIG_ERROR("Unl pubkey invalid. Invalid format.");
+            if (public_key[0] != 'e' || public_key[1] != 'd')
+                __HP_UPDATE_CONFIG_ERROR("Unl public_key invalid. Invalid format.");
 
             // Checking the validity of hexadecimal portion. (without 'ed').
-            for (size_t j = 2; j < HP_KEY_SIZE; j++)
+            for (size_t j = 2; j < HP_PUBLIC_KEY_SIZE; j++)
             {
-                const char current_char = pubkey[j];
+                const char current_char = public_key[j];
                 if ((current_char < 'A' || current_char > 'F') && (current_char < 'a' || current_char > 'f') && (current_char < '0' || current_char > '9'))
-                    __HP_UPDATE_CONFIG_ERROR("Unl pubkey invalid. Invalid character.");
+                    __HP_UPDATE_CONFIG_ERROR("Unl public_key invalid. Invalid character.");
             }
         }
     }
@@ -570,13 +577,13 @@ void hp_set_config_string(char **config_str, const char *value, const size_t val
 /**
  * Populates the config unl list with the specified values.
  * @param config The config struct to populate the unl to.
- * @param new_unl Pointer to array of unl pubkeys.
- * @param new_unl_count No. of entries in the new unl pubkey array.
+ * @param new_unl Pointer to array of unl public_keys.
+ * @param new_unl_count No. of entries in the new unl public_key array.
  */
-void hp_set_config_unl(struct hp_config *config, const struct hp_pubkey *new_unl, const size_t new_unl_count)
+void hp_set_config_unl(struct hp_config *config, const struct hp_public_key *new_unl, const size_t new_unl_count)
 {
-    const size_t mem_size = sizeof(struct hp_pubkey) * new_unl_count;
-    config->unl.list = (struct hp_pubkey *)realloc(config->unl.list, mem_size);
+    const size_t mem_size = sizeof(struct hp_public_key) * new_unl_count;
+    config->unl.list = (struct hp_public_key *)realloc(config->unl.list, mem_size);
     memcpy(config->unl.list, new_unl, mem_size);
     config->unl.count = new_unl_count;
 }
@@ -584,7 +591,7 @@ void hp_set_config_unl(struct hp_config *config, const struct hp_pubkey *new_unl
 /**
  * Frees the memory allocated for the config structure.
  * @param config Pointer to the config to be freed.
-*/
+ */
 void hp_free_config(struct hp_config *config)
 {
     __HP_FREE(config->version);
@@ -678,7 +685,7 @@ int __hp_encode_json_string_array(char *buf, const char *elems[], const size_t c
  * Read the values from the existing patch file.
  * @param fd File discriptor of the patch.cfg file.
  * @return returns a pointer to a patch_config structure, returns NULL on error.
-*/
+ */
 struct hp_config *__hp_read_from_patch_file(const int fd)
 {
     char buf[4096];
@@ -708,7 +715,7 @@ struct hp_config *__hp_read_from_patch_file(const int fd)
  * Write values of the given patch config struct to the file discriptor given.
  * @param fd File discriptor of the patch.cfg file.
  * @param config Patch config structure.
-*/
+ */
 int __hp_write_to_patch_file(const int fd, const struct hp_config *config)
 {
     struct iovec iov_vec[4];
@@ -732,8 +739,8 @@ int __hp_write_to_patch_file(const int fd, const struct hp_config *config)
         memcpy(unl_buf + pos, "\n        ", 9);
         pos += 9;
         unl_buf[pos++] = '"';
-        memcpy(unl_buf + pos, config->unl.list[i].data, HP_KEY_SIZE);
-        pos += HP_KEY_SIZE;
+        memcpy(unl_buf + pos, config->unl.list[i].data, HP_PUBLIC_KEY_SIZE);
+        pos += HP_PUBLIC_KEY_SIZE;
         unl_buf[pos++] = '"';
     }
 
@@ -800,7 +807,7 @@ int __hp_write_to_patch_file(const int fd, const struct hp_config *config)
  * Populate the given patch struct file from the json_object obtained from the existing patch.cfg file.
  * @param config Pointer to the patch config sturct to be populated.
  * @param object Pointer to the json object.
-*/
+ */
 void __hp_populate_patch_from_json_object(struct hp_config *config, const struct json_object_s *object)
 {
     const struct json_object_element_s *elem = object->start;
@@ -820,7 +827,7 @@ void __hp_populate_patch_from_json_object(struct hp_config *config, const struct
                 const size_t unl_count = unl_array->length;
 
                 config->unl.count = unl_count;
-                config->unl.list = unl_count ? (struct hp_pubkey *)malloc(sizeof(struct hp_pubkey) * unl_count) : NULL;
+                config->unl.list = unl_count ? (struct hp_public_key *)malloc(sizeof(struct hp_public_key) * unl_count) : NULL;
 
                 if (unl_count > 0)
                 {
@@ -919,9 +926,13 @@ void __hp_parse_args_json(const struct json_object_s *object)
         {
             __HP_ASSIGN_STRING(cctx->contract_id, elem);
         }
-        else if (strcmp(k->string, "pubkey") == 0)
+        else if (strcmp(k->string, "public_key") == 0)
         {
-            __HP_ASSIGN_STRING(cctx->pubkey, elem);
+            __HP_ASSIGN_STRING(cctx->public_key.data, elem);
+        }
+        else if (strcmp(k->string, "private_key") == 0)
+        {
+            __HP_ASSIGN_STRING(cctx->private_key.data, elem);
         }
         else if (strcmp(k->string, "timestamp") == 0)
         {
@@ -959,7 +970,7 @@ void __hp_parse_args_json(const struct json_object_s *object)
                     for (size_t i = 0; i < user_count; i++)
                     {
                         struct hp_user *user = &cctx->users.list[i];
-                        memcpy(user->pubkey.data, user_elem->name->string, HP_KEY_SIZE);
+                        memcpy(user->public_key.data, user_elem->name->string, HP_PUBLIC_KEY_SIZE);
 
                         if (user_elem->value->type == json_type_array)
                         {
@@ -998,7 +1009,7 @@ void __hp_parse_args_json(const struct json_object_s *object)
         }
         else if (strcmp(k->string, "unl") == 0)
         {
-            // unl is an object with pubkeys as keys. Each key contains an object with that node statistics.
+            // unl is an object with public_keys as keys. Each key contains an object with that node statistics.
             if (elem->value->type == json_type_object)
             {
                 const struct json_object_s *unl_obj = (struct json_object_s *)elem->value->payload;
@@ -1012,8 +1023,8 @@ void __hp_parse_args_json(const struct json_object_s *object)
                     struct json_object_element_s *unl_elem = unl_obj->start;
                     for (size_t i = 0; i < unl_count; i++)
                     {
-                        // Each element(key) is named by the pubkey.
-                        strncpy(cctx->unl.list[i].pubkey.data, unl_elem->name->string, unl_elem->name->string_size);
+                        // Each element(key) is named by the public_key.
+                        strncpy(cctx->unl.list[i].public_key.data, unl_elem->name->string, unl_elem->name->string_size);
 
                         if (unl_elem->value->type == json_type_object)
                         {

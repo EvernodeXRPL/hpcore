@@ -354,7 +354,8 @@ namespace sc
      * {
      *   "hp_version":"<hp version>",
      *   "contract_id": "<contract guid>",
-     *   "pubkey": "<this node's hex public key>",
+     *   "public_key": "<this node's hex public key>",
+     *   "private_key": "<this node's hex private key>",
      *   "timestamp": <this node's timestamp (unix milliseconds)>,
      *   "readonly": <true|false>,
      *   "lcl_seq_no": "<lcl sequence no>",
@@ -375,7 +376,8 @@ namespace sc
         std::ostringstream os;
         os << "{\"hp_version\":\"" << version::HP_VERSION
            << "\",\"contract_id\":\"" << conf::cfg.contract.id
-           << "\",\"pubkey\":\"" << conf::cfg.node.public_key_hex
+           << "\",\"public_key\":\"" << conf::cfg.node.public_key_hex
+           << "\",\"private_key\":\"" << conf::cfg.node.private_key_hex
            << "\",\"timestamp\":" << ctx.args.time
            << ",\"readonly\":" << (ctx.args.readonly ? "true" : "false");
 
@@ -426,7 +428,7 @@ namespace sc
     /**
      * Feeds and collect contract messages.
      * @param ctx Contract execution context.
-    */
+     */
     void contract_monitor_loop(execution_context &ctx)
     {
         util::mask_signal();
@@ -710,7 +712,7 @@ namespace sc
      * Broadcast npl messages to peers. If the npl messages are set to private, broadcast only to the unl nodes.
      * If it is public, broadcast to all the connected nodes. Npl messages are not sent in observer mode.
      * @param output Npl message to be broadcasted.
-    */
+     */
     void broadcast_npl_output(std::string_view output)
     {
         // In observer mode, we do not send out npl messages.
@@ -1131,7 +1133,7 @@ namespace sc
      * @param postfix Postfix for the file name (Either stdout.log or stderr.log).
      * @param depth Depth of the recursion. Starts with zero and traverse down.
      * @return 0 on success and -1 on error.
-    */
+     */
     int rename_and_cleanup_contract_log_files(const std::string &session_name, std::string_view postfix, const size_t depth)
     {
         const std::string prefix = (depth == 0) ? session_name : (session_name + "_" + std::to_string(depth));
@@ -1172,7 +1174,7 @@ namespace sc
      * @param session_name hpfs session name.
      * @param postfix Postfix for the file name (Either stdout.log or stderr.log).
      * @param start_point Start point to start removing files.
-    */
+     */
     void clean_extra_contract_log_files(const std::string &session_name, std::string_view postfix, const int start_point)
     {
         int current = start_point;
