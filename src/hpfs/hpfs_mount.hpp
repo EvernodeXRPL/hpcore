@@ -24,7 +24,7 @@ namespace hpfs
 
     inline uint32_t get_request_resubmit_timeout()
     {
-        return conf::cfg.contract.roundtime * 0.7;
+        return conf::cfg.contract.consensus.roundtime * 0.7;
     }
 
     const util::h32 get_root_hash(const util::h32 &child_one, const util::h32 &child_two);

@@ -8,6 +8,8 @@
 namespace ledger::query
 {
     constexpr const char *ERROR_EXEC_FAILURE = "exec_failure";
+    constexpr const char *PUBLIC = "public";
+    constexpr const char *PRIVATE = "private";
 
     /**
      * Executes the specified ledger query and returns the result.
@@ -45,7 +47,7 @@ namespace ledger::query
                 if (seq_q.inputs || seq_q.outputs)
                 {
                     // Do not return other users' blobs if consensus is private.
-                    const std::string filter_user = conf::cfg.contract.is_consensus_public ? "" : std::string(user_pubkey);
+                    const std::string filter_user = conf::cfg.contract.consensus.mode == PUBLIC ? "" : std::string(user_pubkey);
 
                     for (ledger_record &ledger : ledgers)
                     {

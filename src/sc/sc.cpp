@@ -21,6 +21,8 @@ namespace sc
     constexpr const char *STDOUT_LOG = ".stdout.log";
     constexpr const char *STDERR_LOG = ".stderr.log";
     constexpr const char *POST_EXEC_SCRIPT = "post_exec.sh";
+    constexpr const char *PUBLIC = "public";
+    constexpr const char *PRIVATE = "private";
 
     constexpr uint32_t CONTRACT_FS_ID = 0;
 
@@ -723,7 +725,7 @@ namespace sc
         {
             flatbuffers::FlatBufferBuilder fbuf;
             msg::fbuf::p2pmsg::create_msg_from_npl_output(fbuf, output, ledger::ctx.get_lcl_id());
-            p2p::broadcast_message(fbuf, true, false, !conf::cfg.contract.is_npl_public, 1); // Use high priority send.
+            p2p::broadcast_message(fbuf, true, false, conf::cfg.contract.npl.mode != PUBLIC, 1); // Use high priority send.
         }
     }
 

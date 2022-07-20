@@ -12,7 +12,7 @@ namespace conf
 {
     constexpr size_t CONCURRENT_READ_REQUEST_MAX_LIMIT = 32;
 
-#define CURRENT_TIME_CONFIG ((conf::cfg.contract.roundtime * 100) + conf::cfg.contract.stage_slice)
+#define CURRENT_TIME_CONFIG ((conf::cfg.contract.consensus.roundtime * 100) + conf::cfg.contract.consensus.stage_slice)
 
     // Struct to represent ip and port of the peer.
     struct peer_ip_port
@@ -162,6 +162,19 @@ namespace conf
         size_t max_file_count = 0;      // Max no. of log files to keep.
     };
 
+    struct consensus_config
+    {
+        std::string mode;
+        std::atomic<uint32_t> roundtime = 0;
+        std::atomic<uint32_t> stage_slice = 0;
+        uint16_t threshold = 0;
+    };
+
+    struct npl_config
+    {
+        std::string mode;
+    };
+
     struct contract_config
     {
         std::string id;          // Contract guid.
@@ -174,10 +187,12 @@ namespace conf
         std::string bin_path;                  // Full path to the contract binary.
         std::string bin_args;                  // CLI arguments to pass to the contract binary.
         std::string environment;               // Environment variables to be passed into contract.
-        std::atomic<uint32_t> roundtime = 0;   // Consensus round time in ms (max: 3,600,000).
-        std::atomic<uint32_t> stage_slice = 0; // Percentage slice of round time that stages 0,1,2 get (max: 33).
-        bool is_consensus_public = false;      // If true, consensus are broadcasted to non-unl nodes as well.
-        bool is_npl_public = false;            // If true, npl messages are broadcasted to non-unl nodes as well.
+        // std::atomic<uint32_t> roundtime = 0;   // Consensus round time in ms (max: 3,600,000).
+        // std::atomic<uint32_t> stage_slice = 0; // Percentage slice of round time that stages 0,1,2 get (max: 33).
+        // bool is_consensus_public = false;      // If true, consensus are broadcasted to non-unl nodes as well.
+        consensus_config consensus;
+        // bool is_npl_public = false;            // If true, npl messages are broadcasted to non-unl nodes as well.
+        npl_config npl;
         uint16_t max_input_ledger_offset;      // Maximum ledger sequence number offset that can be specified in the input.
         round_limits_config round_limits;
 

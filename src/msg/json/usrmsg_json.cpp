@@ -180,7 +180,7 @@ namespace msg::usrmsg::json
         msg += SEP_COMMA;
         msg += msg::usrmsg::FLD_ROUND_TIME;
         msg += SEP_COLON_NOQUOTE;
-        msg += std::to_string(conf::cfg.contract.roundtime);
+        msg += std::to_string(conf::cfg.contract.consensus.roundtime);
         msg += SEP_COMMA_NOQUOTE;
         msg += msg::usrmsg::FLD_CONTARCT_EXECUTION_ENABLED;
         msg += SEP_COLON_NOQUOTE;
