@@ -28,8 +28,6 @@ namespace conf
     constexpr const char *ROLE_VALIDATOR = "validator";
     constexpr const char *HISTORY_FULL = "full";
     constexpr const char *HISTORY_CUSTOM = "custom";
-    constexpr const char *PUBLIC = "public";
-    constexpr const char *PRIVATE = "private";
 
     bool init_success = false;
 
@@ -172,9 +170,9 @@ namespace conf
             cfg.contract.bin_path = "<your contract binary here>";
             cfg.contract.consensus.roundtime = 1000;
             cfg.contract.consensus.stage_slice = 25;
-            cfg.contract.consensus.mode = PRIVATE;
+            cfg.contract.consensus.mode = MODE::PRIVATE;
             cfg.contract.consensus.threshold = 80;
-            cfg.contract.npl.mode = PRIVATE;
+            cfg.contract.npl.mode = MODE::PRIVATE;
             cfg.contract.max_input_ledger_offset = 10;
 
             cfg.mesh.port = 22860;
@@ -955,14 +953,14 @@ namespace conf
         jdoc.insert_or_assign("max_input_ledger_offset", contract.max_input_ledger_offset);
 
         jsoncons::ojson consensus;
-        consensus.insert_or_assign("mode", contract.consensus.mode);
+        consensus.insert_or_assign("mode", (int)contract.consensus.mode);
         consensus.insert_or_assign("roundtime", contract.consensus.roundtime.load());
         consensus.insert_or_assign("stage_slice", contract.consensus.stage_slice.load());
         consensus.insert_or_assign("threshold", contract.consensus.threshold);
         jdoc.insert_or_assign("consensus", consensus);
 
         jsoncons::ojson npl;
-        npl.insert_or_assign("mode", contract.npl.mode);
+        npl.insert_or_assign("mode", (int)contract.npl.mode);
         jdoc.insert_or_assign("npl", npl);
 
         jsoncons::ojson round_limits;
@@ -1030,7 +1028,8 @@ namespace conf
                 std::cerr << "Contract version not specified.\n";
                 return -1;
             }
-
+            
+            jpath = "contract.unl";
             contract.unl.clear();
             for (auto &nodepk : jdoc["unl"].array_range())
             {
@@ -1053,6 +1052,15 @@ namespace conf
             contract.bin_args = jdoc["bin_args"].as<std::string>();
             contract.environment = jdoc["environment"].as<std::string>();
 
+            if (jdoc["npl"]["mode"].as<int>() != MODE::PRIVATE && jdoc["npl"]["mode"].as<int>() != MODE::PRIVATE)
+            {
+                std::cerr << "Invalid npl flag configured. Valid values: public|private\n";
+                return -1;
+            }
+            contract.npl.mode = (MODE)jdoc["npl"]["mode"].as<int>();
+            contract.max_input_ledger_offset = jdoc["max_input_ledger_offset"].as<uint16_t>();
+
+            jpath = "contract.consensus";
             contract.consensus.roundtime = jdoc["consensus"]["roundtime"].as<uint32_t>();                             
             if (contract.consensus.roundtime < 1 || contract.consensus.roundtime > MAX_ROUND_TIME)
             {
@@ -1074,20 +1082,12 @@ namespace conf
                 return -1;
             }
 
-            if (jdoc["consensus"]["mode"].as<std::string>() != PUBLIC && jdoc["consensus"]["mode"].as<std::string>() != PRIVATE)
+            if (jdoc["consensus"]["mode"].as<int>() != MODE::PUBLIC && jdoc["consensus"]["mode"].as<int>() != MODE::PRIVATE)
             {
                 std::cerr << "Invalid consensus flag configured. Valid values: public|private\n";
                 return -1;
             }
-            contract.consensus.mode = jdoc["consensus"]["mode"].as<std::string>();
-
-            if (jdoc["npl"]["mode"].as<std::string>() != PUBLIC && jdoc["npl"]["mode"].as<std::string>() != PRIVATE)
-            {
-                std::cerr << "Invalid npl flag configured. Valid values: public|private\n";
-                return -1;
-            }
-            contract.npl.mode = jdoc["npl"]["mode"].as<std::string>();
-            contract.max_input_ledger_offset = jdoc["max_input_ledger_offset"].as<uint16_t>();
+            contract.consensus.mode = (MODE)jdoc["consensus"]["mode"].as<int>();
 
             jpath = "contract.round_limits";
             contract.round_limits.user_input_bytes = jdoc["round_limits"]["user_input_bytes"].as<size_t>();

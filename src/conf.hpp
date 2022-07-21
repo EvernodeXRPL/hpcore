@@ -124,6 +124,13 @@ namespace conf
         CUSTOM
     };
 
+    // Broadcasting mode of consensus and npl
+    enum MODE 
+    {
+        PUBLIC,
+        PRIVATE
+    };
+
     // Max number of shards to keep for primary and raw shards.
     struct history_configuration
     {
@@ -164,15 +171,15 @@ namespace conf
 
     struct consensus_config
     {
-        std::string mode;
-        std::atomic<uint32_t> roundtime = 0;
-        std::atomic<uint32_t> stage_slice = 0;
+        MODE mode;                                      // If PUBLIC, consensus are broadcasted to non-unl nodes as well.
+        std::atomic<uint32_t> roundtime = 0;            // Consensus round time in ms (max: 3,600,000).
+        std::atomic<uint32_t> stage_slice = 0;          // Percentage slice of round time that stages 0,1,2 get (max: 33).
         uint16_t threshold = 0;
     };
 
     struct npl_config
     {
-        std::string mode;
+        MODE mode;                // If PUBLIC, npl messages are broadcasted to non-unl nodes as well.
     };
 
     struct contract_config
@@ -187,11 +194,7 @@ namespace conf
         std::string bin_path;                  // Full path to the contract binary.
         std::string bin_args;                  // CLI arguments to pass to the contract binary.
         std::string environment;               // Environment variables to be passed into contract.
-        // std::atomic<uint32_t> roundtime = 0;   // Consensus round time in ms (max: 3,600,000).
-        // std::atomic<uint32_t> stage_slice = 0; // Percentage slice of round time that stages 0,1,2 get (max: 33).
-        // bool is_consensus_public = false;      // If true, consensus are broadcasted to non-unl nodes as well.
         consensus_config consensus;
-        // bool is_npl_public = false;            // If true, npl messages are broadcasted to non-unl nodes as well.
         npl_config npl;
         uint16_t max_input_ledger_offset;      // Maximum ledger sequence number offset that can be specified in the input.
         round_limits_config round_limits;

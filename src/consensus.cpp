@@ -27,8 +27,6 @@ namespace consensus
     constexpr float MAJORITY_THRESHOLD = 0.8;
     constexpr size_t ROUND_NONCE_SIZE = 64;
     constexpr const char *HPFS_SESSION_NAME = "ro_patch_file_to_hp";
-    constexpr const char *PUBLIC = "public";
-    constexpr const char *PRIVATE = "private";
 
     // Max no. of time to get unreliable votes before we try heuristics to increase vote receiving reliability.
     constexpr uint16_t MAX_UNRELIABLE_VOTES_ATTEMPTS = 5;
@@ -779,7 +777,7 @@ namespace consensus
 
         flatbuffers::FlatBufferBuilder fbuf;
         p2pmsg::create_msg_from_proposal(fbuf, p);
-        p2p::broadcast_message(fbuf, true, false, conf::cfg.contract.consensus.mode != PUBLIC, 1); // Use high priority send.
+        p2p::broadcast_message(fbuf, true, false, conf::cfg.contract.consensus.mode != conf::MODE::PUBLIC, 1); // Use high priority send.
 
         LOG_DEBUG << "Proposed-s" << std::to_string(p.stage)
                   << " u/i/t:" << p.users.size()
