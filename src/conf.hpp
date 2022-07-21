@@ -127,8 +127,8 @@ namespace conf
     // Broadcasting mode of consensus and npl
     enum MODE 
     {
-        MODE_PUBLIC,
-        MODE_PRIVATE
+        PUBLIC,
+        PRIVATE
     };
 
     // Max number of shards to keep for primary and raw shards.
@@ -171,7 +171,7 @@ namespace conf
 
     struct consensus_config
     {
-        MODE mode;                                      // If MODE_PUBLIC, consensus are broadcasted to non-unl nodes as well.
+        MODE mode;                                      // If PUBLIC, consensus are broadcasted to non-unl nodes as well.
         std::atomic<uint32_t> roundtime = 0;            // Consensus round time in ms (max: 3,600,000).
         std::atomic<uint32_t> stage_slice = 0;          // Percentage slice of round time that stages 0,1,2 get (max: 33).
         uint16_t threshold = 0;
@@ -179,7 +179,7 @@ namespace conf
 
     struct npl_config
     {
-        MODE mode;                // If MODE_PUBLIC, npl messages are broadcasted to non-unl nodes as well.
+        MODE mode;                // If PUBLIC, npl messages are broadcasted to non-unl nodes as well.
     };
 
     struct contract_config

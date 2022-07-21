@@ -28,8 +28,8 @@ namespace conf
     constexpr const char *ROLE_VALIDATOR = "validator";
     constexpr const char *HISTORY_FULL = "full";
     constexpr const char *HISTORY_CUSTOM = "custom";
-    constexpr const char *PUBLIC = "public";
-    constexpr const char *PRIVATE = "private";
+    constexpr const char *MODE_PUBLIC = "public";
+    constexpr const char *MODE_PRIVATE = "private";
 
     bool init_success = false;
 
@@ -172,9 +172,9 @@ namespace conf
             cfg.contract.bin_path = "<your contract binary here>";
             cfg.contract.consensus.roundtime = 1000;
             cfg.contract.consensus.stage_slice = 25;
-            cfg.contract.consensus.mode = MODE::MODE_PRIVATE;
+            cfg.contract.consensus.mode = MODE::PRIVATE;
             cfg.contract.consensus.threshold = 80;
-            cfg.contract.npl.mode = MODE::MODE_PRIVATE;
+            cfg.contract.npl.mode = MODE::PRIVATE;
             cfg.contract.max_input_ledger_offset = 10;
 
             cfg.mesh.port = 22860;
@@ -955,14 +955,14 @@ namespace conf
         jdoc.insert_or_assign("max_input_ledger_offset", contract.max_input_ledger_offset);
 
         jsoncons::ojson consensus;
-        consensus.insert_or_assign("mode", contract.consensus.mode == MODE::MODE_PUBLIC ? PUBLIC : PRIVATE);
+        consensus.insert_or_assign("mode", contract.consensus.mode == MODE::PUBLIC ? MODE_PUBLIC : MODE_PRIVATE);
         consensus.insert_or_assign("roundtime", contract.consensus.roundtime.load());
         consensus.insert_or_assign("stage_slice", contract.consensus.stage_slice.load());
         consensus.insert_or_assign("threshold", contract.consensus.threshold);
         jdoc.insert_or_assign("consensus", consensus);
 
         jsoncons::ojson npl;
-        npl.insert_or_assign("mode", contract.npl.mode == MODE::MODE_PUBLIC ? PUBLIC : PRIVATE);
+        npl.insert_or_assign("mode", contract.npl.mode == MODE::PUBLIC ? MODE_PUBLIC : MODE_PRIVATE);
         jdoc.insert_or_assign("npl", npl);
 
         jsoncons::ojson round_limits;
@@ -1054,12 +1054,12 @@ namespace conf
             contract.bin_args = jdoc["bin_args"].as<std::string>();
             contract.environment = jdoc["environment"].as<std::string>();
 
-            if (jdoc["npl"]["mode"].as<std::string>() != PUBLIC && jdoc["npl"]["mode"].as<std::string>() != PRIVATE)
+            if (jdoc["npl"]["mode"].as<std::string>() != MODE_PUBLIC && jdoc["npl"]["mode"].as<std::string>() != MODE_PRIVATE)
             {
                 std::cerr << "Invalid npl flag configured. Valid values: public|private\n";
                 return -1;
             }
-            contract.npl.mode = jdoc["npl"]["mode"].as<std::string>() == PUBLIC ? MODE::MODE_PUBLIC : MODE::MODE_PRIVATE;
+            contract.npl.mode = jdoc["npl"]["mode"].as<std::string>() == MODE_PUBLIC ? MODE::PUBLIC : MODE::PRIVATE;
             contract.max_input_ledger_offset = jdoc["max_input_ledger_offset"].as<uint16_t>();
 
             jpath = "contract.consensus";
@@ -1084,12 +1084,12 @@ namespace conf
                 return -1;
             }
 
-            if (jdoc["consensus"]["mode"].as<std::string>() != PUBLIC && jdoc["consensus"]["mode"].as<std::string>() != PRIVATE)
+            if (jdoc["consensus"]["mode"].as<std::string>() != MODE_PUBLIC && jdoc["consensus"]["mode"].as<std::string>() != MODE_PRIVATE)
             {
                 std::cerr << "Invalid consensus flag configured. Valid values: public|private\n";
                 return -1;
             }
-            contract.consensus.mode = jdoc["consensus"]["mode"].as<std::string>() == PUBLIC ? MODE::MODE_PUBLIC : MODE::MODE_PRIVATE;
+            contract.consensus.mode = jdoc["consensus"]["mode"].as<std::string>() == MODE_PUBLIC ? MODE::PUBLIC : MODE::PRIVATE;
 
             jpath = "contract.round_limits";
             contract.round_limits.user_input_bytes = jdoc["round_limits"]["user_input_bytes"].as<size_t>();

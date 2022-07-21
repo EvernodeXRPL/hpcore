@@ -777,7 +777,7 @@ namespace consensus
 
         flatbuffers::FlatBufferBuilder fbuf;
         p2pmsg::create_msg_from_proposal(fbuf, p);
-        p2p::broadcast_message(fbuf, true, false, conf::cfg.contract.consensus.mode != conf::MODE::MODE_PUBLIC, 1); // Use high priority send.
+        p2p::broadcast_message(fbuf, true, false, conf::cfg.contract.consensus.mode != conf::MODE::PUBLIC, 1); // Use high priority send.
 
         LOG_DEBUG << "Proposed-s" << std::to_string(p.stage)
                   << " u/i/t:" << p.users.size()
