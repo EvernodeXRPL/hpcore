@@ -92,8 +92,8 @@ namespace p2p
         {
             // Npl messages and consensus proposals are forwarded only to unl nodes if relavent flags (npl and consensus) are set to private.
             // If consensus and npl flags are public, these messages are forward to all the connected nodes.
-            const bool unl_only = (conf::cfg.contract.npl.mode != conf::MODE::PUBLIC && mi.type == p2pmsg::P2PMsgContent_NplMsg) ||
-                                  (conf::cfg.contract.consensus.mode != conf::MODE::PUBLIC && mi.type == p2pmsg::P2PMsgContent_ProposalMsg);
+            const bool unl_only = (conf::cfg.contract.npl.mode != conf::MODE::MODE_PUBLIC && mi.type == p2pmsg::P2PMsgContent_NplMsg) ||
+                                  (conf::cfg.contract.consensus.mode != conf::MODE::MODE_PUBLIC && mi.type == p2pmsg::P2PMsgContent_ProposalMsg);
             if (need_consensus_msg_forwarding)
             {
                 // Forward messages received by weakly connected nodes to other peers.

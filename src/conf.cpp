@@ -146,9 +146,9 @@ namespace conf
             return -1;
         }
 
-        //Create config file with default settings.
+        // Create config file with default settings.
 
-        //We populate the in-memory struct with default settings and then save it to the file.
+        // We populate the in-memory struct with default settings and then save it to the file.
         {
             hp_config cfg = {};
 
@@ -167,14 +167,14 @@ namespace conf
             cfg.contract.log.max_mbytes_per_file = 5;
             cfg.contract.log.max_file_count = 10;
             cfg.contract.version = "1.0";
-            //Add self pubkey to the unl.
+            // Add self pubkey to the unl.
             cfg.contract.unl.emplace(cfg.node.public_key);
             cfg.contract.bin_path = "<your contract binary here>";
             cfg.contract.consensus.roundtime = 1000;
             cfg.contract.consensus.stage_slice = 25;
-            cfg.contract.consensus.mode = MODE::PRIVATE;
+            cfg.contract.consensus.mode = MODE::MODE_PRIVATE;
             cfg.contract.consensus.threshold = 80;
-            cfg.contract.npl.mode = MODE::PRIVATE;
+            cfg.contract.npl.mode = MODE::MODE_PRIVATE;
             cfg.contract.max_input_ledger_offset = 10;
 
             cfg.mesh.port = 22860;
@@ -194,7 +194,7 @@ namespace conf
             cfg.log.loggers.emplace("console");
             cfg.log.loggers.emplace("file");
 
-            //Save the default settings into the config file.
+            // Save the default settings into the config file.
             if (write_config(cfg) != 0)
                 return -1;
         }
@@ -690,7 +690,7 @@ namespace conf
             }
         }
 
-        //Sign and verify a sample message to ensure we have a matching signing key pair.
+        // Sign and verify a sample message to ensure we have a matching signing key pair.
         const std::string msg = "hotpocket";
         const std::string sig = crypto::sign(msg, cfg.node.private_key);
         if (crypto::verify(msg, sig, cfg.node.public_key) != 0)
@@ -955,14 +955,14 @@ namespace conf
         jdoc.insert_or_assign("max_input_ledger_offset", contract.max_input_ledger_offset);
 
         jsoncons::ojson consensus;
-        consensus.insert_or_assign("mode", contract.consensus.mode == MODE::PUBLIC ? PUBLIC : PRIVATE);
+        consensus.insert_or_assign("mode", contract.consensus.mode == MODE::MODE_PUBLIC ? PUBLIC : PRIVATE);
         consensus.insert_or_assign("roundtime", contract.consensus.roundtime.load());
         consensus.insert_or_assign("stage_slice", contract.consensus.stage_slice.load());
         consensus.insert_or_assign("threshold", contract.consensus.threshold);
         jdoc.insert_or_assign("consensus", consensus);
 
         jsoncons::ojson npl;
-        npl.insert_or_assign("mode", contract.npl.mode== MODE::PUBLIC ? PUBLIC : PRIVATE);
+        npl.insert_or_assign("mode", contract.npl.mode == MODE::MODE_PUBLIC ? PUBLIC : PRIVATE);
         jdoc.insert_or_assign("npl", npl);
 
         jsoncons::ojson round_limits;
@@ -1030,7 +1030,7 @@ namespace conf
                 std::cerr << "Contract version not specified.\n";
                 return -1;
             }
-            
+
             jpath = "contract.unl";
             contract.unl.clear();
             for (auto &nodepk : jdoc["unl"].array_range())
@@ -1059,11 +1059,11 @@ namespace conf
                 std::cerr << "Invalid npl flag configured. Valid values: public|private\n";
                 return -1;
             }
-            contract.npl.mode = jdoc["npl"]["mode"].as<std::string>() == PUBLIC ? MODE::PUBLIC : MODE::PRIVATE;
+            contract.npl.mode = jdoc["npl"]["mode"].as<std::string>() == PUBLIC ? MODE::MODE_PUBLIC : MODE::MODE_PRIVATE;
             contract.max_input_ledger_offset = jdoc["max_input_ledger_offset"].as<uint16_t>();
 
             jpath = "contract.consensus";
-            contract.consensus.roundtime = jdoc["consensus"]["roundtime"].as<uint32_t>();                             
+            contract.consensus.roundtime = jdoc["consensus"]["roundtime"].as<uint32_t>();
             if (contract.consensus.roundtime < 1 || contract.consensus.roundtime > MAX_ROUND_TIME)
             {
                 std::cerr << "Round time must be between 1 and " << MAX_ROUND_TIME << "ms inclusive.\n";
@@ -1089,7 +1089,7 @@ namespace conf
                 std::cerr << "Invalid consensus flag configured. Valid values: public|private\n";
                 return -1;
             }
-            contract.consensus.mode = jdoc["consensus"]["mode"].as<std::string>() == PUBLIC ? MODE::PUBLIC : MODE::PRIVATE;
+            contract.consensus.mode = jdoc["consensus"]["mode"].as<std::string>() == PUBLIC ? MODE::MODE_PUBLIC : MODE::MODE_PRIVATE;
 
             jpath = "contract.round_limits";
             contract.round_limits.user_input_bytes = jdoc["round_limits"]["user_input_bytes"].as<size_t>();

@@ -45,7 +45,7 @@ namespace ledger::query
                 if (seq_q.inputs || seq_q.outputs)
                 {
                     // Do not return other users' blobs if consensus is private.
-                    const std::string filter_user = conf::cfg.contract.consensus.mode == conf::MODE::PUBLIC ? "" : std::string(user_pubkey);
+                    const std::string filter_user = conf::cfg.contract.consensus.mode == conf::MODE::MODE_PUBLIC ? "" : std::string(user_pubkey);
 
                     for (ledger_record &ledger : ledgers)
                     {
