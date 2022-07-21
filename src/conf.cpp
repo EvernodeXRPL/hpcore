@@ -1053,14 +1053,8 @@ namespace conf
             contract.bin_path = jdoc["bin_path"].as<std::string>();
             contract.bin_args = jdoc["bin_args"].as<std::string>();
             contract.environment = jdoc["environment"].as<std::string>();
-
-            if (jdoc["npl"]["mode"].as<std::string>() != MODE_PUBLIC && jdoc["npl"]["mode"].as<std::string>() != MODE_PRIVATE)
-            {
-                std::cerr << "Invalid npl flag configured. Valid values: public|private\n";
-                return -1;
-            }
-            contract.npl.mode = jdoc["npl"]["mode"].as<std::string>() == MODE_PUBLIC ? MODE::PUBLIC : MODE::PRIVATE;
             contract.max_input_ledger_offset = jdoc["max_input_ledger_offset"].as<uint16_t>();
+
 
             jpath = "contract.consensus";
             contract.consensus.roundtime = jdoc["consensus"]["roundtime"].as<uint32_t>();
@@ -1090,6 +1084,14 @@ namespace conf
                 return -1;
             }
             contract.consensus.mode = jdoc["consensus"]["mode"].as<std::string>() == MODE_PUBLIC ? MODE::PUBLIC : MODE::PRIVATE;
+
+            jpath = "contract.npl";
+            if (jdoc["npl"]["mode"].as<std::string>() != MODE_PUBLIC && jdoc["npl"]["mode"].as<std::string>() != MODE_PRIVATE)
+            {
+                std::cerr << "Invalid npl flag configured. Valid values: public|private\n";
+                return -1;
+            }
+            contract.npl.mode = jdoc["npl"]["mode"].as<std::string>() == MODE_PUBLIC ? MODE::PUBLIC : MODE::PRIVATE;
 
             jpath = "contract.round_limits";
             contract.round_limits.user_input_bytes = jdoc["round_limits"]["user_input_bytes"].as<size_t>();
