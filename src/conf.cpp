@@ -22,13 +22,14 @@ namespace conf
     constexpr int FILE_PERMS = 0644;
     constexpr uint32_t MAX_ROUND_TIME = 3600000;
     constexpr uint32_t MAX_STAGE_SLICE = 33;
+    constexpr uint32_t MAX_THRESHOLD = 100;
 
     constexpr const char *ROLE_OBSERVER = "observer";
     constexpr const char *ROLE_VALIDATOR = "validator";
     constexpr const char *HISTORY_FULL = "full";
     constexpr const char *HISTORY_CUSTOM = "custom";
-    constexpr const char *PUBLIC = "public";
-    constexpr const char *PRIVATE = "private";
+    constexpr const char *MODE_PUBLIC = "public";
+    constexpr const char *MODE_PRIVATE = "private";
 
     bool init_success = false;
 
@@ -145,9 +146,9 @@ namespace conf
             return -1;
         }
 
-        //Create config file with default settings.
+        // Create config file with default settings.
 
-        //We populate the in-memory struct with default settings and then save it to the file.
+        // We populate the in-memory struct with default settings and then save it to the file.
         {
             hp_config cfg = {};
 
@@ -166,13 +167,14 @@ namespace conf
             cfg.contract.log.max_mbytes_per_file = 5;
             cfg.contract.log.max_file_count = 10;
             cfg.contract.version = "1.0";
-            //Add self pubkey to the unl.
+            // Add self pubkey to the unl.
             cfg.contract.unl.emplace(cfg.node.public_key);
             cfg.contract.bin_path = "<your contract binary here>";
-            cfg.contract.roundtime = 1000;
-            cfg.contract.stage_slice = 25;
-            cfg.contract.is_consensus_public = false;
-            cfg.contract.is_npl_public = false;
+            cfg.contract.consensus.roundtime = 1000;
+            cfg.contract.consensus.stage_slice = 25;
+            cfg.contract.consensus.mode = MODE::PRIVATE;
+            cfg.contract.consensus.threshold = 80;
+            cfg.contract.npl.mode = MODE::PRIVATE;
             cfg.contract.max_input_ledger_offset = 10;
 
             cfg.mesh.port = 22860;
@@ -192,7 +194,7 @@ namespace conf
             cfg.log.loggers.emplace("console");
             cfg.log.loggers.emplace("file");
 
-            //Save the default settings into the config file.
+            // Save the default settings into the config file.
             if (write_config(cfg) != 0)
                 return -1;
         }
@@ -642,8 +644,9 @@ namespace conf
         // Other required fields.
 
         bool fields_invalid = false;
-        fields_invalid |= cfg.contract.roundtime == 0 && std::cerr << "Invalid value for roundtime.\n";
-        fields_invalid |= cfg.contract.stage_slice == 0 && std::cerr << "Invalid value for stage slice.\n";
+        fields_invalid |= cfg.contract.consensus.roundtime == 0 && std::cerr << "Invalid value for roundtime.\n";
+        fields_invalid |= cfg.contract.consensus.stage_slice == 0 && std::cerr << "Invalid value for stage slice.\n";
+        fields_invalid |= cfg.contract.consensus.threshold == 0 && std::cerr << "Invalid value for threshold.\n";
         fields_invalid |= cfg.contract.unl.empty() && std::cerr << "Invalid value for unl. Unl list cannot be empty.\n";
         fields_invalid |= cfg.contract.id.empty() && std::cerr << "Invalid value for contract id.\n";
         fields_invalid |= cfg.mesh.port == 0 && std::cerr << "Invalid value for mesh port.\n";
@@ -687,7 +690,7 @@ namespace conf
             }
         }
 
-        //Sign and verify a sample message to ensure we have a matching signing key pair.
+        // Sign and verify a sample message to ensure we have a matching signing key pair.
         const std::string msg = "hotpocket";
         const std::string sig = crypto::sign(msg, cfg.node.private_key);
         if (crypto::verify(msg, sig, cfg.node.public_key) != 0)
@@ -760,7 +763,7 @@ namespace conf
      * Convert string to Log Severity enum type.
      * @param severity log severity code.
      * @return log severity type.
-    */
+     */
     LOG_SEVERITY get_loglevel_type(std::string_view severity)
     {
         if (severity == "dbg")
@@ -788,7 +791,7 @@ namespace conf
     /**
      * Populate patch.cfg in hpfs using current values in config.
      * @return Returns -1 on error and 0 on successful update.
-    */
+     */
     int populate_patch_config()
     {
         jsoncons::ojson jdoc;
@@ -803,7 +806,7 @@ namespace conf
      * we also persist it to hp.cfg so that both config files are consistent with each other.
      * @param hpfs_session_name The current hpfs session hosting the patch config.
      * @return -1 on error and 0 in successful update.
-    */
+     */
     int apply_patch_config(std::string_view hpfs_session_name)
     {
         const std::string path = sc::contract_fs.physical_path(hpfs_session_name, sc::PATCH_FILE_PATH);
@@ -886,7 +889,7 @@ namespace conf
      * Locks the config file. If already locked means there's another hpcore instance running in the same directory.
      * If so, log error and return, Otherwise lock the config.
      * @return Returns 0 if lock is successfully acquired, -1 on error.
-    */
+     */
     int set_config_lock()
     {
         ctx.config_fd = open(ctx.config_file.data(), O_RDWR, 444);
@@ -910,7 +913,7 @@ namespace conf
     /**
      * Releases the config file and closes the opened file descriptor.
      * @return Returns 0 if lock is successfully acquired, -1 on error.
-    */
+     */
     int release_config_lock()
     {
         const int res = util::release_lock(ctx.config_fd, ctx.config_lock);
@@ -949,11 +952,18 @@ namespace conf
         jdoc.insert_or_assign("bin_path", contract.bin_path);
         jdoc.insert_or_assign("bin_args", contract.bin_args);
         jdoc.insert_or_assign("environment", contract.environment);
-        jdoc.insert_or_assign("roundtime", contract.roundtime.load());
-        jdoc.insert_or_assign("stage_slice", contract.stage_slice.load());
-        jdoc.insert_or_assign("consensus", contract.is_consensus_public ? PUBLIC : PRIVATE);
-        jdoc.insert_or_assign("npl", contract.is_npl_public ? PUBLIC : PRIVATE);
         jdoc.insert_or_assign("max_input_ledger_offset", contract.max_input_ledger_offset);
+
+        jsoncons::ojson consensus;
+        consensus.insert_or_assign("mode", contract.consensus.mode == MODE::PUBLIC ? MODE_PUBLIC : MODE_PRIVATE);
+        consensus.insert_or_assign("roundtime", contract.consensus.roundtime.load());
+        consensus.insert_or_assign("stage_slice", contract.consensus.stage_slice.load());
+        consensus.insert_or_assign("threshold", contract.consensus.threshold);
+        jdoc.insert_or_assign("consensus", consensus);
+
+        jsoncons::ojson npl;
+        npl.insert_or_assign("mode", contract.npl.mode == MODE::PUBLIC ? MODE_PUBLIC : MODE_PRIVATE);
+        jdoc.insert_or_assign("npl", npl);
 
         jsoncons::ojson round_limits;
         round_limits.insert_or_assign("user_input_bytes", contract.round_limits.user_input_bytes);
@@ -1021,6 +1031,7 @@ namespace conf
                 return -1;
             }
 
+            jpath = "contract.unl";
             contract.unl.clear();
             for (auto &nodepk : jdoc["unl"].array_range())
             {
@@ -1042,35 +1053,45 @@ namespace conf
             contract.bin_path = jdoc["bin_path"].as<std::string>();
             contract.bin_args = jdoc["bin_args"].as<std::string>();
             contract.environment = jdoc["environment"].as<std::string>();
+            contract.max_input_ledger_offset = jdoc["max_input_ledger_offset"].as<uint16_t>();
 
-            contract.roundtime = jdoc["roundtime"].as<uint32_t>();
-            if (contract.roundtime < 1 || contract.roundtime > MAX_ROUND_TIME)
+
+            jpath = "contract.consensus";
+            contract.consensus.roundtime = jdoc["consensus"]["roundtime"].as<uint32_t>();
+            if (contract.consensus.roundtime < 1 || contract.consensus.roundtime > MAX_ROUND_TIME)
             {
                 std::cerr << "Round time must be between 1 and " << MAX_ROUND_TIME << "ms inclusive.\n";
                 return -1;
             }
 
-            contract.stage_slice = jdoc["stage_slice"].as<uint32_t>();
-            if (contract.stage_slice < 1 || contract.stage_slice > MAX_STAGE_SLICE)
+            contract.consensus.stage_slice = jdoc["consensus"]["stage_slice"].as<uint32_t>();
+            if (contract.consensus.stage_slice < 1 || contract.consensus.stage_slice > MAX_STAGE_SLICE)
             {
                 std::cerr << "Stage slice must be between 1 and " << MAX_STAGE_SLICE << " percent inclusive.\n";
                 return -1;
             }
 
-            if (jdoc["consensus"] != PUBLIC && jdoc["consensus"] != PRIVATE)
+            contract.consensus.threshold = jdoc["consensus"]["threshold"].as<uint32_t>();
+            if (contract.consensus.threshold < 1 || contract.consensus.threshold > MAX_THRESHOLD)
+            {
+                std::cerr << "Threshold must be between 1 and " << MAX_THRESHOLD << " percent inclusive.\n";
+                return -1;
+            }
+
+            if (jdoc["consensus"]["mode"].as<std::string>() != MODE_PUBLIC && jdoc["consensus"]["mode"].as<std::string>() != MODE_PRIVATE)
             {
                 std::cerr << "Invalid consensus flag configured. Valid values: public|private\n";
                 return -1;
             }
-            contract.is_consensus_public = jdoc["consensus"] == PUBLIC;
+            contract.consensus.mode = jdoc["consensus"]["mode"].as<std::string>() == MODE_PUBLIC ? MODE::PUBLIC : MODE::PRIVATE;
 
-            if (jdoc["npl"] != PUBLIC && jdoc["npl"] != PRIVATE)
+            jpath = "contract.npl";
+            if (jdoc["npl"]["mode"].as<std::string>() != MODE_PUBLIC && jdoc["npl"]["mode"].as<std::string>() != MODE_PRIVATE)
             {
                 std::cerr << "Invalid npl flag configured. Valid values: public|private\n";
                 return -1;
             }
-            contract.is_npl_public = jdoc["npl"] == PUBLIC;
-            contract.max_input_ledger_offset = jdoc["max_input_ledger_offset"].as<uint16_t>();
+            contract.npl.mode = jdoc["npl"]["mode"].as<std::string>() == MODE_PUBLIC ? MODE::PUBLIC : MODE::PRIVATE;
 
             jpath = "contract.round_limits";
             contract.round_limits.user_input_bytes = jdoc["round_limits"]["user_input_bytes"].as<size_t>();

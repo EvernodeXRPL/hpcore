@@ -260,7 +260,7 @@ namespace p2p
         {
             // Checking the time to live of the message. The time to live for forwarding is three times the round time.
             const uint64_t time_now = util::get_epoch_milliseconds();
-            if (originated_on < (time_now - (conf::cfg.contract.roundtime * 3)))
+            if (originated_on < (time_now - (conf::cfg.contract.consensus.roundtime * 3)))
             {
                 LOG_DEBUG << "Peer message is too old for forwarding. type:" << msg_type << " from:" << session.display_name();
                 return false;

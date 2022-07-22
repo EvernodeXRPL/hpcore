@@ -50,7 +50,7 @@ namespace msg::usrmsg::bson
         encoder.key(msg::usrmsg::FLD_VOTE_STATUS);
         encoder.string_value(msg::usrmsg::VOTE_STATUSES[vote_status]);
         encoder.key(msg::usrmsg::FLD_ROUND_TIME);
-        encoder.uint64_value(conf::cfg.contract.roundtime);
+        encoder.uint64_value(conf::cfg.contract.consensus.roundtime);
         encoder.key(msg::usrmsg::FLD_CONTARCT_EXECUTION_ENABLED);
         encoder.bool_value(conf::cfg.contract.execute);
         encoder.key(msg::usrmsg::FLD_READ_REQUESTS_ENABLED);

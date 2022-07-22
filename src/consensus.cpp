@@ -510,7 +510,7 @@ namespace consensus
                 // If we are in sync, consider proposals from previous stage only.
 
                 bool keep_candidate = false;
-                if (ctx.round_start_time >= cp.time && (ctx.round_start_time - cp.time) <= conf::cfg.contract.roundtime)
+                if (ctx.round_start_time >= cp.time && (ctx.round_start_time - cp.time) <= conf::cfg.contract.consensus.roundtime)
                 {
                     if (!in_sync)
                         keep_candidate = true;
@@ -692,11 +692,11 @@ namespace consensus
         if (ctx.stage == 0)
         {
             // This gets the start time of current round window. Stage 0 must start in the window after that.
-            const uint64_t previous_round_start = (((uint64_t)((now - ctx.round_boundry_offset) / conf::cfg.contract.roundtime)) * conf::cfg.contract.roundtime) + ctx.round_boundry_offset;
+            const uint64_t previous_round_start = (((uint64_t)((now - ctx.round_boundry_offset) / conf::cfg.contract.consensus.roundtime)) * conf::cfg.contract.consensus.roundtime) + ctx.round_boundry_offset;
 
             // Stage 0 must start in the next round window.
             // (This makes sure stage 3 gets whichever the remaining time in the round after stages 0,1,2)
-            ctx.round_start_time = previous_round_start + conf::cfg.contract.roundtime;
+            ctx.round_start_time = previous_round_start + conf::cfg.contract.consensus.roundtime;
             const uint64_t to_wait = ctx.round_start_time - now;
 
             LOG_DEBUG << "Waiting " << to_wait << "ms for next round stage 0.";
@@ -777,7 +777,7 @@ namespace consensus
 
         flatbuffers::FlatBufferBuilder fbuf;
         p2pmsg::create_msg_from_proposal(fbuf, p);
-        p2p::broadcast_message(fbuf, true, false, !conf::cfg.contract.is_consensus_public, 1); // Use high priority send.
+        p2p::broadcast_message(fbuf, true, false, conf::cfg.contract.consensus.mode != conf::MODE::PUBLIC, 1); // Use high priority send.
 
         LOG_DEBUG << "Proposed-s" << std::to_string(p.stage)
                   << " u/i/t:" << p.users.size()
@@ -958,7 +958,7 @@ namespace consensus
         {
             // Vote for times.
             // Everyone votes on the discreet time, as long as it's not in the future and within 2 round times.
-            if (time_now > cp.time && (time_now - cp.time) <= (conf::cfg.contract.roundtime * 2))
+            if (time_now > cp.time && (time_now - cp.time) <= (conf::cfg.contract.consensus.roundtime * 2))
                 increment(votes.time, cp.time);
 
             // Vote for round nonce.
@@ -1462,19 +1462,19 @@ namespace consensus
             LOG_INFO << "New time config detected:" << majority_time_config << " previous:" << CURRENT_TIME_CONFIG;
 
             // Time config is a single value derived from roundtime*100 + stage_slice. Here we derive back the original components.
-            conf::cfg.contract.roundtime = (majority_time_config / 100);
-            conf::cfg.contract.stage_slice = majority_time_config - (conf::cfg.contract.roundtime * 100);
+            conf::cfg.contract.consensus.roundtime = (majority_time_config / 100);
+            conf::cfg.contract.consensus.stage_slice = majority_time_config - (conf::cfg.contract.consensus.roundtime * 100);
         }
 
         // We allocate configured stage slice for stages 1, 2, 3. Stage 0 gets the entire remaining time from the round window.
-        ctx.stage123_duration = conf::cfg.contract.roundtime * conf::cfg.contract.stage_slice / 100;
-        ctx.stage0_duration = conf::cfg.contract.roundtime - (ctx.stage123_duration * 3);
-        ctx.stage_reset_wait_threshold = conf::cfg.contract.roundtime / 10;
+        ctx.stage123_duration = conf::cfg.contract.consensus.roundtime * conf::cfg.contract.consensus.stage_slice / 100;
+        ctx.stage0_duration = conf::cfg.contract.consensus.roundtime - (ctx.stage123_duration * 3);
+        ctx.stage_reset_wait_threshold = conf::cfg.contract.consensus.roundtime / 10;
 
         // We use a time window boundry offset based on contract id to vary the window boundries between
         // different contracts with same round time.
         std::hash<std::string> str_hasher;
-        ctx.round_boundry_offset = str_hasher(conf::cfg.contract.id) % conf::cfg.contract.roundtime;
+        ctx.round_boundry_offset = str_hasher(conf::cfg.contract.id) % conf::cfg.contract.consensus.roundtime;
     }
 
 } // namespace consensus
