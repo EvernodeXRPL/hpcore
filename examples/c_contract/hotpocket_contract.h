@@ -97,6 +97,12 @@ const char *HP_POST_EXEC_SCRIPT_NAME = "post_exec.sh";
         return -1;                    \
     }
 
+enum MODE
+{
+    PUBLIC,
+    PRIVATE
+};
+
 struct hp_user_input
 {
     off_t offset;
@@ -164,6 +170,19 @@ struct hp_round_limits_config
     size_t proc_ofd_count;
 };
 
+struct consensus_config
+{
+    enum MODE mode;
+    uint32_t roundtime;
+    uint32_t stage_slice;
+    uint16_t threshold;
+};
+
+struct npl_config
+{
+    enum MODE mode;
+};
+
 struct hp_config
 {
     char *version;
@@ -173,8 +192,8 @@ struct hp_config
     char *environment;
     uint32_t roundtime;
     uint32_t stage_slice;
-    char *consensus;
-    char *npl;
+    struct consensus_config consensus;
+    struct npl_config npl;
     uint16_t max_input_ledger_offset;
     struct hp_round_limits_config round_limits;
 };
@@ -529,20 +548,23 @@ int hp_update_config(const struct hp_config *config)
     if (!config->bin_path || strlen(config->bin_path) == 0)
         __HP_UPDATE_CONFIG_ERROR("Binary path cannot be empty.");
 
-    if (config->roundtime <= 0 || config->roundtime > 3600000)
+    if (config->consensus.roundtime <= 0 || config->consensus.roundtime > 3600000)
         __HP_UPDATE_CONFIG_ERROR("Round time must be between 1 and 3600000ms inclusive.");
 
-    if (config->stage_slice <= 0 || config->stage_slice > 33)
+    if (config->consensus.stage_slice <= 0 || config->consensus.stage_slice > 33)
         __HP_UPDATE_CONFIG_ERROR("Stage slice must be between 1 and 33 percent inclusive");
 
+    if (config->consensus.threshold <= 0 || config->consensus.threshold > 100)
+        __HP_UPDATE_CONFIG_ERROR("Threshold must be between 1 and 100 percent inclusive");
+        
     if (config->max_input_ledger_offset < 0)
         __HP_UPDATE_CONFIG_ERROR("Invalid max input ledger offset.");
 
-    if (!config->consensus || strlen(config->consensus) == 0 || (strcmp(config->consensus, "public") != 0 && strcmp(config->consensus, "private") != 0))
-        __HP_UPDATE_CONFIG_ERROR("Invalid consensus flag. Valid values: public|private");
+    if (config->consensus.roundtime < 0 || config->consensus.stage_slice < 0 || config->consensus.threshold < 0 || (config->consensus.mode != PUBLIC && config->consensus.mode != PRIVATE))
+        __HP_UPDATE_CONFIG_ERROR("Invalid consensus values.");
 
-    if (!config->npl || strlen(config->npl) == 0 || (strcmp(config->npl, "public") != 0 && strcmp(config->npl, "private")) != 0)
-        __HP_UPDATE_CONFIG_ERROR("Invalid npl flag. Valid values: public|private");
+    if (config->npl.mode != PRIVATE && config->npl.mode != PUBLIC)
+        __HP_UPDATE_CONFIG_ERROR("Invalid npl values.");
 
     if (config->round_limits.user_input_bytes < 0 || config->round_limits.user_output_bytes < 0 || config->round_limits.npl_output_bytes < 0 ||
         config->round_limits.proc_cpu_seconds < 0 || config->round_limits.proc_mem_bytes < 0 || config->round_limits.proc_ofd_count < 0)
@@ -599,8 +621,6 @@ void hp_free_config(struct hp_config *config)
     __HP_FREE(config->bin_path);
     __HP_FREE(config->bin_args);
     __HP_FREE(config->environment);
-    __HP_FREE(config->consensus);
-    __HP_FREE(config->npl);
     __HP_FREE(config);
 }
 
@@ -718,7 +738,7 @@ struct hp_config *__hp_read_from_patch_file(const int fd)
  */
 int __hp_write_to_patch_file(const int fd, const struct hp_config *config)
 {
-    struct iovec iov_vec[4];
+    struct iovec iov_vec[6];
     // {version: + newline + 4 spaces => 21;
     const size_t version_len = 21 + strlen(config->version);
     char version_buf[version_len];
@@ -750,27 +770,52 @@ int __hp_write_to_patch_file(const int fd, const struct hp_config *config)
 
     // Top-level field values.
 
-    const char *json_string = "    \"bin_path\": \"%s\",\n    \"bin_args\": \"%s\",\n    \"environment\": \"%s\",\n    \"roundtime\": %s,\n    \"stage_slice\": %s,\n"
-                              "    \"consensus\": \"%s\",\n    \"npl\": \"%s\",\n    \"max_input_ledger_offset\": %s,\n";
+    const char *json_string = "    \"bin_path\": \"%s\",\n    \"bin_args\": \"%s\",\n    \"environment\": \"%s\",\n"
+                              "    \"max_input_ledger_offset\": %s,\n";
 
-    char roundtime_str[16];
-    sprintf(roundtime_str, "%d", config->roundtime);
-
-    char stage_slice_str[16];
-    sprintf(stage_slice_str, "%d", config->stage_slice);
 
     char max_input_ledger_offset_str[16];
     sprintf(max_input_ledger_offset_str, "%d", config->max_input_ledger_offset);
 
-    const size_t json_string_len = 172 + strlen(config->bin_path) + strlen(config->bin_args) + strlen(config->environment) +
-                                   strlen(roundtime_str) + strlen(stage_slice_str) +
-                                   strlen(config->consensus) + strlen(config->npl) + strlen(max_input_ledger_offset_str);
+    const size_t json_string_len = 105 + strlen(config->bin_path) + strlen(config->bin_args) + strlen(config->environment) + strlen(max_input_ledger_offset_str);
     char json_buf[json_string_len];
-    sprintf(json_buf, json_string, config->bin_path, config->bin_args, config->environment, roundtime_str, stage_slice_str, config->consensus, config->npl, max_input_ledger_offset_str);
+    sprintf(json_buf, json_string, config->bin_path, config->bin_args, config->environment, max_input_ledger_offset_str);
     iov_vec[2].iov_base = json_buf;
     iov_vec[2].iov_len = json_string_len;
 
-    // Round limits field valies.
+    // Consensus fields
+
+    const char *consensus_json = "    \"consensus\": {\n"
+                                 "        \"mode\": %s,\n        \"roundtime\": %s,\n        \"stage_slice\": %s,\n"
+                                 "        \"threshold\": %s\n  }\n}";
+
+    char consensus_mode_str[8], roundtime_str[16], stage_slice_str[16], threshold_str[3];
+
+    sprintf(consensus_mode_str, "%ul", config->consensus.mode);
+    sprintf(roundtime_str, "%d" , config->consensus.roundtime);
+    sprintf(stage_slice_str, "%d", config->consensus.stage_slice);
+    sprintf(threshold_str, "%d", config->consensus.threshold);
+
+    const size_t consensus_json_len = 120 + strlen(consensus_mode_str) + strlen(roundtime_str) + strlen(stage_slice_str) + strlen(threshold_str);
+    char consensus_buf[consensus_json_len];
+    sprintf(consensus_buf, consensus_json, consensus_mode_str, roundtime_str, stage_slice_str, threshold_str);
+    iov_vec[3].iov_base = consensus_buf;
+    iov_vec[3].iov_len = consensus_json_len;
+
+    // npl field values
+
+    const char *npl_json = "    \"npl\": {\n"
+                          "        \"mode\": %s\n  }\n}";
+
+    char npl_mode_str[8];
+    sprintf(npl_mode_str, "%d", config->npl.mode);
+    const size_t npl_json_len = 38 + strlen(npl_mode_str);
+    char npl_buf[npl_json_len];
+    sprintf(npl_buf, npl_json, npl_mode_str);
+    iov_vec[4].iov_base = npl_buf;
+    iov_vec[4].iov_len = npl_json_len;
+
+    // Round limits field values.
 
     const char *round_limits_json = "    \"round_limits\": {\n"
                                     "        \"user_input_bytes\": %s,\n        \"user_output_bytes\": %s,\n        \"npl_output_bytes\": %s,\n"
@@ -793,11 +838,11 @@ int __hp_write_to_patch_file(const int fd, const struct hp_config *config)
     sprintf(round_limits_buf, round_limits_json,
             user_input_bytes_str, user_output_bytes_str, npl_output_bytes_str,
             proc_cpu_seconds_str, proc_mem_bytes_str, proc_ofd_count_str);
-    iov_vec[3].iov_base = round_limits_buf;
-    iov_vec[3].iov_len = round_limits_json_len;
+    iov_vec[5].iov_base = round_limits_buf;
+    iov_vec[5].iov_len = round_limits_json_len;
 
     if (ftruncate(fd, 0) == -1 ||         // Clear any previous content in the file.
-        pwritev(fd, iov_vec, 4, 0) == -1) // Start writing from begining.
+        pwritev(fd, iov_vec, 6, 0) == -1) // Start writing from begining.
         return -1;
 
     return 0;
@@ -852,16 +897,6 @@ void __hp_populate_patch_from_json_object(struct hp_config *config, const struct
         {
             __HP_ASSIGN_CHAR_PTR(config->environment, elem);
         }
-        else if (strcmp(k->string, "roundtime") == 0)
-        {
-            const struct json_number_s *value = (struct json_number_s *)elem->value->payload;
-            config->roundtime = strtol(value->number, NULL, 0);
-        }
-        else if (strcmp(k->string, "stage_slice") == 0)
-        {
-            const struct json_number_s *value = (struct json_number_s *)elem->value->payload;
-            config->stage_slice = strtol(value->number, NULL, 0);
-        }
         else if (strcmp(k->string, "max_input_ledger_offset") == 0)
         {
             const struct json_number_s *value = (struct json_number_s *)elem->value->payload;
@@ -869,11 +904,48 @@ void __hp_populate_patch_from_json_object(struct hp_config *config, const struct
         }
         else if (strcmp(k->string, "consensus") == 0)
         {
-            __HP_ASSIGN_CHAR_PTR(config->consensus, elem);
+            struct json_object_s *object = (struct json_object_s *)elem->value->payload;
+            struct json_object_element_s *sub_ele = object->start;
+            do
+            {
+                if (strcmp(sub_ele->name->string, "roundtime") == 0)
+                {
+                    __HP_ASSIGN_UINT64(config->consensus.roundtime, sub_ele);
+                }
+                else if (strcmp(sub_ele->name->string, "stage_slice") == 0)
+                {
+                    __HP_ASSIGN_UINT64(config->consensus.stage_slice, sub_ele);
+                }
+                else if (strcmp(sub_ele->name->string, "threshold") == 0)
+                {
+                    __HP_ASSIGN_UINT64(config->consensus.threshold, sub_ele);
+                }
+                else if (strcmp(sub_ele->name->string, "mode") == 0)
+                {
+                    if (sub_ele->value->type == json_type_string)
+                    {
+                        const struct json_string_s *value = (struct json_string_s *)sub_ele->value->payload;
+                        config->npl.mode = (strcmp(value->string, "public") == 0) ? PUBLIC : PRIVATE;
+                    }
+                }
+            } while (sub_ele);
         }
         else if (strcmp(k->string, "npl") == 0)
         {
-            __HP_ASSIGN_CHAR_PTR(config->npl, elem);
+            struct json_object_s *object = (struct json_object_s *)elem->value->payload;
+            struct json_object_element_s *sub_ele = object->start;
+            do
+            {
+                if (strcmp(sub_ele->name->string, "mode") == 0)
+                {
+                    // __HP_ASSIGN_CHAR_PTR(config->npl.mode, sub_ele);
+                    if (sub_ele->value->type == json_type_string)
+                    {
+                        const struct json_string_s *value = (struct json_string_s *)sub_ele->value->payload;
+                        config->npl.mode = (strcmp(value->string, "public") == 0) ? PUBLIC : PRIVATE;
+                    }
+                }
+            } while (sub_ele);
         }
         else if (strcmp(k->string, "round_limits") == 0)
         {

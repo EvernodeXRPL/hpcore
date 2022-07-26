@@ -3,7 +3,7 @@
 # Generate contract sub-directories within "hpcluster" directory for the given no. of cluster nodes.
 # Usage: To generate 5-node cluster:         ./cluster-create.sh 5
 #        Specify log level (default: inf):   ./cluster-create.sh 5 dbg
-#        Specify round time (default: 1000): ./cluster-create.sh 5 inf 2000
+#        Specify round time (default: 1000): .C
 
 # Validate the node count arg.
 if [ -n "$1" ] && [ "$1" -eq "$1" ] 2>/dev/null; then
@@ -112,9 +112,14 @@ do
                     bin_path: '$binary', \
                     bin_args: '$binargs', \
                     environment: '', \
-                    roundtime: $roundtime, \
-                    consensus: 'public', \
-                    npl: 'public'
+                    consensus: { \
+                        ...require('./tmp.json').contract.consensus, \
+                        mode: 'public', \
+                        roundtime: $roundtime \
+                    }, \
+                    npl: { \
+                        mode: 'public' \
+                    }\
                 }, null, 2)")
 
     mesh_json=$(node -p "JSON.stringify({...require('./tmp.json').mesh, \
