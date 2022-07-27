@@ -112,9 +112,14 @@ do
                     bin_path: '$binary', \
                     bin_args: '$binargs', \
                     environment: '', \
-                    roundtime: $roundtime, \
-                    consensus: 'public', \
-                    npl: 'public'
+                    consensus: { \
+                        ...require('./tmp.json').contract.consensus, \
+                        mode: 'public', \
+                        roundtime: $roundtime \
+                    }, \
+                    npl: { \
+                        mode: 'public' \
+                    }\
                 }, null, 2)")
 
     mesh_json=$(node -p "JSON.stringify({...require('./tmp.json').mesh, \
