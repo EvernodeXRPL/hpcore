@@ -35,7 +35,6 @@ namespace consensus
     bool init_success = false;
     std::atomic<bool> is_patch_update_pending = false; // Keep track whether the patch file is changed by the SC and is not yet applied to runtime.
 
-    bool is_consensus_public = false;
     int init()
     {
         refresh_time_config(false);
