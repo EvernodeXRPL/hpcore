@@ -23,13 +23,14 @@ namespace p2pmsg = msg::fbuf::p2pmsg;
 
 namespace consensus
 {
-    float stage_thresholds[3] = {};
-    double majority_threshold;
     constexpr size_t ROUND_NONCE_SIZE = 64;
     constexpr const char *HPFS_SESSION_NAME = "ro_patch_file_to_hp";
 
     // Max no. of time to get unreliable votes before we try heuristics to increase vote receiving reliability.
     constexpr uint16_t MAX_UNRELIABLE_VOTES_ATTEMPTS = 5;
+
+    float stage_threshold_ratio[3] = {};
+    double majority_threshold;
 
     consensus_context ctx;
     bool init_success = false;
@@ -43,11 +44,14 @@ namespace consensus
         ctx.consensus_thread = std::thread(run_consensus);
 
         init_success = true;
+
+        // To maintain 0.5, 0.65, 0.8 ratio.
         majority_threshold = conf::cfg.contract.consensus.threshold / 100.0;
-        //creating a array similar to {0.5, 0.65, 0.8} with correct ration values
-        stage_thresholds[0] = majority_threshold; //to maintain 0.5, 0.65, 0.8 ratio
-        stage_thresholds[1] = (0.65 * majority_threshold) / 0.8; //to maintain 0.5, 0.65, 0.8 ratio
-        stage_thresholds[2] = (0.50 * majority_threshold) / 0.8; //to maintain 0.5, 0.65, 0.8 ratio
+        
+        // Creating a array similar to {0.5, 0.65, 0.8} with correct ratio values.
+        stage_threshold_ratio[0] = majority_threshold;
+        stage_threshold_ratio[1] = (0.65 * majority_threshold) / 0.8;
+        stage_threshold_ratio[2] = (0.50 * majority_threshold) / 0.8;
         return 0;
     }
 
@@ -982,7 +986,7 @@ namespace consensus
             increment(votes.output_hash, cp.output_hash);
         }
 
-        uint32_t required_votes = ceil(stage_thresholds[ctx.stage - 1] * unl_count);
+        uint32_t required_votes = ceil(stage_threshold_ratio[ctx.stage - 1] * unl_count);
 
         // todo: check if inputs being proposed by another node are actually spoofed inputs
         // from a user locally connected to this node.
