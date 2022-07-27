@@ -560,11 +560,11 @@ int hp_update_config(const struct hp_config *config)
     if (config->max_input_ledger_offset < 0)
         __HP_UPDATE_CONFIG_ERROR("Invalid max input ledger offset.");
 
-    if (config->consensus.roundtime < 0 || config->consensus.stage_slice < 0 || config->consensus.threshold < 0 || (config->consensus.mode != PUBLIC && config->consensus.mode != PRIVATE))
-        __HP_UPDATE_CONFIG_ERROR("Invalid consensus values.");
+    if (config->consensus.mode != PUBLIC && config->consensus.mode != PRIVATE)
+        __HP_UPDATE_CONFIG_ERROR("Invalid consensus mode. Valid values: public|private");
 
     if (config->npl.mode != PRIVATE && config->npl.mode != PUBLIC)
-        __HP_UPDATE_CONFIG_ERROR("Invalid npl values.");
+        __HP_UPDATE_CONFIG_ERROR("Invalid npl mode. Valid values: public|private");
 
     if (config->round_limits.user_input_bytes < 0 || config->round_limits.user_output_bytes < 0 || config->round_limits.npl_output_bytes < 0 ||
         config->round_limits.proc_cpu_seconds < 0 || config->round_limits.proc_mem_bytes < 0 || config->round_limits.proc_ofd_count < 0)
@@ -791,7 +791,7 @@ int __hp_write_to_patch_file(const int fd, const struct hp_config *config)
 
     char consensus_mode_str[8], roundtime_str[16], stage_slice_str[16], threshold_str[3];
 
-    sprintf(consensus_mode_str, "%ul", config->consensus.mode);
+    sprintf(consensus_mode_str, "%s", config->consensus.mode == PUBLIC ? "public" : "private");
     sprintf(roundtime_str, "%d" , config->consensus.roundtime);
     sprintf(stage_slice_str, "%d", config->consensus.stage_slice);
     sprintf(threshold_str, "%d", config->consensus.threshold);
@@ -808,7 +808,7 @@ int __hp_write_to_patch_file(const int fd, const struct hp_config *config)
                           "        \"mode\": %s\n  }\n}";
 
     char npl_mode_str[8];
-    sprintf(npl_mode_str, "%d", config->npl.mode);
+    sprintf(npl_mode_str, "%s", config->npl.mode == PUBLIC ? "public" : "private");
     const size_t npl_json_len = 38 + strlen(npl_mode_str);
     char npl_buf[npl_json_len];
     sprintf(npl_buf, npl_json, npl_mode_str);
@@ -928,6 +928,7 @@ void __hp_populate_patch_from_json_object(struct hp_config *config, const struct
                         config->npl.mode = (strcmp(value->string, "public") == 0) ? PUBLIC : PRIVATE;
                     }
                 }
+                sub_ele = sub_ele->next;
             } while (sub_ele);
         }
         else if (strcmp(k->string, "npl") == 0)
@@ -945,6 +946,7 @@ void __hp_populate_patch_from_json_object(struct hp_config *config, const struct
                         config->npl.mode = (strcmp(value->string, "public") == 0) ? PUBLIC : PRIVATE;
                     }
                 }
+                sub_ele = sub_ele->next;
             } while (sub_ele);
         }
         else if (strcmp(k->string, "round_limits") == 0)

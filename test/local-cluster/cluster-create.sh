@@ -3,7 +3,7 @@
 # Generate contract sub-directories within "hpcluster" directory for the given no. of cluster nodes.
 # Usage: To generate 5-node cluster:         ./cluster-create.sh 5
 #        Specify log level (default: inf):   ./cluster-create.sh 5 dbg
-#        Specify round time (default: 1000): .C
+#        Specify round time (default: 1000): ./cluster-create.sh 5 inf 2000
 
 # Validate the node count arg.
 if [ -n "$1" ] && [ "$1" -eq "$1" ] 2>/dev/null; then
