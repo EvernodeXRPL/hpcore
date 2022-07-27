@@ -29,7 +29,8 @@ namespace consensus
     // Max no. of time to get unreliable votes before we try heuristics to increase vote receiving reliability.
     constexpr uint16_t MAX_UNRELIABLE_VOTES_ATTEMPTS = 5;
 
-    float stage_threshold_ratio[3] = {};
+    float stage_threshold[3] = {};
+    constexpr float STAGE_THRESHOLD_RATIO[3] = {0.5, 0.65, 0.8};
     double majority_threshold;
 
     consensus_context ctx;
@@ -49,9 +50,9 @@ namespace consensus
         majority_threshold = conf::cfg.contract.consensus.threshold / 100.0;
         
         // Creating a array similar to {0.5, 0.65, 0.8} with correct ratio values.
-        stage_threshold_ratio[0] = majority_threshold;
-        stage_threshold_ratio[1] = (0.65 * majority_threshold) / 0.8;
-        stage_threshold_ratio[2] = (0.50 * majority_threshold) / 0.8;
+        stage_threshold[0] = (STAGE_THRESHOLD_RATIO[0] * majority_threshold) / STAGE_THRESHOLD_RATIO[2];;
+        stage_threshold[1] = (STAGE_THRESHOLD_RATIO[1] * majority_threshold) / STAGE_THRESHOLD_RATIO[2];
+        stage_threshold[2] = majority_threshold;
         return 0;
     }
 
@@ -986,7 +987,7 @@ namespace consensus
             increment(votes.output_hash, cp.output_hash);
         }
 
-        uint32_t required_votes = ceil(stage_threshold_ratio[ctx.stage - 1] * unl_count);
+        uint32_t required_votes = ceil(stage_threshold[ctx.stage - 1] * unl_count);
 
         // todo: check if inputs being proposed by another node are actually spoofed inputs
         // from a user locally connected to this node.
