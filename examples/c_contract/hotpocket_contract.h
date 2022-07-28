@@ -556,7 +556,7 @@ int hp_update_config(const struct hp_config *config)
 
     if (config->consensus.threshold <= 0 || config->consensus.threshold > 100)
         __HP_UPDATE_CONFIG_ERROR("Threshold must be between 1 and 100 percent inclusive");
-        
+
     if (config->max_input_ledger_offset < 0)
         __HP_UPDATE_CONFIG_ERROR("Invalid max input ledger offset.");
 
@@ -773,11 +773,10 @@ int __hp_write_to_patch_file(const int fd, const struct hp_config *config)
     const char *json_string = "    \"bin_path\": \"%s\",\n    \"bin_args\": \"%s\",\n    \"environment\": \"%s\",\n"
                               "    \"max_input_ledger_offset\": %s,\n";
 
-
     char max_input_ledger_offset_str[16];
     sprintf(max_input_ledger_offset_str, "%d", config->max_input_ledger_offset);
 
-    const size_t json_string_len = 105 + strlen(config->bin_path) + strlen(config->bin_args) + strlen(config->environment) + strlen(max_input_ledger_offset_str);
+    const size_t json_string_len = 96 + strlen(config->bin_path) + strlen(config->bin_args) + strlen(config->environment) + strlen(max_input_ledger_offset_str);
     char json_buf[json_string_len];
     sprintf(json_buf, json_string, config->bin_path, config->bin_args, config->environment, max_input_ledger_offset_str);
     iov_vec[2].iov_base = json_buf;
@@ -787,16 +786,16 @@ int __hp_write_to_patch_file(const int fd, const struct hp_config *config)
 
     const char *consensus_json = "    \"consensus\": {\n"
                                  "        \"mode\": %s,\n        \"roundtime\": %s,\n        \"stage_slice\": %s,\n"
-                                 "        \"threshold\": %s\n  }\n}";
+                                 "        \"threshold\": %s\n    },\n";
 
-    char consensus_mode_str[8], roundtime_str[16], stage_slice_str[16], threshold_str[3];
+    char consensus_mode_str[9], roundtime_str[16], stage_slice_str[16], threshold_str[3];
 
-    sprintf(consensus_mode_str, "%s", config->consensus.mode == PUBLIC ? "public" : "private");
-    sprintf(roundtime_str, "%d" , config->consensus.roundtime);
+    sprintf(consensus_mode_str, "\"%s\"", config->consensus.mode == PUBLIC ? "public" : "private");
+    sprintf(roundtime_str, "%d", config->consensus.roundtime);
     sprintf(stage_slice_str, "%d", config->consensus.stage_slice);
     sprintf(threshold_str, "%d", config->consensus.threshold);
 
-    const size_t consensus_json_len = 120 + strlen(consensus_mode_str) + strlen(roundtime_str) + strlen(stage_slice_str) + strlen(threshold_str);
+    const size_t consensus_json_len = 114 + strlen(consensus_mode_str) + strlen(roundtime_str) + strlen(stage_slice_str) + strlen(threshold_str);
     char consensus_buf[consensus_json_len];
     sprintf(consensus_buf, consensus_json, consensus_mode_str, roundtime_str, stage_slice_str, threshold_str);
     iov_vec[3].iov_base = consensus_buf;
@@ -805,11 +804,11 @@ int __hp_write_to_patch_file(const int fd, const struct hp_config *config)
     // npl field values
 
     const char *npl_json = "    \"npl\": {\n"
-                          "        \"mode\": %s\n  }\n}";
+                           "        \"mode\": %s\n    },\n";
 
-    char npl_mode_str[8];
-    sprintf(npl_mode_str, "%s", config->npl.mode == PUBLIC ? "public" : "private");
-    const size_t npl_json_len = 38 + strlen(npl_mode_str);
+    char npl_mode_str[9];
+    sprintf(npl_mode_str, "\"%s\"", config->npl.mode == PUBLIC ? "public" : "private");
+    const size_t npl_json_len = 37 + strlen(npl_mode_str);
     char npl_buf[npl_json_len];
     sprintf(npl_buf, npl_json, npl_mode_str);
     iov_vec[4].iov_base = npl_buf;
@@ -939,7 +938,6 @@ void __hp_populate_patch_from_json_object(struct hp_config *config, const struct
             {
                 if (strcmp(sub_ele->name->string, "mode") == 0)
                 {
-                    // __HP_ASSIGN_CHAR_PTR(config->npl.mode, sub_ele);
                     if (sub_ele->value->type == json_type_string)
                     {
                         const struct json_string_s *value = (struct json_string_s *)sub_ele->value->payload;
