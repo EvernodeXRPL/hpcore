@@ -23,13 +23,15 @@ namespace p2pmsg = msg::fbuf::p2pmsg;
 
 namespace consensus
 {
-    constexpr float STAGE_THRESHOLDS[] = {0.5, 0.65, 0.8}; // Voting thresholds for stage 1,2,3
-    constexpr float MAJORITY_THRESHOLD = 0.8;
     constexpr size_t ROUND_NONCE_SIZE = 64;
     constexpr const char *HPFS_SESSION_NAME = "ro_patch_file_to_hp";
 
     // Max no. of time to get unreliable votes before we try heuristics to increase vote receiving reliability.
     constexpr uint16_t MAX_UNRELIABLE_VOTES_ATTEMPTS = 5;
+
+    float stage_threshold[3] = {};
+    constexpr float STAGE_THRESHOLD_RATIO[3] = {0.5, 0.65, 0.8};
+    double majority_threshold;
 
     consensus_context ctx;
     bool init_success = false;
@@ -43,6 +45,14 @@ namespace consensus
         ctx.consensus_thread = std::thread(run_consensus);
 
         init_success = true;
+
+        // To maintain 0.5, 0.65, 0.8 ratio.
+        majority_threshold = conf::cfg.contract.consensus.threshold / 100.0;
+        
+        // Creating a array similar to {0.5, 0.65, 0.8} with correct ratio values.
+        stage_threshold[0] = (STAGE_THRESHOLD_RATIO[0] * majority_threshold) / STAGE_THRESHOLD_RATIO[2];;
+        stage_threshold[1] = (STAGE_THRESHOLD_RATIO[1] * majority_threshold) / STAGE_THRESHOLD_RATIO[2];
+        stage_threshold[2] = majority_threshold;
         return 0;
     }
 
@@ -260,7 +270,7 @@ namespace consensus
                     cp_root_hash.try_emplace(cp.root_hash, cp);
             }
         }
-        const uint32_t min_votes_required = ceil(MAJORITY_THRESHOLD * unl::count());
+        const uint32_t min_votes_required = ceil(majority_threshold * unl::count());
         if (stage3_prop_count < min_votes_required)
         {
             // We don't have enough stage 3 proposals to create a ledger.
@@ -977,7 +987,7 @@ namespace consensus
             increment(votes.output_hash, cp.output_hash);
         }
 
-        uint32_t required_votes = ceil(STAGE_THRESHOLDS[ctx.stage - 1] * unl_count);
+        uint32_t required_votes = ceil(stage_threshold[ctx.stage - 1] * unl_count);
 
         // todo: check if inputs being proposed by another node are actually spoofed inputs
         // from a user locally connected to this node.
@@ -995,7 +1005,7 @@ namespace consensus
                 p.input_ordered_hashes.emplace(hash);
 
         // Reset required votes for majority votes.
-        required_votes = ceil(MAJORITY_THRESHOLD * unl_count);
+        required_votes = ceil(majority_threshold * unl_count);
 
         // Add the output hash which has most votes over stage threshold to proposal.
         uint32_t highest_output_vote = 0;
@@ -1072,7 +1082,7 @@ namespace consensus
         }
 
         // Check whether we have received enough votes in total.
-        const uint32_t min_votes_required = ceil(MAJORITY_THRESHOLD * unl_count);
+        const uint32_t min_votes_required = ceil(majority_threshold * unl_count);
         if (total_ledger_primary_hash_votes < min_votes_required)
         {
             LOG_INFO << "Not enough peers proposing to perform consensus. votes:" << total_ledger_primary_hash_votes << " needed:" << min_votes_required;
