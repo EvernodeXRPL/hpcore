@@ -37,7 +37,7 @@ elif [ "$CONTRACT" = "nodefile" ]; then # nodejs file contract (uses BSON protoc
     copyfiles="$hpcore/examples/nodejs_contract/dist/file-contract/index.js"
     binary="/usr/bin/node"
     binargs="index.js"
-
+    
 elif [ "$CONTRACT" = "diag" ]; then # Diagnostic contract
     echo "Using diagnostic contract."
     pushd $hpcore/examples/nodejs_contract/ > /dev/null 2>&1
