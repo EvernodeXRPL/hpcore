@@ -205,8 +205,8 @@ struct hp_contract_context
     char contract_id[HP_CONTRACT_ID_SIZE + 1]; // +1 for null char.
     struct hp_public_key public_key;
     struct hp_private_key private_key;
-    uint64_t lcl_seq_no;                       // lcl sequence no.
-    char lcl_hash[HP_HASH_SIZE + 1];           // +1 for null char.
+    uint64_t lcl_seq_no;             // lcl sequence no.
+    char lcl_hash[HP_HASH_SIZE + 1]; // +1 for null char.
     struct hp_users_collection users;
     struct hp_unl_collection unl;
 };
@@ -924,7 +924,7 @@ void __hp_populate_patch_from_json_object(struct hp_config *config, const struct
                     if (sub_ele->value->type == json_type_string)
                     {
                         const struct json_string_s *value = (struct json_string_s *)sub_ele->value->payload;
-                        config->npl.mode = (strcmp(value->string, "public") == 0) ? PUBLIC : PRIVATE;
+                        config->consensus.mode = (strcmp(value->string, "public") == 0) ? PUBLIC : PRIVATE;
                     }
                 }
                 sub_ele = sub_ele->next;
