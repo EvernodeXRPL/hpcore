@@ -788,7 +788,7 @@ int __hp_write_to_patch_file(const int fd, const struct hp_config *config)
                                  "        \"mode\": %s,\n        \"roundtime\": %s,\n        \"stage_slice\": %s,\n"
                                  "        \"threshold\": %s\n    },\n";
 
-    char consensus_mode_str[9], roundtime_str[16], stage_slice_str[16], threshold_str[3];
+    char consensus_mode_str[10], roundtime_str[16], stage_slice_str[16], threshold_str[6];
 
     sprintf(consensus_mode_str, "\"%s\"", config->consensus.mode == PUBLIC ? "public" : "private");
     sprintf(roundtime_str, "%d", config->consensus.roundtime);
@@ -806,7 +806,7 @@ int __hp_write_to_patch_file(const int fd, const struct hp_config *config)
     const char *npl_json = "    \"npl\": {\n"
                            "        \"mode\": %s\n    },\n";
 
-    char npl_mode_str[9];
+    char npl_mode_str[10];
     sprintf(npl_mode_str, "\"%s\"", config->npl.mode == PUBLIC ? "public" : "private");
     const size_t npl_json_len = 37 + strlen(npl_mode_str);
     char npl_buf[npl_json_len];

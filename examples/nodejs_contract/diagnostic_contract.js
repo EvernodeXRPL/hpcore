@@ -89,14 +89,14 @@ const diagnosticContract = async (ctx) => {
                     if (!isNaN(param)) {
                         if (param >= 100) {
                             const config = await ctx.getConfig();
-                            config.roundtime = param;
+                            config.consensus.roundtime = param;
                             await ctx.updateConfig(config)
-                            output = "Updated Roundtime to " + config.roundtime;
+                            output = "Updated Roundtime to " + config.consensus.roundtime;
                         }
                     }
                     else {
                         const config = await ctx.getConfig();
-                        output = "Roundtime: " + config.roundtime;
+                        output = "Roundtime: " + config.consensus.roundtime;
                     }
                 }
                 else {
