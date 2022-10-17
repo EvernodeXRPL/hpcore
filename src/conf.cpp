@@ -1052,7 +1052,7 @@ namespace conf
 
             contract.bin_path = jdoc["bin_path"].as<std::string>();
             contract.bin_args = jdoc["bin_args"].as<std::string>();
-            contract.environment = jdoc["environment"].as<std::string>();
+            contract.environment = jdoc["environment"].as<std::map<std::string, std::string>>();
             contract.max_input_ledger_offset = jdoc["max_input_ledger_offset"].as<uint16_t>();
 
 
@@ -1109,8 +1109,8 @@ namespace conf
 
         contract.runtime_env_args.clear();
         // Populate runtime environment args.
-        if (!contract.environment.empty())
-            util::split_string(contract.runtime_env_args, contract.environment, " ");
+        for (const auto &[key, val] : contract.environment)
+            contract.runtime_env_args.push_back(key + "=" + val);
 
         contract.runtime_binexec_args.clear();
         // Populate runtime contract execution args.

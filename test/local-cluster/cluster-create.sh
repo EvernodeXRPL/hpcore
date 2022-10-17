@@ -111,7 +111,7 @@ do
                     id: '3c349abe-4d70-4f50-9fa6-018f1f2530ab', \
                     bin_path: '$binary', \
                     bin_args: '$binargs', \
-                    environment: '', \
+                    environment: {}, \
                     consensus: { \
                         ...require('./tmp.json').contract.consensus, \
                         mode: 'public', \
