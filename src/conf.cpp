@@ -1052,9 +1052,16 @@ namespace conf
 
             contract.bin_path = jdoc["bin_path"].as<std::string>();
             contract.bin_args = jdoc["bin_args"].as<std::string>();
-            contract.environment = jdoc["environment"].as<std::map<std::string, std::string>>();
+            if (jdoc.contains("environment") && jdoc["environment"].is_object())
+            {
+                contract.environment = jdoc["environment"].as<std::map<std::string, std::string>>();
+            }
+            else
+            {
+                std::cerr << "Environment must be a map of key value pairs\n";
+                return -1;
+            }
             contract.max_input_ledger_offset = jdoc["max_input_ledger_offset"].as<uint16_t>();
-
 
             jpath = "contract.consensus";
             contract.consensus.roundtime = jdoc["consensus"]["roundtime"].as<uint32_t>();
