@@ -1033,8 +1033,20 @@ namespace conf
 
             contract.bin_path = jdoc["bin_path"].as<std::string>();
             contract.bin_args = jdoc["bin_args"].as<std::string>();
-            contract.environment = jdoc["environment"].as<std::map<std::string, std::string>>();
             contract.max_input_ledger_offset = jdoc["max_input_ledger_offset"].as<uint16_t>();
+
+            jpath = "contract.environment";
+            for (const auto &obj : jdoc["environment"].object_range())
+            {
+                // Environment variable values should be strings.
+                if (!obj.value().is_string())
+                {
+                    std::cerr << jpath << "." << obj.key() << " environment variable should be a string.\n";
+                    return -1;
+                }
+
+                contract.environment.emplace(obj.key(), obj.value().as<std::string>());
+            }
 
             jpath = "contract.unl";
             contract.unl.clear();
