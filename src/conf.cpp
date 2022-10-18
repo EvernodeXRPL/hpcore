@@ -1031,6 +1031,23 @@ namespace conf
                 return -1;
             }
 
+            contract.bin_path = jdoc["bin_path"].as<std::string>();
+            contract.bin_args = jdoc["bin_args"].as<std::string>();
+            contract.max_input_ledger_offset = jdoc["max_input_ledger_offset"].as<uint16_t>();
+
+            jpath = "contract.environment";
+            for (const auto &obj : jdoc["environment"].object_range())
+            {
+                // Environment variable values should be strings.
+                if (!obj.value().is_string())
+                {
+                    std::cerr << jpath << "." << obj.key() << " environment variable should be a string.\n";
+                    return -1;
+                }
+
+                contract.environment.emplace(obj.key(), obj.value().as<std::string>());
+            }
+
             jpath = "contract.unl";
             contract.unl.clear();
             for (auto &nodepk : jdoc["unl"].array_range())
@@ -1049,12 +1066,6 @@ namespace conf
                 std::cerr << "UNL cannot be empty.\n";
                 return -1;
             }
-
-            contract.bin_path = jdoc["bin_path"].as<std::string>();
-            contract.bin_args = jdoc["bin_args"].as<std::string>();
-            contract.environment = jdoc["environment"].as<std::string>();
-            contract.max_input_ledger_offset = jdoc["max_input_ledger_offset"].as<uint16_t>();
-
 
             jpath = "contract.consensus";
             contract.consensus.roundtime = jdoc["consensus"]["roundtime"].as<uint32_t>();
@@ -1109,8 +1120,8 @@ namespace conf
 
         contract.runtime_env_args.clear();
         // Populate runtime environment args.
-        if (!contract.environment.empty())
-            util::split_string(contract.runtime_env_args, contract.environment, " ");
+        for (const auto &[key, val] : contract.environment)
+            contract.runtime_env_args.push_back(key + "=" + val);
 
         contract.runtime_binexec_args.clear();
         // Populate runtime contract execution args.
