@@ -1036,6 +1036,7 @@ namespace conf
             contract.max_input_ledger_offset = jdoc["max_input_ledger_offset"].as<uint16_t>();
 
             jpath = "contract.environment";
+            contract.environment.clear();
             for (const auto &obj : jdoc["environment"].object_range())
             {
                 // Environment variable values should be strings.
