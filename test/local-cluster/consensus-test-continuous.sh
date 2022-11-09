@@ -24,7 +24,7 @@ while true; do
         -p ${pubport}:${pubport} -a stderr -a stdout \
         --device /dev/fuse --cap-add SYS_ADMIN --security-opt apparmor:unconfined \
         --mount type=bind,source=${clusterloc}/node${n},target=/contract \
-        hpcore:latest run /contract > $PIPE 2>> $PIPE 3>MARKER &
+        hpcore:0.6.0 run /contract > $PIPE 2>> $PIPE 3>MARKER &
     PID=$!
     sleep 1
 

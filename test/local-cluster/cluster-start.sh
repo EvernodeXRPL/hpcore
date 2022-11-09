@@ -26,4 +26,4 @@ docker run --rm -t -i --network=hpnet --ip=172.1.1.${n} --name=node${n} \
     -p ${peerport}:${peerport} \
     --device /dev/fuse --cap-add SYS_ADMIN --security-opt apparmor:unconfined \
     --mount type=bind,source=${clusterloc}/node${n},target=/contract \
-    hpcore:latest run /contract
+    hpcore:0.6.0 run /contract

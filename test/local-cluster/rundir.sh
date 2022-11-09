@@ -25,4 +25,4 @@ docker run --rm -t -i --network=hpnet --name=hp_$dirname \
     -p ${pubport}:${pubport} \
     --device /dev/fuse --cap-add SYS_ADMIN --security-opt apparmor:unconfined \
     --mount type=bind,source=$dir,target=/contract \
-    hpcore:latest run /contract
+    hpcore:0.6.0 run /contract
