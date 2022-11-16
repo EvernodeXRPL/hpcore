@@ -3,6 +3,7 @@
 
 clusterloc=$(pwd)/hpcluster
 n=1
+hpversion=0.6.0
 let pubport=8080+$n
 while true; do
     CONSENSUS="0"
@@ -11,7 +12,7 @@ while true; do
         -p ${pubport}:${pubport} -a stderr -a stdout \
         --device /dev/fuse --cap-add SYS_ADMIN --security-opt apparmor:unconfined \
         --mount type=bind,source=${clusterloc}/node${n},target=/contract \
-        hpcore:0.6.0 run /contract  > contest.out 2>> contest.out &
+        hpcore:${hpversion} run /contract  > contest.out 2>> contest.out &
     PID=$!
     sleep 1
     kill -s 0 $PID 2> /dev/null 1> /dev/null

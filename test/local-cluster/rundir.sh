@@ -15,6 +15,7 @@ fi
 dir=$(realpath $1)
 dirname=$(basename  $dir)
 n=$1
+hpversion=0.6.0
 
 let pubport=8080
 
@@ -25,4 +26,4 @@ docker run --rm -t -i --network=hpnet --name=hp_$dirname \
     -p ${pubport}:${pubport} \
     --device /dev/fuse --cap-add SYS_ADMIN --security-opt apparmor:unconfined \
     --mount type=bind,source=$dir,target=/contract \
-    hpcore:0.6.0 run /contract
+    hpcore:${hpversion} run /contract
