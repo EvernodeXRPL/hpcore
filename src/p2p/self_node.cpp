@@ -4,6 +4,8 @@
 #include "../msg/fbuf/p2pmsg_generated.h"
 #include "../msg/fbuf/p2pmsg_conversion.hpp"
 #include "../msg/fbuf/common_helpers.hpp"
+#include "../util/rollover_hashset.hpp"
+#include "../crypto.hpp"
 
 namespace p2pmsg = msg::fbuf::p2pmsg;
 
@@ -13,6 +15,9 @@ namespace p2p::self
     moodycamel::ConcurrentQueue<std::string> msg_queue;
 
     std::optional<conf::peer_ip_port> ip_port;
+
+    // The set of recent self message hashes used for duplicate detection.
+    util::rollover_hashset recent_selfmsg_hashes(200);
 
     /**
      * Processes the next queued message (if any).
@@ -27,11 +32,27 @@ namespace p2p::self
             const peer_message_info mi = p2pmsg::get_peer_message_info(msg);
 
             if (mi.type == p2pmsg::P2PMsgContent_ProposalMsg)
+            {
                 handle_proposal_message(p2pmsg::create_proposal_from_msg(mi, hash_proposal_msg(*mi.p2p_msg->content_as_ProposalMsg())));
+            }
             else if (mi.type == p2pmsg::P2PMsgContent_NonUnlProposalMsg)
+            {
                 handle_nonunl_proposal_message(p2pmsg::create_nonunl_proposal_from_msg(mi));
+            }
             else if (mi.type == p2pmsg::P2PMsgContent_NplMsg)
+            {
+                // For self messages, we perform duplicate checks for NPL messages.
+
+                // Messages larger than the duplicate message threshold is ignored from the duplicate message check
+                // due to the overhead in hash generation for larger messages.
+                if (msg.size() <= conf::MAX_SIZE_FOR_DUP_CHECK && !recent_selfmsg_hashes.try_emplace(crypto::get_hash(msg)))
+                {
+                    LOG_DEBUG << "Duplicate self npl message.";
+                    return 0;
+                }
+
                 handle_npl_message(p2pmsg::create_npl_from_msg(mi));
+            }
         }
 
         return 0;

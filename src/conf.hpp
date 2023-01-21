@@ -12,6 +12,9 @@ namespace conf
 {
     constexpr size_t CONCURRENT_READ_REQUEST_MAX_LIMIT = 32;
 
+    // Max size of messages which are subjected to duplicate message check.
+    constexpr size_t MAX_SIZE_FOR_DUP_CHECK = 1 * 1024 * 1024; // 1 MB
+
 #define CURRENT_TIME_CONFIG ((conf::cfg.contract.consensus.roundtime * 100) + conf::cfg.contract.consensus.stage_slice)
 
     // Struct to represent ip and port of the peer.

@@ -13,9 +13,6 @@ namespace p2pmsg = msg::fbuf::p2pmsg;
 
 namespace p2p
 {
-    // Max size of messages which are subjected to duplicate message check.
-    constexpr size_t MAX_SIZE_FOR_DUP_CHECK = 1 * 1024 * 1024; // 1 MB
-
     // The set of recent peer message hashes used for duplicate detection.
     util::rollover_hashset recent_peermsg_hashes(200);
 
@@ -80,7 +77,7 @@ namespace p2p
 
         // Messages larger than the duplicate message threshold is ignored from the duplicate message check
         // due to the overhead in hash generation for larger messages.
-        if (message_size <= MAX_SIZE_FOR_DUP_CHECK && !recent_peermsg_hashes.try_emplace(crypto::get_hash(msg)))
+        if (message_size <= conf::MAX_SIZE_FOR_DUP_CHECK && !recent_peermsg_hashes.try_emplace(crypto::get_hash(msg)))
         {
             increment_metric(comm::SESSION_THRESHOLDS::MAX_DUPMSGS_PER_MINUTE, 1);
             LOG_DEBUG << "Duplicate peer message. type:" << mi.type << " from:" << display_name();
