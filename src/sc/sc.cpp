@@ -448,13 +448,21 @@ namespace sc
             out_fds[i] = {fd, POLLIN, 0};
         }
 
+        // Keeps track of whether any messages were handled in the previous poll iteration.
+        bool messages_handled = false;
+
+        // Polling loop which keeps checking contract fds.
         while (!ctx.is_shutting_down)
         {
+            bool messages_read = false, messages_written = false;
+
             // Reset the revents because we are reusing same pollfd list.
             for (size_t i = 0; i < out_fd_count; i++)
                 out_fds[i].revents = 0;
 
-            if (poll(out_fds, out_fd_count, 20) == -1)
+            // If any messages were handled in the previous iteration, don't use a timeout delay since
+            // more messages might be waiting to be read/written.
+            if (poll(out_fds, out_fd_count, messages_handled ? 0 : 20) == -1)
             {
                 LOG_ERROR << errno << ": Poll error in contract outputs.";
                 break;
@@ -464,17 +472,18 @@ namespace sc
             const int control_read_res = read_control_outputs(ctx, out_fds[control_fd_idx]);
             const int npl_read_res = ctx.args.readonly ? 0 : read_npl_outputs(ctx, &out_fds[npl_fd_idx]);
             const int user_read_res = read_contract_fdmap_outputs(ctx.user_fds, out_fds, ctx.args.userbufs);
+            messages_read = (control_read_res + npl_read_res + user_read_res) > 0;
 
             if (ctx.termination_signaled || ctx.contract_pid == 0)
             {
-                // If no bytes were read after contract finished execution, exit the loop.
+                // If no messages were read after contract finished execution, exit the polling loop.
                 // Otherwise keep running the loop becaue there might be further messages to read.
-                if ((control_read_res + npl_read_res + user_read_res) == 0)
+                if (!messages_read)
                     break;
             }
             else
             {
-                // We assume contract is still running. Attempt to write any queued messages to the contract.
+                // Reaching here means the contract is still running. Attempt to write any queued messages to the contract.
 
                 const int npl_write_res = ctx.args.readonly ? 0 : write_npl_messages(ctx);
                 if (npl_write_res == -1)
@@ -483,11 +492,15 @@ namespace sc
                 const int control_write_res = write_control_inputs(ctx);
                 if (control_write_res == -1)
                     break;
+
+                messages_written = (npl_write_res == 1 || control_write_res == 1);
             }
 
             // Check if contract process has exited on its own during the loop.
             if (ctx.contract_pid > 0)
                 check_contract_exited(ctx, false);
+
+            messages_handled = (messages_read || messages_written);
         }
 
         // Close all fds.
@@ -587,6 +600,7 @@ namespace sc
 
     /**
      * Writes any hp input messages to the contract.
+     * @return Returns -1 when fails. 0 if no messages were written. 1 if some messages were written.
      */
     int write_control_inputs(execution_context &ctx)
     {
@@ -599,6 +613,8 @@ namespace sc
                 LOG_ERROR << "Error writing HP inputs to SC";
                 return -1;
             }
+
+            return 1;
         }
 
         return 0;
