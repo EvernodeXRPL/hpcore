@@ -1,4 +1,4 @@
-# We are going with Hot Pocket NodeJs docker image because sample contracts need NodeJs to run.
+# We are going with HotPocket NodeJs docker image because sample contracts need NodeJs to run.
 FROM evernodedev/hotpocket:latest-ubt.20.04-njs.16
 
 # Copy (overwrite) the local build outputs into the docker image.

@@ -6,8 +6,8 @@
 
 namespace usr
 {
-    /** 
-     * Represents a WebSocket connection to a Hot Pocket user.
+    /**
+     * Represents a WebSocket connection to a HotPocket user.
      */
     class user_comm_session : public comm::comm_session
     {

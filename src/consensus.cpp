@@ -86,7 +86,7 @@ namespace consensus
         {
             if (kill_switch(util::get_epoch_milliseconds()))
             {
-                LOG_ERROR << "Hot Pocket usage limit failure.";
+                LOG_ERROR << "HotPocket usage limit failure.";
                 break;
             }
 
@@ -715,7 +715,7 @@ namespace consensus
 
             // If a node doesn't have enough time (eg. due to network delay) to recieve/send reliable stage proposals for next stage,
             // it will join in next round. Otherwise it will continue particapating in this round.
-            if (stage_start < now || to_wait < ctx.stage_reset_wait_threshold) //todo: self claculating/adjusting network delay
+            if (stage_start < now || to_wait < ctx.stage_reset_wait_threshold) // todo: self claculating/adjusting network delay
             {
                 LOG_DEBUG << "Missed stage " << std::to_string(ctx.stage) << " window. Resetting to stage 0.";
                 ctx.stage = 0;
@@ -1420,7 +1420,7 @@ namespace consensus
      * @param prop_patch_hash Hash of patch file which reached consensus.
      * @param current_patch_hash Hash of the current patch file.
      * @return 0 on success. -1 on failure.
-    */
+     */
     int apply_consensed_patch_file_changes(const util::h32 &prop_patch_hash, const util::h32 &current_patch_hash)
     {
         // Check whether is there any patch changes to be applied which reached consensus.

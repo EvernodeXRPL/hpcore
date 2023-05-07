@@ -27,7 +27,7 @@ const diagnosticContract = async (ctx) => {
                 let output = null;
 
                 if (mode === "status") {
-                    output = "Hot Pocket diagnostic contract is running.";
+                    output = "HotPocket diagnostic contract is running.";
                 }
                 else if (mode === "file") {
                     const param = parseInt(data);

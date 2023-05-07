@@ -1,4 +1,4 @@
-# Hot Pocket Consensus Engine
+# HotPocket Consensus Engine
 
 ## What's here?
 *In development*
@@ -14,16 +14,16 @@ A C++ version of hotpocket designed for production envrionments, original protot
 * Concurrent Queue - https://github.com/cameron314/concurrentqueue
 * Boost Stacktrace - https://www.boost.org
 
-## Setting up Hot Pocket development environment
+## Setting up HotPocket development environment
 Run the setup script located at the repo root (tested on Ubuntu 20.04).
 ```
 ./dev-setup.sh
 ```
 
-## Build Hot Pocket
+## Build HotPocket
 1. Run `cmake .` (You only have to do this once)
-1. Run `make` (Hot Pocket binary will be created as `./build/hpcore`)
-1. Refer to the Wiki for instructions on running Hot Pocket.
+1. Run `make` (HotPocket binary will be created as `./build/hpcore`)
+1. Refer to the Wiki for instructions on running HotPocket.
 
 ## FlatBuffers message definitions
 If you update flatbuffers message definitions, you need to run the flatbuffers code generator to update the stubs.

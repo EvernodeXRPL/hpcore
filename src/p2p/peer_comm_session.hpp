@@ -7,8 +7,8 @@
 
 namespace p2p
 {
-    /** 
-     * Represents a WebSocket connection to a Hot Pocket peer.
+    /**
+     * Represents a WebSocket connection to a HotPocket peer.
      */
     class peer_comm_session : public comm::comm_session
     {

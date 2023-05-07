@@ -1,5 +1,5 @@
 #!/bin/bash
-# Builds all the Hot Pocket docker images.
+# Builds all the HotPocket docker images.
 
 hpcoredir=$(realpath ../..)
 img=evernodedev/hotpocket

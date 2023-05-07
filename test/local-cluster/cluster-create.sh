@@ -7,7 +7,7 @@
 
 # Validate the node count arg.
 if [ -n "$1" ] && [ "$1" -eq "$1" ] 2>/dev/null; then
-  echo "Generating a Hot Pocket cluster of ${1} node(s)..."
+  echo "Generating a HotPocket cluster of ${1} node(s)..."
 else
   echo "Error: Please provide number of nodes."
   exit 1

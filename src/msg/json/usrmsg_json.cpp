@@ -56,7 +56,7 @@ namespace msg::usrmsg::json
         // We do not use jsoncons library here in favour of performance because this is a simple json message.
 
         // Since we know the rough size of the challenge message we reserve adequate amount for the holder.
-        // Only Hot Pocket version number is variable length.
+        // Only HotPocket version number is variable length.
         msg.reserve(256);
         msg += "{\"";
         msg += msg::usrmsg::FLD_HP_VERSION;

@@ -563,7 +563,7 @@ namespace sc
         }
         else if (pid > 0)
         {
-            // Hot Pocket process.
+            // HotPocket process.
             int status = 0;
             if (waitpid(pid, &status, 0) == -1)
             {

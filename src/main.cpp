@@ -18,12 +18,12 @@
 #include "killswitch/killswitch.h"
 
 /**
- * Parses CLI args and extracts hot pocket command and parameters given.
+ * Parses CLI args and extracts HotPocket command and parameters given.
  * HP command line accepts command and the contract directory(optional)
  */
 int parse_cmd(int argc, char **argv)
 {
-    if (argc > 1) //We get working dir as an arg anyway. So we need to check for >1 args.
+    if (argc > 1) // We get working dir as an arg anyway. So we need to check for >1 args.
     {
         // We populate the global contract ctx with the detected command.
         conf::ctx.command = argv[1];
@@ -162,7 +162,7 @@ int main(int argc, char **argv)
     {
         if (kill_switch(util::get_epoch_milliseconds()))
         {
-            std::cerr << "Hot Pocket usage limit failure.\n";
+            std::cerr << "HotPocket usage limit failure.\n";
             return -1;
         }
 
@@ -202,7 +202,7 @@ int main(int argc, char **argv)
 
                 hplog::init();
 
-                LOG_INFO << "Hot Pocket " << version::HP_VERSION;
+                LOG_INFO << "HotPocket " << version::HP_VERSION;
                 LOG_INFO << "Role: " << (conf::cfg.node.role == conf::ROLE::OBSERVER ? "Observer" : "Validator");
                 LOG_INFO << "Public key: " << conf::cfg.node.public_key_hex;
                 LOG_INFO << "Contract: " << conf::cfg.contract.id << " (" << conf::cfg.contract.version << ")";

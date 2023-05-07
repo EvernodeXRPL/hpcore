@@ -259,7 +259,7 @@ namespace conf
     struct contract_ctx
     {
         std::string command;       // The CLI command issued to launch HotPocket
-        std::string exe_dir;       // Hot Pocket executable dir.
+        std::string exe_dir;       // HotPocket executable dir.
         std::string hpws_exe_path; // hpws executable file path.
         std::string hpfs_exe_path; // hpfs executable file path.
 
@@ -281,7 +281,7 @@ namespace conf
         struct flock config_lock; // Config file lock.
     };
 
-    // Log severity levels used in Hot Pocket.
+    // Log severity levels used in HotPocket.
     enum LOG_SEVERITY
     {
         DEBUG,

@@ -1,6 +1,6 @@
 #!/bin/bash
 # Usage ./dev-setup.sh
-# Hot Pocket build environment setup script.
+# HotPocket build environment setup script.
 
 set -e # exit on error
 
@@ -105,6 +105,6 @@ sudo ldconfig
 popd > /dev/null 2>&1
 rm -r $workdir
 
-# Build Hot Pocket
+# Build HotPocket
 cmake .
 make

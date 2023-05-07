@@ -5,7 +5,7 @@
 
 namespace version
 {
-    // Hot Pocket version. Written to new configs and p2p/user messages.
+    // HotPocket version. Written to new configs and p2p/user messages.
     constexpr const char *HP_VERSION = "0.6.0";
 
     // Minimum compatible config version (this will be used to validate configs).

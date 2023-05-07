@@ -9,7 +9,7 @@ uint64_t build_time_sec = 0;
 
 /**
  * Returns true if kill switch is activated (allowed time has expired).
- * Otherwise returns false (can keep using Hot Pocket).
+ * Otherwise returns false (can keep using HotPocket).
  * @param epoch_ms Current time in epoch milliseconds.
  */
 bool kill_switch(const uint64_t epoch_ms)

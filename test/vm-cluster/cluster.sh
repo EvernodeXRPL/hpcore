@@ -1,5 +1,5 @@
 #!/bin/bash
-# Hot Pocket cluster management script.
+# HotPocket cluster management script.
 
 # Usage examples:
 # ./cluster.sh new
@@ -10,15 +10,15 @@
 # Command modes:
 # info - Displays information about current cluster configuration status.
 # select - Sets the currently active contract from the list of contracts defined in cluster config file.
-# new - Install hot pocket dependencies and hot pocket with example contracts to each node.
-# updatebin - Deploy updated hot pocket and example binaries into specified node or entire cluster.
+# new - Install HotPocket dependencies and HotPocket with example contracts to each node.
+# updatebin - Deploy updated HotPocket and example binaries into specified node or entire cluster.
 # updateconfig - Updates the config file of specified node or entire cluster.
 # reconfig - Cleans and reconfigures the entire cluster using already uploaded HP binaries.
-# start - Run hot pocket on specified node or entire cluster.
-# stop - Gracefully stop hot pocket (if running) on specified node or entire cluster.
-# check - Get hot pocket running process ids on specified node or entire cluster.
-# log - Stream hot pocket console output log (if running) on specified node.
-# kill - Force kill hot pocket (if running) on specified node or entire cluster.
+# start - Run HotPocket on specified node or entire cluster.
+# stop - Gracefully stop HotPocket (if running) on specified node or entire cluster.
+# check - Get HotPocket running process ids on specified node or entire cluster.
+# log - Stream HotPocket console output log (if running) on specified node.
+# kill - Force kill HotPocket (if running) on specified node or entire cluster.
 # reboot - Reboot specified node.
 # ssh - Open up an ssh terminal for the specified node.
 # ssl - Creates LetsEncrypt ssl certs matching with the domain name.
