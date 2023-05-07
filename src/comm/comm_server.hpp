@@ -56,12 +56,14 @@ namespace comm
 
             while (!is_shutting_down)
             {
-                util::sleep(100);
+                bool operations_performed = false;
 
-                apply_ban_updates();
+                if (apply_ban_updates() > 0)
+                    operations_performed = true;
 
                 // Accept any new incoming connection if available.
-                check_for_new_connection();
+                if (check_for_new_connection() > 0)
+                    operations_performed = true;
 
                 std::scoped_lock<std::mutex> lock(sessions_mutex);
 
@@ -79,7 +81,10 @@ namespace comm
                     // Initialize newly inserted sessions.
                     // This must be performed after session objects end up in their final location.
                     for (auto itr = ++ex_last_session; itr != sessions.end(); itr++)
+                    {
                         itr->init();
+                        operations_performed = true;
+                    }
                 }
 
                 // Cleanup any sessions that needs closure.
@@ -89,13 +94,20 @@ namespace comm
                     itr->check_last_activity_rules();
 
                     if (itr->state == SESSION_STATE::MUST_CLOSE)
+                    {
                         itr->close();
+                        operations_performed = true;
+                    }
 
                     if (itr->state == SESSION_STATE::CLOSED)
                         itr = sessions.erase(itr);
                     else
                         ++itr;
                 }
+
+                // If no operations were performed wait for some time before next iteration.
+                if (!operations_performed)
+                    util::sleep(100);
             }
 
             // If we reach this point that means we are shutting down.
@@ -109,8 +121,14 @@ namespace comm
             LOG_INFO << name << " listener stopped.";
         }
 
-        void apply_ban_updates()
+        /**
+         * Sends ip address bans/unbans to hpws.
+         * @return 0 if no updates applied. 1 if any updates were applied.
+         */
+        int apply_ban_updates()
         {
+            bool updates_applied = false;
+
             corebill::ban_update b;
             while (violation_tracker.ban_updates.try_dequeue(b))
             {
@@ -124,18 +142,26 @@ namespace comm
                         hpws_server->ban_ip(addr, b.ttl_sec, b.is_ipv4);
                     else
                         hpws_server->unban_ip(addr, b.is_ipv4);
+
+                    updates_applied = true;
                 }
                 else
                 {
                     LOG_ERROR << "Invalid host " << b.host << " in ban update.";
                 }
             }
+
+            return updates_applied ? 1 : 0;
         }
 
-        void check_for_new_connection()
+        /**
+         * Accepts new websocket client connections if available.
+         * @return 0 if no new client was waiting. 1 if a client was accepted. 2 if client was found but not accepted.
+         */
+        int check_for_new_connection()
         {
             if (listen_port == 0)
-                return;
+                return 0;
 
             std::variant<hpws::client, hpws::error> accept_result = hpws_server->accept(true);
 
@@ -143,10 +169,10 @@ namespace comm
             {
                 const hpws::error error = std::get<hpws::error>(accept_result);
                 if (error.first == 199) // No client connected.
-                    return;
+                    return 0;
 
                 LOG_ERROR << "Error in hpws accept():" << error.first << " " << error.second;
-                return;
+                return 2;
             }
 
             // New client connected.
@@ -156,6 +182,7 @@ namespace comm
             {
                 const hpws::error error = std::get<hpws::error>(host_result);
                 LOG_ERROR << "Error getting " << name << " ip from hpws:" << error.first << " " << error.second;
+                return 2;
             }
             else
             {
@@ -166,6 +193,7 @@ namespace comm
                 // need a way to safely inject new sessions from another thread.
                 std::scoped_lock<std::mutex> lock(new_sessions_mutex);
                 new_sessions.emplace_back(this->violation_tracker, host_address, std::move(client), client.is_ipv4, true, metric_thresholds);
+                return 1;
             }
 
             // If the hpws client object was not added to a session so far, in will get dstructed and the channel will close.
