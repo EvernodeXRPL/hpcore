@@ -14,7 +14,7 @@ fi
 
 clusterloc=$(pwd)/hpcluster
 n=$1
-hpversion=0.6.0
+hpversion=0.6.1
 
 let pubport=8080+$n
 let peerport=22860+$n
