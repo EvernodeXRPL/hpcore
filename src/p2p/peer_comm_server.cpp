@@ -225,9 +225,15 @@ namespace p2p
             {
                 const auto itr = std::find(failed_nodes.begin(), failed_nodes.end(), it->ip_port);
                 if (itr != failed_nodes.end())
+                {
                     it->failed_attempts++;
+                    LOG_DEBUG << "Failed attempts: " << it->failed_attempts << " for peer " << it->ip_port.to_string();
+                }
                 else if (it->failed_attempts > 0) // Reset failed attempts count if the connection succeeds.
+                {
                     it->failed_attempts = 0;
+                    LOG_DEBUG << "Failed attempts reset for peer " << it->ip_port.to_string();
+                }
 
                 if (it->failed_attempts >= PEER_FAILED_THRESHOLD)
                 {
@@ -237,13 +243,15 @@ namespace p2p
                     it = req_known_remotes.erase(it);
                 }
                 else
+                {
                     ++it;
+                }
             }
         }
     }
     /**
      * Check whether the node is weakly connected or strongly connected.
-    */
+     */
     void peer_comm_server::detect_if_weakly_connected()
     {
         // If the node is already weakly connected, check every 2 seconds whether we are now strongly connected.
