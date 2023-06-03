@@ -157,12 +157,13 @@ namespace conf
 
     struct round_limits_config
     {
-        size_t user_input_bytes = 0;  // Max contract input bytes per user per round.
-        size_t user_output_bytes = 0; // Max contract output bytes per user per round.
-        size_t npl_output_bytes = 0;  // Max npl output bytes per round.
-        size_t proc_cpu_seconds = 0;  // Max CPU time the contract process can consume.
-        size_t proc_mem_bytes = 0;    // Max memory the contract process can allocate.
-        size_t proc_ofd_count = 0;    // Max no. of open file descriptors the contract process can allocate.
+        size_t user_input_bytes = 0;    // Max contract input bytes per user per round.
+        size_t user_output_bytes = 0;   // Max contract output bytes per user per round.
+        size_t npl_output_bytes = 0;    // Max npl output bytes per round.
+        size_t proc_cpu_seconds = 0;    // Max CPU time the contract process can consume.
+        size_t proc_mem_bytes = 0;      // Max memory the contract process can allocate.
+        size_t proc_ofd_count = 0;      // Max no. of open file descriptors the contract process can allocate.
+        uint64_t exec_timeout = 300000; // Contract execution timeout in ms.
     };
 
     struct contract_log_config

@@ -433,6 +433,10 @@ namespace sc
     {
         util::mask_signal();
 
+        // We record the start time of the monitoring thread to track the contract execution timeout.
+        const uint64_t start_time = util::get_epoch_milliseconds();
+        const uint64_t exec_timeout = conf::cfg.contract.round_limits.exec_timeout;
+
         // Prepare output poll fd list.
         // User out fds + control fd + NPL fd (NPL fd not available in readonly mode)
         const size_t out_fd_count = ctx.user_fds.size() + (ctx.args.readonly ? 1 : 2);
@@ -454,6 +458,12 @@ namespace sc
         // Polling loop which keeps checking contract fds.
         while (!ctx.is_shutting_down)
         {
+            if (exec_timeout > 0 && (util::get_epoch_milliseconds() - start_time) > exec_timeout)
+            {
+                LOG_INFO << "Contract process timeout of " << exec_timeout << "ms exceeded.";
+                break;
+            }
+
             bool messages_read = false, messages_written = false;
 
             // Reset the revents because we are reusing same pollfd list.

@@ -972,6 +972,7 @@ namespace conf
         round_limits.insert_or_assign("proc_cpu_seconds", contract.round_limits.proc_cpu_seconds);
         round_limits.insert_or_assign("proc_mem_bytes", contract.round_limits.proc_mem_bytes);
         round_limits.insert_or_assign("proc_ofd_count", contract.round_limits.proc_ofd_count);
+        round_limits.insert_or_assign("exec_timeout", contract.round_limits.exec_timeout);
         jdoc.insert_or_assign("round_limits", round_limits);
     }
 
@@ -1112,6 +1113,7 @@ namespace conf
             contract.round_limits.proc_cpu_seconds = jdoc["round_limits"]["proc_cpu_seconds"].as<size_t>();
             contract.round_limits.proc_mem_bytes = jdoc["round_limits"]["proc_mem_bytes"].as<size_t>();
             contract.round_limits.proc_ofd_count = jdoc["round_limits"]["proc_ofd_count"].as<size_t>();
+            contract.round_limits.exec_timeout = jdoc["round_limits"]["exec_timeout"].as<uint64_t>();
         }
         catch (const std::exception &e)
         {
