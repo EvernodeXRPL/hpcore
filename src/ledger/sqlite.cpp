@@ -35,8 +35,9 @@ namespace ledger::sqlite
 
     constexpr const char *INSERT_INTO_LEDGER = "INSERT INTO ledger("
                                                "seq_no, time, ledger_hash, prev_ledger_hash, data_hash,"
-                                               "state_hash, patch_hash, user_hash, input_hash, output_hash"
-                                               ") VALUES(?,?,?,?,?,?,?,?,?,?)";
+                                               "state_hash, config_hash, nonce_hash, user_hash, input_hash, output_hash,"
+                                               "nonce"
+                                               ") VALUES(?,?,?,?,?,?,?,?,?,?,?,?)";
     constexpr const char *INSERT_INTO_USERS = "INSERT INTO users(ledger_seq_no, pubkey) VALUES(?,?)";
     constexpr const char *INSERT_INTO_USER_INPUTS = "INSERT INTO inputs(ledger_seq_no, pubkey, hash, nonce,"
                                                     " blob_offset, blob_size) VALUES(?,?,?,?,?,?)";
@@ -56,7 +57,7 @@ namespace ledger::sqlite
      * @param writable Whether the database must be opened in a writable mode or not.
      * @param journal Whether to enable db journaling or not.
      * @returns returns 0 on success, or -1 on error.
-    */
+     */
     int open_db(std::string_view db_name, sqlite3 **db, const bool writable, const bool journal)
     {
         int ret;
@@ -84,7 +85,7 @@ namespace ledger::sqlite
      * @param callback Callback funcion which is called for each result row.
      * @param callback_first_arg First data argumat to be parced to the callback (void pointer).
      * @returns returns 0 on success, or -1 on error.
-    */
+     */
     int exec_sql(sqlite3 *db, std::string_view sql, int (*callback)(void *, int, char **, char **), void *callback_first_arg)
     {
         char *err_msg;
@@ -118,7 +119,7 @@ namespace ledger::sqlite
      * @param table_name Table name to be created.
      * @param column_info Column info of the table.
      * @returns returns 0 on success, or -1 on error.
-    */
+     */
     int create_table(sqlite3 *db, std::string_view table_name, const std::vector<table_column_info> &column_info)
     {
         std::string sql;
@@ -186,7 +187,7 @@ namespace ledger::sqlite
      * @param column_names_string Comma seperated string of colums (eg: "col_1,col_2,...").
      * @param value_strings Vector of comma seperated values (wrap in single quotes for TEXT type) (eg: ["r1val1,'r1val2',...", "r2val1,'r2val2',..."]).
      * @returns returns 0 on success, or -1 on error.
-    */
+     */
     int insert_rows(sqlite3 *db, std::string_view table_name, std::string_view column_names_string, const std::vector<std::string> &value_strings)
     {
         std::string sql;
@@ -219,7 +220,7 @@ namespace ledger::sqlite
      * @param column_names_string Comma seperated string of colums (eg: "col_1,col_2,...").
      * @param value_string comma seperated values as per column order (wrap in single quotes for TEXT type) (eg: "r1val1,'r1val2',...").
      * @returns returns 0 on success, or -1 on error.
-    */
+     */
     int insert_row(sqlite3 *db, std::string_view table_name, std::string_view column_names_string, std::string_view value_string)
     {
         std::string sql;
@@ -245,7 +246,7 @@ namespace ledger::sqlite
      * @param db Pointer to the db.
      * @param table_name Table name to be checked.
      * @returns returns true is exist, otherwise false.
-    */
+     */
     bool is_table_exists(sqlite3 *db, std::string_view table_name)
     {
         std::string sql;
@@ -280,7 +281,7 @@ namespace ledger::sqlite
      * Closes a connection to a given databse.
      * @param db Pointer to the db.
      * @returns returns 0 on success, or -1 on error.
-    */
+     */
     int close_db(sqlite3 **db)
     {
         if (*db == NULL)
@@ -300,7 +301,7 @@ namespace ledger::sqlite
      * Sets up a blank ledger database.
      * @param db Pointer to the db.
      * @returns returns 0 on success, or -1 on error.
-    */
+     */
     int initialize_ledger_db(sqlite3 *db)
     {
         const std::vector<table_column_info> columns{
@@ -310,10 +311,12 @@ namespace ledger::sqlite
             table_column_info("prev_ledger_hash", COLUMN_DATA_TYPE::BLOB),
             table_column_info("data_hash", COLUMN_DATA_TYPE::BLOB),
             table_column_info("state_hash", COLUMN_DATA_TYPE::BLOB),
-            table_column_info("patch_hash", COLUMN_DATA_TYPE::BLOB),
+            table_column_info("config_hash", COLUMN_DATA_TYPE::BLOB),
+            table_column_info("nonce_hash", COLUMN_DATA_TYPE::BLOB),
             table_column_info("user_hash", COLUMN_DATA_TYPE::BLOB),
             table_column_info("input_hash", COLUMN_DATA_TYPE::BLOB),
-            table_column_info("output_hash", COLUMN_DATA_TYPE::BLOB)};
+            table_column_info("output_hash", COLUMN_DATA_TYPE::BLOB),
+            table_column_info("nonce", COLUMN_DATA_TYPE::BLOB)};
 
         if (create_table(db, LEDGER_TABLE, columns) == -1 ||
             create_index(db, LEDGER_TABLE, "time", true) == -1 ||
@@ -327,7 +330,7 @@ namespace ledger::sqlite
      * Sets up a blank ledger raw data database.
      * @param db Pointer to the db.
      * @returns returns 0 on success, or -1 on error.
-    */
+     */
     int initialize_ledger_raw_db(sqlite3 *db)
     {
         // Users table.
@@ -383,8 +386,8 @@ namespace ledger::sqlite
      * @param db Pointer to the db.
      * @param version Version string to be placed in the table.
      * @returns returns 0 on success, or -1 on error.
-     * 
-    */
+     *
+     */
     int create_hp_table(sqlite3 *db, std::string_view version)
     {
         const std::vector<table_column_info> column_info{
@@ -405,7 +408,7 @@ namespace ledger::sqlite
      * @param db Pointer to the db.
      * @param ledger Ledger struct to be inserted.
      * @returns returns 0 on success, or -1 on error.
-    */
+     */
     int insert_ledger_row(sqlite3 *db, const ledger::ledger_record &ledger)
     {
         sqlite3_stmt *stmt;
@@ -417,9 +420,11 @@ namespace ledger::sqlite
             BIND_H32_BLOB(5, ledger.data_hash) &&
             BIND_H32_BLOB(6, ledger.state_hash) &&
             BIND_H32_BLOB(7, ledger.config_hash) &&
-            BIND_H32_BLOB(8, ledger.user_hash) &&
-            BIND_H32_BLOB(9, ledger.input_hash) &&
-            BIND_H32_BLOB(10, ledger.output_hash) &&
+            BIND_H32_BLOB(8, ledger.nonce_hash) &&
+            BIND_H32_BLOB(9, ledger.user_hash) &&
+            BIND_H32_BLOB(10, ledger.input_hash) &&
+            BIND_H32_BLOB(11, ledger.output_hash) &&
+            sqlite3_bind_blob64(stmt, 12, ledger.nonce.data(), ledger::ROUND_NONCE_SIZE, SQLITE_STATIC) == SQLITE_OK &&
             sqlite3_step(stmt) == SQLITE_DONE)
         {
             sqlite3_finalize(stmt);
@@ -533,7 +538,7 @@ namespace ledger::sqlite
      * @param db Pointer to the db.
      * @param ledger Ledger structure to populate.
      * @returns 0 on success. -1 on failure.
-    */
+     */
     int get_last_ledger(sqlite3 *db, ledger::ledger_record &ledger)
     {
         sqlite3_stmt *stmt;
@@ -557,7 +562,7 @@ namespace ledger::sqlite
      * @param seq_no Ledger sequence no. to search for.
      * @param ledger Ledger structure to populate.
      * @returns 1 if ledger found. 0 if ledger not found. -1 on failure.
-    */
+     */
     int get_ledger_by_seq_no(sqlite3 *db, const uint64_t seq_no, ledger::ledger_record &ledger)
     {
         sqlite3_stmt *stmt;
@@ -669,9 +674,11 @@ namespace ledger::sqlite
         ledger.data_hash = GET_H32_BLOB(4);
         ledger.state_hash = GET_H32_BLOB(5);
         ledger.config_hash = GET_H32_BLOB(6);
-        ledger.user_hash = GET_H32_BLOB(7);
-        ledger.input_hash = GET_H32_BLOB(8);
-        ledger.output_hash = GET_H32_BLOB(9);
+        ledger.nonce_hash = GET_H32_BLOB(7);
+        ledger.user_hash = GET_H32_BLOB(8);
+        ledger.input_hash = GET_H32_BLOB(9);
+        ledger.output_hash = GET_H32_BLOB(10);
+        ledger.nonce = std::string((char *)sqlite3_column_blob(stmt, 11), sizeof(util::h32));
     }
 
     ledger::ledger_user_input populate_user_input_from_sql_record(sqlite3_stmt *stmt)

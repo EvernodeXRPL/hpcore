@@ -12,6 +12,7 @@
 #include "util/h32.hpp"
 #include "util/sequence_hash.hpp"
 #include "unl.hpp"
+#include "ledger/ledger_common.hpp"
 #include "ledger/ledger.hpp"
 #include "ledger/ledger_query.hpp"
 #include "consensus.hpp"
@@ -24,7 +25,6 @@ namespace p2pmsg = msg::fbuf::p2pmsg;
 namespace consensus
 {
     constexpr float STAGE_THRESHOLD_RATIO[3] = {0.5, 0.65, 0.8};
-    constexpr size_t ROUND_NONCE_SIZE = 64;
     constexpr const char *HPFS_SESSION_NAME = "ro_patch_file_to_hp";
 
     // Max no. of time to get unreliable votes before we try heuristics to increase vote receiving reliability.
@@ -919,7 +919,7 @@ namespace consensus
         p.last_primary_shard_id = last_primary_shard_id;
         p.last_raw_shard_id = last_raw_shard_id;
         p.time_config = CURRENT_TIME_CONFIG;
-        crypto::random_bytes(p.nonce, ROUND_NONCE_SIZE);
+        crypto::random_bytes(p.nonce, ledger::ROUND_NONCE_SIZE);
 
         // Populate the proposal with set of candidate user pubkeys.
         p.users.swap(ctx.candidate_users);
