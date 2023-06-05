@@ -444,8 +444,6 @@ namespace sc
         const size_t npl_fd_idx = control_fd_idx + 1;
         struct pollfd out_fds[out_fd_count];
 
-        LOG_INFO << "ctx.user_fds: " << ctx.user_fds.size();
-
         auto user_itr = ctx.user_fds.begin();
         for (size_t i = 0; i < out_fd_count; i++)
         {
