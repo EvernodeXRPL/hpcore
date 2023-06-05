@@ -12,7 +12,7 @@ namespace version
     constexpr const char *MIN_CONFIG_VERSION = "0.6.2";
 
     // Ledger file storage version. All nodes in a cluster MUST use the same ledger version.
-    constexpr const char *LEDGER_VERSION = "0.5.0";
+    constexpr const char *LEDGER_VERSION = "0.6.2";
 
     // Version header size in bytes when serialized in binary format. (applies to hp version as well as ledger version)
     // 2 bytes each for 3 version components. 2 bytes reserved.
