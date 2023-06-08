@@ -561,7 +561,7 @@ namespace hpfs
 
         flatbuffers::FlatBufferBuilder fbuf;
         p2pmsg::create_msg_from_hpfs_request(fbuf, hr);
-        p2p::send_message_to_random_peer(fbuf, target_pubkey); //todo: send to a node that hold the expected hash to improve reliability of retrieving hpfs state.
+        p2p::send_message_to_random_peer(fbuf, target_pubkey); // todo: send to a node that hold the expected hash to improve reliability of retrieving hpfs state.
     }
 
     /**
@@ -681,13 +681,25 @@ namespace hpfs
         const size_t existing_hash_count = existing_hashes.size();
 
         // Compare the block hashes and request any differences.
-        const int32_t max_block_id = MAX(existing_hash_count, hash_count) - 1;
+        // If responded_block_ids count > 0 and but the hash_count is 0 means this is an empty file. So take the responded_block_ids count.
+        const int32_t max_block_id = MAX(existing_hash_count, MAX(hash_count, responded_block_ids.size())) - 1;
         for (int32_t block_id = 0; block_id <= max_block_id; block_id++)
         {
             if (responded_block_ids.count(block_id) == 1)
             {
                 // The peer has already responded with a hint response. So we must start watching for it.
-                submit_request(sync_item{SYNC_ITEM_TYPE::BLOCK, std::string(vpath), block_id, hashes[block_id]}, true);
+                // If file has block 0 but hash count is 0 means file is empty, So generate hash for empty block only with offset 0.
+                util::h32 block_hash;
+                if (block_id == 0 && hash_count == 0)
+                {
+                    const uint64_t zero = 0;
+                    block_hash = crypto::get_hash(std::string_view(reinterpret_cast<const char *>(&zero), sizeof(zero)));
+                }
+                else
+                {
+                    block_hash = hashes[block_id];
+                }
+                submit_request(sync_item{SYNC_ITEM_TYPE::BLOCK, std::string(vpath), block_id, block_hash}, true);
             }
             else if (block_id >= (int32_t)existing_hash_count || existing_hashes[block_id] != hashes[block_id])
             {

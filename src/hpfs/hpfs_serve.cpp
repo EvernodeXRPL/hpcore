@@ -6,6 +6,7 @@
 #include "../msg/fbuf/p2pmsg_conversion.hpp"
 #include "../ledger/ledger.hpp"
 #include "../hplog.hpp"
+#include "../crypto.hpp"
 #include "hpfs_serve.hpp"
 #include "hpfs_sync.hpp"
 
@@ -294,7 +295,19 @@ namespace hpfs
                         std::vector<uint8_t> block;
                         if (get_data_block(block, child_vpath, 0) != -1)
                         {
-                            p2pmsg::create_msg_from_block_response(fbufs.emplace_back(), 0, block, block_hashes[0], child_vpath, fs_mount->mount_id);
+                            // If block 0 hash count is 0 means file is empty, So generate hash for empty block only with offset 0.
+                            util::h32 block0_hash;
+                            if (block.size() == 0 && block_hashes.size() == 0)
+                            {
+                                const uint64_t zero = 0;
+                                block0_hash = crypto::get_hash(std::string_view(reinterpret_cast<const char *>(&zero), sizeof(zero)));
+                            }
+                            else
+                            {
+                                block0_hash = block_hashes[0];
+                            }
+
+                            p2pmsg::create_msg_from_block_response(fbufs.emplace_back(), 0, block, block0_hash, child_vpath, fs_mount->mount_id);
                             block_responses++;
                             responded_block_ids.push_back(0);
                         }
