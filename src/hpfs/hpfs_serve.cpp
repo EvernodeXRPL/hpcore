@@ -6,7 +6,6 @@
 #include "../msg/fbuf/p2pmsg_conversion.hpp"
 #include "../ledger/ledger.hpp"
 #include "../hplog.hpp"
-#include "../crypto.hpp"
 #include "hpfs_serve.hpp"
 #include "hpfs_sync.hpp"
 
