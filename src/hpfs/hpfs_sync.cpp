@@ -139,7 +139,8 @@ namespace hpfs
                 // that target and insert the updated one.
 
                 const auto ex_target = std::find_if(ongoing_targets.begin(), ongoing_targets.end(),
-                                                    [&](sync_item &t) { return t.vpath == target.vpath; });
+                                                    [&](sync_item &t)
+                                                    { return t.vpath == target.vpath; });
                 if (ex_target == ongoing_targets.end())
                 {
                     ongoing_targets.push_back(target);
@@ -450,7 +451,7 @@ namespace hpfs
      * @param dir_mode Metadata 'mode' of the directory containing the fs entries.
      * @param peer_fs_entries Received peer fs entries.
      * @returns true if hash is valid, otherwise false.
-    */
+     */
     bool hpfs_sync::validate_fs_entry_hash(std::string_view vpath, std::string_view hash, const mode_t dir_mode,
                                            const std::vector<p2p::hpfs_fs_hash_entry> &peer_fs_entries)
     {
@@ -482,7 +483,7 @@ namespace hpfs
      * @param hashes Received block hashes.
      * @param hash_count Size of the hash list.
      * @returns true if hash is valid, otherwise false.
-    */
+     */
     bool hpfs_sync::validate_file_hashmap_hash(std::string_view vpath, std::string_view hash, const mode_t file_mode,
                                                const util::h32 *hashes, const size_t hash_count)
     {
@@ -512,15 +513,21 @@ namespace hpfs
      * @param block_id Id of the block.
      * @param buf Block buffer.
      * @returns true if hash is valid, otherwise false.
-    */
+     */
     bool hpfs_sync::validate_file_block_hash(std::string_view hash, const uint32_t block_id, std::string_view buf)
     {
         // Calculate block offset of this block.
-        const off_t block_offset = block_id * hpfs::BLOCK_SIZE;
-        uint8_t bytes[8];
-        util::uint64_to_bytes(bytes, block_offset);
-        std::string_view offset = std::string_view(reinterpret_cast<const char *>(bytes), sizeof(bytes));
-        return crypto::get_hash(offset, buf) == hash;
+        util::h32 hash_calculated = util::h32_empty;
+        // If file has block 0 but buf size is 0 means file is empty, So set hash as empty.
+        if (block_id == 0 && buf.size() > 0)
+        {
+            const off_t block_offset = block_id * hpfs::BLOCK_SIZE;
+            uint8_t bytes[8];
+            util::uint64_to_bytes(bytes, block_offset);
+            std::string_view offset = std::string_view(reinterpret_cast<const char *>(bytes), sizeof(bytes));
+            hash_calculated = crypto::get_hash(offset, buf);
+        }
+        return hash_calculated.to_string_view() == hash;
     }
 
     /**
@@ -688,18 +695,8 @@ namespace hpfs
             if (responded_block_ids.count(block_id) == 1)
             {
                 // The peer has already responded with a hint response. So we must start watching for it.
-                // If file has block 0 but hash count is 0 means file is empty, So generate hash for empty block only with offset 0.
-                util::h32 block_hash;
-                if (block_id == 0 && hash_count == 0)
-                {
-                    const uint64_t zero = 0;
-                    block_hash = crypto::get_hash(std::string_view(reinterpret_cast<const char *>(&zero), sizeof(zero)));
-                }
-                else
-                {
-                    block_hash = hashes[block_id];
-                }
-                submit_request(sync_item{SYNC_ITEM_TYPE::BLOCK, std::string(vpath), block_id, block_hash}, true);
+                // If file has block 0 but hash count is 0 means file is empty, So set hash as empty.
+                submit_request(sync_item{SYNC_ITEM_TYPE::BLOCK, std::string(vpath), block_id, (block_id == 0 && hash_count == 0) ? util::h32_empty : hashes[block_id]}, true);
             }
             else if (block_id >= (int32_t)existing_hash_count || existing_hashes[block_id] != hashes[block_id])
             {
@@ -805,7 +802,7 @@ namespace hpfs
     /**
      * This method can be used to invoke mount specific custom logic (after overriding this method) to be executed after
      * a sync target is acheived.
-    */
+     */
     void hpfs_sync::on_sync_target_acheived(const std::string &vpath, const util::h32 &hash)
     {
     }
@@ -813,7 +810,7 @@ namespace hpfs
     /**
      * This method can be used to invoke mount specific custom logic (after overriding this method) to be executed after
      * a sync is abondened.
-    */
+     */
     void hpfs_sync::on_sync_abandoned()
     {
     }
