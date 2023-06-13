@@ -518,8 +518,8 @@ namespace hpfs
     {
         // Calculate block offset of this block.
         util::h32 hash_calculated = util::h32_empty;
-        // If file has block 0 but buf size is 0 means file is empty, So set hash as empty.
-        if (block_id == 0 && buf.size() > 0)
+        // If file block 0 buf size 0 means the file is empty, So set hash should be empty.
+        if (block_id > 0 || buf.size() > 0)
         {
             const off_t block_offset = block_id * hpfs::BLOCK_SIZE;
             uint8_t bytes[8];
@@ -695,7 +695,7 @@ namespace hpfs
             if (responded_block_ids.count(block_id) == 1)
             {
                 // The peer has already responded with a hint response. So we must start watching for it.
-                // If file has block 0 but hash count is 0 means file is empty, So set hash as empty.
+                // If file block 0 hash count is 0 means the file is empty, So set hash as empty.
                 submit_request(sync_item{SYNC_ITEM_TYPE::BLOCK, std::string(vpath), block_id, (block_id == 0 && hash_count == 0) ? util::h32_empty : hashes[block_id]}, true);
             }
             else if (block_id >= (int32_t)existing_hash_count || existing_hashes[block_id] != hashes[block_id])
