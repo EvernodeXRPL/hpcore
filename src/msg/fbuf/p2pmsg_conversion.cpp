@@ -82,7 +82,7 @@ namespace msg::fbuf::p2pmsg
      */
     const util::h32 hash_proposal_msg(const msg::fbuf::p2pmsg::ProposalMsg &msg)
     {
-        // Hash all the data fields except the "nonce" which is used a a random salt in stage 3.
+        // Hash all the data fields except the "nonce" which is used as a random salt in stage 3.
 
         flatbuf_hasher hasher;
         hasher.add(msg.stage());
@@ -335,11 +335,12 @@ namespace msg::fbuf::p2pmsg
 
     const std::string generate_proposal_signature(const p2p::proposal &p)
     {
+        // Hash all the data fields except the "nonce" which is used as a random salt in stage 3.
+
         flatbuf_hasher hasher;
         hasher.add(p.stage);
         hasher.add(p.time);
         hasher.add(p.time_config);
-        hasher.add(p.nonce);
         hasher.add(p.users);
         hasher.add(p.input_ordered_hashes);
         hasher.add(p.output_hash);

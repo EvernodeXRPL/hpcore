@@ -87,7 +87,6 @@ namespace consensus
     {
         // The map of proposals that are being collected as consensus stages are progressing.
         // peer public key is the key.
-        // todo: having a queue of proposals against peer pubkey.
         std::unordered_map<std::string, const p2p::proposal> candidate_proposals;
 
         // Set of user pubkeys that is said to be connected to the cluster. This will be cleared in each round.

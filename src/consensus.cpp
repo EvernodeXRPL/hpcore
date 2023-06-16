@@ -288,12 +288,11 @@ namespace consensus
         p2p::proposal &winning_prop = winning_group.front();
         LOG_DEBUG << "Closing ledger with proposal:" << winning_prop.root_hash;
 
-        // Calculate the final nonce hash using the nonces from winning proposals.
-        std::vector<std::string> nonces;
-        nonces.reserve(winning_group.size());
+        // Calculate the final nonce hash using the ordered nonces from winning proposals.
+        std::set<std::string> nonces;
         for (auto &p : winning_group)
         {
-            nonces.push_back(std::string(p.nonce.to_string_view()));
+            nonces.emplace(std::string(p.nonce.to_string_view()));
         }
         winning_prop.nonce = crypto::get_list_hash(nonces);
 
