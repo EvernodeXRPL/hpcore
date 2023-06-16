@@ -82,12 +82,11 @@ namespace msg::fbuf::p2pmsg
      */
     const util::h32 hash_proposal_msg(const msg::fbuf::p2pmsg::ProposalMsg &msg)
     {
-        // Hash all the data fields except the "nonce" which is used as a random salt in stage 3.
-
         flatbuf_hasher hasher;
         hasher.add(msg.stage());
         hasher.add(msg.time());
         hasher.add(msg.time_config());
+        hasher.add(msg.group_nonce());
         hasher.add(msg.users());
         hasher.add(msg.input_hashes());
         hasher.add(msg.output_hash());
@@ -153,7 +152,8 @@ namespace msg::fbuf::p2pmsg
         p.recv_timestamp = util::get_epoch_milliseconds();
         p.time = msg.time();
         p.time_config = msg.time_config();
-        p.nonce = flatbuf_bytes_to_sv(msg.nonce());
+        p.node_nonce = flatbuf_bytes_to_sv(msg.node_nonce());
+        p.group_nonce = flatbuf_bytes_to_sv(msg.group_nonce());
         p.stage = msg.stage();
         p.state_hash = flatbuf_bytes_to_sv(msg.state_hash());
         p.patch_hash = flatbuf_bytes_to_sv(msg.patch_hash());
@@ -335,12 +335,11 @@ namespace msg::fbuf::p2pmsg
 
     const std::string generate_proposal_signature(const p2p::proposal &p)
     {
-        // Hash all the data fields except the "nonce" which is used as a random salt in stage 3.
-
         flatbuf_hasher hasher;
         hasher.add(p.stage);
         hasher.add(p.time);
         hasher.add(p.time_config);
+        hasher.add(p.group_nonce);
         hasher.add(p.users);
         hasher.add(p.input_ordered_hashes);
         hasher.add(p.output_hash);
@@ -417,7 +416,8 @@ namespace msg::fbuf::p2pmsg
             p.stage,
             p.time,
             p.time_config,
-            hash_to_flatbuf_bytes(builder, p.nonce),
+            hash_to_flatbuf_bytes(builder, p.node_nonce),
+            hash_to_flatbuf_bytes(builder, p.group_nonce),
             stringlist_to_flatbuf_bytearrayvector(builder, p.users),
             stringlist_to_flatbuf_bytearrayvector(builder, p.input_ordered_hashes),
             sv_to_flatbuf_bytes(builder, p.output_hash),

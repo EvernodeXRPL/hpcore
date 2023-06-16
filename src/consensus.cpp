@@ -288,14 +288,6 @@ namespace consensus
         p2p::proposal &winning_prop = winning_group.front();
         LOG_DEBUG << "Closing ledger with proposal:" << winning_prop.root_hash;
 
-        // Calculate the final nonce hash using the ordered nonces from winning proposals.
-        std::set<std::string> nonces;
-        for (auto &p : winning_group)
-        {
-            nonces.emplace(std::string(p.nonce.to_string_view()));
-        }
-        winning_prop.nonce = crypto::get_list_hash(nonces);
-
         // Upon successful ledger close condition, update the ledger and execute the contract using the consensus proposal.
         consensed_user_map consensed_users;
         if (prepare_consensed_users(consensed_users, winning_prop) == -1 ||
@@ -921,6 +913,12 @@ namespace consensus
         p.last_raw_shard_id = last_raw_shard_id;
         p.time_config = CURRENT_TIME_CONFIG;
 
+        // In stage 0 proposals, we calculate a random nonce from this node to contribute to the group nonce
+        std::string rand_bytes;
+        crypto::random_bytes(rand_bytes, ledger::ROUND_NONCE_SIZE);
+        ctx.round_nonce = crypto::get_hash(rand_bytes);
+        p.node_nonce = ctx.round_nonce;
+
         // Populate the proposal with set of candidate user pubkeys.
         p.users.swap(ctx.candidate_users);
 
@@ -951,17 +949,12 @@ namespace consensus
         p.last_raw_shard_id = last_raw_shard_id;
         p.time_config = CURRENT_TIME_CONFIG;
         p.output_hash.resize(BLAKE3_OUT_LEN); // Default empty hash.
-
-        // In stage3 proposals, we calculate a random nonce to contribute to salting the ledger.
-        // At ledger close, all of the stage3 random nonces proposed by each node will be hashed together.
-        if (ctx.stage == 3)
-        {
-            std::string rand_bytes;
-            crypto::random_bytes(rand_bytes, ledger::ROUND_NONCE_SIZE);
-            p.nonce = crypto::get_hash(rand_bytes);
-        }
+        p.node_nonce = ctx.round_nonce;
 
         const uint64_t time_now = util::get_epoch_milliseconds();
+
+        // Collect ordered nonces from all proposals in order to calculate the group nonce.
+        std::set<std::string> node_nonces;
 
         // Vote for rest of the proposal fields by looking at candidate proposals.
         for (const auto &[pubkey, cp] : ctx.candidate_proposals)
@@ -982,7 +975,13 @@ namespace consensus
 
             // Vote for contract output hash.
             increment(votes.output_hash, cp.output_hash);
+
+            if (ctx.stage == 3)
+                node_nonces.emplace(cp.node_nonce.to_string_view());
         }
+
+        if (ctx.stage == 3)
+            p.group_nonce = crypto::get_list_hash(node_nonces);
 
         // Compute the stage tresholds using ratios.
         // Threshold is devided by 100 to convert average to decimal.

@@ -247,7 +247,7 @@ namespace ledger
         data.emplace_back((char *)time_bytes, sizeof(time_bytes));
         data.push_back(proposal.state_hash.to_string_view());
         data.push_back(proposal.patch_hash.to_string_view());
-        data.push_back(proposal.nonce.to_string_view());
+        data.push_back(proposal.group_nonce.to_string_view());
         data.push_back(user_hash);
         data.push_back(input_hash);
         data.push_back(proposal.output_hash);
@@ -269,7 +269,7 @@ namespace ledger
             data_hash,
             std::string(proposal.state_hash.to_string_view()),
             std::string(proposal.patch_hash.to_string_view()),
-            std::string(proposal.nonce.to_string_view()),
+            std::string(proposal.group_nonce.to_string_view()),
             user_hash,
             input_hash,
             proposal.output_hash // Merkle root output hash.

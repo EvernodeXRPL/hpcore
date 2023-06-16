@@ -59,7 +59,8 @@ table ProposalMsg {
     stage:uint8;
     time:uint64;
     time_config:uint32; // Contains unified value derived from (roundtime*100 + stage_slice)
-    nonce: [ubyte];
+    node_nonce: [ubyte];
+    group_nonce: [ubyte];
     users:[ByteArray];
     input_hashes:[ByteArray];
     output_hash:[ubyte];

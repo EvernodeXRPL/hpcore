@@ -44,7 +44,8 @@ namespace p2p
         uint64_t time = 0;           // The descreet concensus time value that is voted on.
         uint8_t stage = 0;           // The round-stage that this proposal belongs to.
         uint32_t time_config = 0;    // Time config of the proposer.
-        util::h32 nonce;             // Random nonce that is used to reduce lcl predictability. Only valid in stage 3 proposals.
+        util::h32 node_nonce;        // The random nonce produced by a particular node for the current consensus round.
+        util::h32 group_nonce;       // The stage 3 canonical nonce (hash of all node nonces) which is used to salt the ledger.
         util::sequence_hash last_primary_shard_id;
         util::sequence_hash last_raw_shard_id;
         util::h32 state_hash; // Contract state hash.
