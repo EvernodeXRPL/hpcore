@@ -56,13 +56,12 @@ namespace ledger
         std::string data_hash;
         std::string state_hash;
         std::string config_hash;
-        std::string nonce_hash;
+        std::string nonce;
         std::string user_hash;
         std::string input_hash;
         std::string output_hash;
 
         // Raw data.
-        std::string nonce;
         std::optional<std::vector<ledger_user_input>> inputs;
         std::optional<std::vector<ledger_user_output>> outputs;
     };

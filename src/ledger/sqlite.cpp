@@ -35,9 +35,8 @@ namespace ledger::sqlite
 
     constexpr const char *INSERT_INTO_LEDGER = "INSERT INTO ledger("
                                                "seq_no, time, ledger_hash, prev_ledger_hash, data_hash,"
-                                               "state_hash, config_hash, nonce_hash, user_hash, input_hash, output_hash,"
-                                               "nonce"
-                                               ") VALUES(?,?,?,?,?,?,?,?,?,?,?,?)";
+                                               "state_hash, config_hash, nonce, user_hash, input_hash, output_hash"
+                                               ") VALUES(?,?,?,?,?,?,?,?,?,?,?)";
     constexpr const char *INSERT_INTO_USERS = "INSERT INTO users(ledger_seq_no, pubkey) VALUES(?,?)";
     constexpr const char *INSERT_INTO_USER_INPUTS = "INSERT INTO inputs(ledger_seq_no, pubkey, hash, nonce,"
                                                     " blob_offset, blob_size) VALUES(?,?,?,?,?,?)";
@@ -312,11 +311,10 @@ namespace ledger::sqlite
             table_column_info("data_hash", COLUMN_DATA_TYPE::BLOB),
             table_column_info("state_hash", COLUMN_DATA_TYPE::BLOB),
             table_column_info("config_hash", COLUMN_DATA_TYPE::BLOB),
-            table_column_info("nonce_hash", COLUMN_DATA_TYPE::BLOB),
+            table_column_info("nonce", COLUMN_DATA_TYPE::BLOB),
             table_column_info("user_hash", COLUMN_DATA_TYPE::BLOB),
             table_column_info("input_hash", COLUMN_DATA_TYPE::BLOB),
-            table_column_info("output_hash", COLUMN_DATA_TYPE::BLOB),
-            table_column_info("nonce", COLUMN_DATA_TYPE::BLOB)};
+            table_column_info("output_hash", COLUMN_DATA_TYPE::BLOB)};
 
         if (create_table(db, LEDGER_TABLE, columns) == -1 ||
             create_index(db, LEDGER_TABLE, "time", true) == -1 ||
@@ -420,11 +418,10 @@ namespace ledger::sqlite
             BIND_H32_BLOB(5, ledger.data_hash) &&
             BIND_H32_BLOB(6, ledger.state_hash) &&
             BIND_H32_BLOB(7, ledger.config_hash) &&
-            BIND_H32_BLOB(8, ledger.nonce_hash) &&
+            BIND_H32_BLOB(8, ledger.nonce) &&
             BIND_H32_BLOB(9, ledger.user_hash) &&
             BIND_H32_BLOB(10, ledger.input_hash) &&
             BIND_H32_BLOB(11, ledger.output_hash) &&
-            sqlite3_bind_blob64(stmt, 12, ledger.nonce.data(), ledger::ROUND_NONCE_SIZE, SQLITE_STATIC) == SQLITE_OK &&
             sqlite3_step(stmt) == SQLITE_DONE)
         {
             sqlite3_finalize(stmt);
@@ -674,11 +671,10 @@ namespace ledger::sqlite
         ledger.data_hash = GET_H32_BLOB(4);
         ledger.state_hash = GET_H32_BLOB(5);
         ledger.config_hash = GET_H32_BLOB(6);
-        ledger.nonce_hash = GET_H32_BLOB(7);
+        ledger.nonce = GET_H32_BLOB(7);
         ledger.user_hash = GET_H32_BLOB(8);
         ledger.input_hash = GET_H32_BLOB(9);
         ledger.output_hash = GET_H32_BLOB(10);
-        ledger.nonce = std::string((char *)sqlite3_column_blob(stmt, 11), sizeof(util::h32));
     }
 
     ledger::ledger_user_input populate_user_input_from_sql_record(sqlite3_stmt *stmt)

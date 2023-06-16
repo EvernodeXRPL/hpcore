@@ -132,7 +132,6 @@ namespace consensus
     struct vote_counter
     {
         std::map<uint64_t, uint32_t> time;
-        std::map<std::string, uint32_t> nonce;
         std::map<std::string, uint32_t> lcl;
         std::map<std::string, uint32_t> users;
         std::map<std::string, uint32_t> inputs;
@@ -145,7 +144,6 @@ namespace consensus
         void reset()
         {
             time.clear();
-            nonce.clear();
             lcl.clear();
             users.clear();
             inputs.clear();

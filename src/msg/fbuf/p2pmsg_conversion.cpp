@@ -77,13 +77,17 @@ namespace msg::fbuf::p2pmsg
             return util::h32_empty;
     }
 
+    /**
+     * Generate a hash using the consensus data fields of the proposal.
+     */
     const util::h32 hash_proposal_msg(const msg::fbuf::p2pmsg::ProposalMsg &msg)
     {
+        // Hash all the data fields except the "nonce" which is used a a random salt in stage 3.
+
         flatbuf_hasher hasher;
         hasher.add(msg.stage());
         hasher.add(msg.time());
         hasher.add(msg.time_config());
-        hasher.add(msg.nonce());
         hasher.add(msg.users());
         hasher.add(msg.input_hashes());
         hasher.add(msg.output_hash());
@@ -412,7 +416,7 @@ namespace msg::fbuf::p2pmsg
             p.stage,
             p.time,
             p.time_config,
-            sv_to_flatbuf_bytes(builder, p.nonce),
+            hash_to_flatbuf_bytes(builder, p.nonce),
             stringlist_to_flatbuf_bytearrayvector(builder, p.users),
             stringlist_to_flatbuf_bytearrayvector(builder, p.input_ordered_hashes),
             sv_to_flatbuf_bytes(builder, p.output_hash),

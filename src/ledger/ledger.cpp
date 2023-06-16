@@ -235,7 +235,6 @@ namespace ledger
         for (const std::string &o_hash : proposal.input_ordered_hashes)
             inp_hashes.push_back(util::get_string_suffix(o_hash, BLAKE3_OUT_LEN));
 
-        const std::string nonce_hash = crypto::get_hash(proposal.nonce);
         const std::string input_hash = crypto::get_list_hash(inp_hashes);
 
         uint8_t seq_no_bytes[8], time_bytes[8];
@@ -248,7 +247,7 @@ namespace ledger
         data.emplace_back((char *)time_bytes, sizeof(time_bytes));
         data.push_back(proposal.state_hash.to_string_view());
         data.push_back(proposal.patch_hash.to_string_view());
-        data.push_back(nonce_hash);
+        data.push_back(proposal.nonce.to_string_view());
         data.push_back(user_hash);
         data.push_back(input_hash);
         data.push_back(proposal.output_hash);
@@ -270,11 +269,11 @@ namespace ledger
             data_hash,
             std::string(proposal.state_hash.to_string_view()),
             std::string(proposal.patch_hash.to_string_view()),
-            nonce_hash,
+            std::string(proposal.nonce.to_string_view()),
             user_hash,
             input_hash,
-            proposal.output_hash, // Merkle root output hash.
-            proposal.nonce};
+            proposal.output_hash // Merkle root output hash.
+        };
 
         if (sqlite::insert_ledger_row(db, ledger) == -1)
         {

@@ -242,11 +242,8 @@ namespace consensus
      */
     void attempt_ledger_close()
     {
-        std::map<util::h32, uint32_t> hash_votes;              // Votes on the proposal hash.
-        std::map<util::h32, const p2p::proposal> cp_root_hash; // Stores one of proposal to match its root hash.
-        util::h32 majority_hash = util::h32_empty;
-
-        uint32_t stage3_prop_count = 0; // Keep track of the number of stage 3 proposals received.
+        std::map<util::h32, std::vector<p2p::proposal>> proposal_groups; // Stores sets of proposals against grouped by their root hashes.
+        uint32_t stage3_prop_count = 0;                                  // Keep track of the number of stage 3 proposals received.
 
         // Count votes of all stage 3 proposal hashes.
         for (const auto &[pubkey, cp] : ctx.candidate_proposals)
@@ -254,11 +251,10 @@ namespace consensus
             if (cp.stage == 3)
             {
                 stage3_prop_count++;
-                increment(hash_votes, cp.root_hash);
-                if (!cp_root_hash.count(cp.root_hash))
-                    cp_root_hash.try_emplace(cp.root_hash, cp);
+                proposal_groups[cp.root_hash].push_back(cp);
             }
         }
+
         // Threshold is devided by 100 to convert average to decimal.
         const uint32_t min_votes_required = ceil((conf::cfg.contract.consensus.threshold * unl::count()) / 100.0);
         if (stage3_prop_count < min_votes_required)
@@ -270,12 +266,13 @@ namespace consensus
 
         // Find the winning hash and no. of votes for it.
         uint32_t winning_votes = 0;
-        for (const auto [hash, votes] : hash_votes)
+        util::h32 winning_hash = util::h32_empty;
+        for (const auto [hash, proposals] : proposal_groups)
         {
-            if (votes > winning_votes)
+            if (proposals.size() > winning_votes)
             {
-                winning_votes = votes;
-                majority_hash = hash;
+                winning_votes = proposals.size();
+                winning_hash = hash;
             }
         }
 
@@ -285,20 +282,25 @@ namespace consensus
             return;
         }
 
-        const auto itr = cp_root_hash.find(majority_hash);
-        if (itr == cp_root_hash.end())
-        {
-            LOG_ERROR << "No proposal matching the majority hash found.";
-            return;
-        }
-        const p2p::proposal &majority_prop = itr->second;
+        // Consensus reached. This is the winning set of proposals.
+        std::vector<p2p::proposal> &winning_group = proposal_groups[winning_hash];
 
-        LOG_DEBUG << "Closing ledger with proposal:" << majority_prop.root_hash;
+        p2p::proposal &winning_prop = winning_group.front();
+        LOG_DEBUG << "Closing ledger with proposal:" << winning_prop.root_hash;
+
+        // Calculate the final nonce hash using the nonces from winning proposals.
+        std::vector<std::string> nonces;
+        nonces.reserve(winning_group.size());
+        for (auto &p : winning_group)
+        {
+            nonces.push_back(std::string(p.nonce.to_string_view()));
+        }
+        winning_prop.nonce = crypto::get_list_hash(nonces);
 
         // Upon successful ledger close condition, update the ledger and execute the contract using the consensus proposal.
         consensed_user_map consensed_users;
-        if (prepare_consensed_users(consensed_users, majority_prop) == -1 ||
-            commit_consensus_results(majority_prop, consensed_users) == -1)
+        if (prepare_consensed_users(consensed_users, winning_prop) == -1 ||
+            commit_consensus_results(winning_prop, consensed_users) == -1)
         {
             LOG_ERROR << "Error occured when closing ledger";
 
@@ -919,7 +921,6 @@ namespace consensus
         p.last_primary_shard_id = last_primary_shard_id;
         p.last_raw_shard_id = last_raw_shard_id;
         p.time_config = CURRENT_TIME_CONFIG;
-        crypto::random_bytes(p.nonce, ledger::ROUND_NONCE_SIZE);
 
         // Populate the proposal with set of candidate user pubkeys.
         p.users.swap(ctx.candidate_users);
@@ -940,16 +941,26 @@ namespace consensus
     {
         // The proposal to be emited at the end of this stage.
         p2p::proposal p;
-        p.stage = ctx.stage;
+
         // We always vote for our current information regardless of what other peers are saying.
         // If there's a fork condition we will either request shards or hpfs state from
         // our peers or we will halt depending on level of consensus on the sides of the fork.
+        p.stage = ctx.stage;
         p.state_hash = state_hash;
         p.patch_hash = patch_hash;
         p.last_primary_shard_id = last_primary_shard_id;
         p.last_raw_shard_id = last_raw_shard_id;
         p.time_config = CURRENT_TIME_CONFIG;
         p.output_hash.resize(BLAKE3_OUT_LEN); // Default empty hash.
+
+        // In stage3 proposals, we calculate a random nonce to contribute to salting the ledger.
+        // At ledger close, all of the stage3 random nonces proposed by each node will be hashed together.
+        if (ctx.stage == 3)
+        {
+            std::string rand_bytes;
+            crypto::random_bytes(rand_bytes, ledger::ROUND_NONCE_SIZE);
+            p.nonce = crypto::get_hash(rand_bytes);
+        }
 
         const uint64_t time_now = util::get_epoch_milliseconds();
 
@@ -960,9 +971,6 @@ namespace consensus
             // Everyone votes on the discreet time, as long as it's not in the future and within 2 round times.
             if (time_now > cp.time && (time_now - cp.time) <= (conf::cfg.contract.consensus.roundtime * 2))
                 increment(votes.time, cp.time);
-
-            // Vote for round nonce.
-            increment(votes.nonce, cp.nonce);
 
             // Vote for user pubkeys.
             for (const std::string &pubkey : cp.users)
@@ -1042,17 +1050,6 @@ namespace consensus
         // If final time happens to be 0 (this can happen if there were no proposals to vote for), we set the time manually.
         if (p.time == 0)
             p.time = ctx.round_start_time;
-
-        // Round nonce is voted on a simple sorted (highest to lowest) and majority basis, since there will always be disagreement.
-        uint32_t highest_nonce_vote = 0;
-        for (const auto [nonce, numvotes] : votes.nonce)
-        {
-            if (numvotes > highest_nonce_vote)
-            {
-                highest_nonce_vote = numvotes;
-                p.nonce = nonce;
-            }
-        }
 
         return p;
     }
