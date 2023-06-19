@@ -25,7 +25,7 @@ namespace hpfs
      * @param server_name The name of the serving instance. (For identification purpose)
      * @param fs_mount_ptr The pointer to the relavent hpfs mount instance this server is serving.
      * @return This returns -1 on error and 0 on success.
-    */
+     */
     int hpfs_serve::init(std::string_view server_name, hpfs::hpfs_mount *fs_mount_ptr)
     {
         if (fs_mount_ptr == NULL)
@@ -41,7 +41,7 @@ namespace hpfs
 
     /**
      * Perform cleanup activities.
-    */
+     */
     void hpfs_serve::deinit()
     {
         if (init_success)
@@ -294,7 +294,8 @@ namespace hpfs
                         std::vector<uint8_t> block;
                         if (get_data_block(block, child_vpath, 0) != -1)
                         {
-                            p2pmsg::create_msg_from_block_response(fbufs.emplace_back(), 0, block, block_hashes[0], child_vpath, fs_mount->mount_id);
+                            // If block 0 hash count is 0 means file is empty, So set hash as empty.
+                            p2pmsg::create_msg_from_block_response(fbufs.emplace_back(), 0, block, (block.size() == 0 && block_hashes.size() == 0) ? util::h32_empty : block_hashes[0], child_vpath, fs_mount->mount_id);
                             block_responses++;
                             responded_block_ids.push_back(0);
                         }
