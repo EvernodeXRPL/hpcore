@@ -769,7 +769,11 @@ namespace hpfs
         {
             if (!is_dir && errno == ENOENT) // File does not exist. So we must create it with the given 'mode'.
             {
-                if (mknod(physical_path.data(), full_mode, 0) == -1)
+                // The permissions of a created file are restricted by the process's current umask, so group and world write are always disabled by default.
+                // We do the chmod seperatly after mknod the file. Because if we give the g+w permission in mknod() mode param,
+                // The file won't get that permission because of the above mentioned default umask.
+
+                if (mknod(physical_path.data(), full_mode, 0) == -1 || chmod(physical_path.data(), mode) == -1)
                 {
                     LOG_ERROR << errno << ": Error in creating file node. " << physical_path;
                     return -1;
