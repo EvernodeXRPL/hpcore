@@ -15,7 +15,7 @@ fi
 dir=$(realpath $1)
 dirname=$(basename  $dir)
 n=$1
-hpversion=0.6.2
+hpversion=0.6.3
 
 let pubport=8080
 
