@@ -954,15 +954,16 @@ struct ProposalMsg FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
     VT_STAGE = 8,
     VT_TIME = 10,
     VT_TIME_CONFIG = 12,
-    VT_NONCE = 14,
-    VT_USERS = 16,
-    VT_INPUT_HASHES = 18,
-    VT_OUTPUT_HASH = 20,
-    VT_OUTPUT_SIG = 22,
-    VT_STATE_HASH = 24,
-    VT_PATCH_HASH = 26,
-    VT_LAST_PRIMARY_SHARD_ID = 28,
-    VT_LAST_RAW_SHARD_ID = 30
+    VT_NODE_NONCE = 14,
+    VT_GROUP_NONCE = 16,
+    VT_USERS = 18,
+    VT_INPUT_HASHES = 20,
+    VT_OUTPUT_HASH = 22,
+    VT_OUTPUT_SIG = 24,
+    VT_STATE_HASH = 26,
+    VT_PATCH_HASH = 28,
+    VT_LAST_PRIMARY_SHARD_ID = 30,
+    VT_LAST_RAW_SHARD_ID = 32
   };
   const flatbuffers::Vector<uint8_t> *pubkey() const {
     return GetPointer<const flatbuffers::Vector<uint8_t> *>(VT_PUBKEY);
@@ -994,11 +995,17 @@ struct ProposalMsg FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   bool mutate_time_config(uint32_t _time_config) {
     return SetField<uint32_t>(VT_TIME_CONFIG, _time_config, 0);
   }
-  const flatbuffers::Vector<uint8_t> *nonce() const {
-    return GetPointer<const flatbuffers::Vector<uint8_t> *>(VT_NONCE);
+  const flatbuffers::Vector<uint8_t> *node_nonce() const {
+    return GetPointer<const flatbuffers::Vector<uint8_t> *>(VT_NODE_NONCE);
   }
-  flatbuffers::Vector<uint8_t> *mutable_nonce() {
-    return GetPointer<flatbuffers::Vector<uint8_t> *>(VT_NONCE);
+  flatbuffers::Vector<uint8_t> *mutable_node_nonce() {
+    return GetPointer<flatbuffers::Vector<uint8_t> *>(VT_NODE_NONCE);
+  }
+  const flatbuffers::Vector<uint8_t> *group_nonce() const {
+    return GetPointer<const flatbuffers::Vector<uint8_t> *>(VT_GROUP_NONCE);
+  }
+  flatbuffers::Vector<uint8_t> *mutable_group_nonce() {
+    return GetPointer<flatbuffers::Vector<uint8_t> *>(VT_GROUP_NONCE);
   }
   const flatbuffers::Vector<flatbuffers::Offset<msg::fbuf::p2pmsg::ByteArray>> *users() const {
     return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<msg::fbuf::p2pmsg::ByteArray>> *>(VT_USERS);
@@ -1057,8 +1064,10 @@ struct ProposalMsg FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
            VerifyField<uint8_t>(verifier, VT_STAGE) &&
            VerifyField<uint64_t>(verifier, VT_TIME) &&
            VerifyField<uint32_t>(verifier, VT_TIME_CONFIG) &&
-           VerifyOffset(verifier, VT_NONCE) &&
-           verifier.VerifyVector(nonce()) &&
+           VerifyOffset(verifier, VT_NODE_NONCE) &&
+           verifier.VerifyVector(node_nonce()) &&
+           VerifyOffset(verifier, VT_GROUP_NONCE) &&
+           verifier.VerifyVector(group_nonce()) &&
            VerifyOffset(verifier, VT_USERS) &&
            verifier.VerifyVector(users()) &&
            verifier.VerifyVectorOfTables(users()) &&
@@ -1100,8 +1109,11 @@ struct ProposalMsgBuilder {
   void add_time_config(uint32_t time_config) {
     fbb_.AddElement<uint32_t>(ProposalMsg::VT_TIME_CONFIG, time_config, 0);
   }
-  void add_nonce(flatbuffers::Offset<flatbuffers::Vector<uint8_t>> nonce) {
-    fbb_.AddOffset(ProposalMsg::VT_NONCE, nonce);
+  void add_node_nonce(flatbuffers::Offset<flatbuffers::Vector<uint8_t>> node_nonce) {
+    fbb_.AddOffset(ProposalMsg::VT_NODE_NONCE, node_nonce);
+  }
+  void add_group_nonce(flatbuffers::Offset<flatbuffers::Vector<uint8_t>> group_nonce) {
+    fbb_.AddOffset(ProposalMsg::VT_GROUP_NONCE, group_nonce);
   }
   void add_users(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<msg::fbuf::p2pmsg::ByteArray>>> users) {
     fbb_.AddOffset(ProposalMsg::VT_USERS, users);
@@ -1146,7 +1158,8 @@ inline flatbuffers::Offset<ProposalMsg> CreateProposalMsg(
     uint8_t stage = 0,
     uint64_t time = 0,
     uint32_t time_config = 0,
-    flatbuffers::Offset<flatbuffers::Vector<uint8_t>> nonce = 0,
+    flatbuffers::Offset<flatbuffers::Vector<uint8_t>> node_nonce = 0,
+    flatbuffers::Offset<flatbuffers::Vector<uint8_t>> group_nonce = 0,
     flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<msg::fbuf::p2pmsg::ByteArray>>> users = 0,
     flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<msg::fbuf::p2pmsg::ByteArray>>> input_hashes = 0,
     flatbuffers::Offset<flatbuffers::Vector<uint8_t>> output_hash = 0,
@@ -1165,7 +1178,8 @@ inline flatbuffers::Offset<ProposalMsg> CreateProposalMsg(
   builder_.add_output_hash(output_hash);
   builder_.add_input_hashes(input_hashes);
   builder_.add_users(users);
-  builder_.add_nonce(nonce);
+  builder_.add_group_nonce(group_nonce);
+  builder_.add_node_nonce(node_nonce);
   builder_.add_time_config(time_config);
   builder_.add_sig(sig);
   builder_.add_pubkey(pubkey);
@@ -1180,7 +1194,8 @@ inline flatbuffers::Offset<ProposalMsg> CreateProposalMsgDirect(
     uint8_t stage = 0,
     uint64_t time = 0,
     uint32_t time_config = 0,
-    const std::vector<uint8_t> *nonce = nullptr,
+    const std::vector<uint8_t> *node_nonce = nullptr,
+    const std::vector<uint8_t> *group_nonce = nullptr,
     const std::vector<flatbuffers::Offset<msg::fbuf::p2pmsg::ByteArray>> *users = nullptr,
     const std::vector<flatbuffers::Offset<msg::fbuf::p2pmsg::ByteArray>> *input_hashes = nullptr,
     const std::vector<uint8_t> *output_hash = nullptr,
@@ -1191,7 +1206,8 @@ inline flatbuffers::Offset<ProposalMsg> CreateProposalMsgDirect(
     flatbuffers::Offset<msg::fbuf::p2pmsg::SequenceHash> last_raw_shard_id = 0) {
   auto pubkey__ = pubkey ? _fbb.CreateVector<uint8_t>(*pubkey) : 0;
   auto sig__ = sig ? _fbb.CreateVector<uint8_t>(*sig) : 0;
-  auto nonce__ = nonce ? _fbb.CreateVector<uint8_t>(*nonce) : 0;
+  auto node_nonce__ = node_nonce ? _fbb.CreateVector<uint8_t>(*node_nonce) : 0;
+  auto group_nonce__ = group_nonce ? _fbb.CreateVector<uint8_t>(*group_nonce) : 0;
   auto users__ = users ? _fbb.CreateVector<flatbuffers::Offset<msg::fbuf::p2pmsg::ByteArray>>(*users) : 0;
   auto input_hashes__ = input_hashes ? _fbb.CreateVector<flatbuffers::Offset<msg::fbuf::p2pmsg::ByteArray>>(*input_hashes) : 0;
   auto output_hash__ = output_hash ? _fbb.CreateVector<uint8_t>(*output_hash) : 0;
@@ -1205,7 +1221,8 @@ inline flatbuffers::Offset<ProposalMsg> CreateProposalMsgDirect(
       stage,
       time,
       time_config,
-      nonce__,
+      node_nonce__,
+      group_nonce__,
       users__,
       input_hashes__,
       output_hash__,

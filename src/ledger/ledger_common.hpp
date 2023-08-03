@@ -12,6 +12,7 @@ namespace ledger
     constexpr const char *RAW_OUTPUTS_FILE = "raw_outputs.blob";
     constexpr uint64_t PRIMARY_SHARD_SIZE = 262144; // 2^18 ledgers per shard.
     constexpr uint64_t RAW_SHARD_SIZE = 4096;
+    constexpr size_t ROUND_NONCE_SIZE = 64;
 
     /**
      * Holds an individual input for a user within a ledger.
@@ -43,19 +44,24 @@ namespace ledger
     /**
      * Struct to hold ledger fields corresponding to sqlite table.
      * All the hashes are stored as 32 byte binary data.
-    */
+     */
     struct ledger_record
     {
         uint64_t seq_no = 0;
         uint64_t timestamp = 0;
         std::string ledger_hash;
+
+        // COntributing hashes.
         std::string prev_ledger_hash;
         std::string data_hash;
         std::string state_hash;
         std::string config_hash;
+        std::string nonce;
         std::string user_hash;
         std::string input_hash;
         std::string output_hash;
+
+        // Raw data.
         std::optional<std::vector<ledger_user_input>> inputs;
         std::optional<std::vector<ledger_user_output>> outputs;
     };

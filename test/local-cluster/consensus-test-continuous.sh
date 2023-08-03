@@ -5,7 +5,7 @@ WINDOWSIZE=60 # size of window in seconds to examine for successful consensus ro
 PIPE=concon.pipe
 clusterloc=$(pwd)/hpcluster
 n=1
-hpversion=0.6.1
+hpversion=0.6.3
 let pubport=8080+$n
 while true; do
     

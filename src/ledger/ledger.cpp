@@ -41,7 +41,7 @@ namespace ledger
 
     /**
      * Perform ledger related initializations.
-    */
+     */
     int init()
     {
         // Setup the static genesis ledger fields.
@@ -91,7 +91,7 @@ namespace ledger
 
     /**
      * Perform deinit tasks related to ledger.
-    */
+     */
     void deinit()
     {
         ledger_sync_worker.deinit();
@@ -247,6 +247,7 @@ namespace ledger
         data.emplace_back((char *)time_bytes, sizeof(time_bytes));
         data.push_back(proposal.state_hash.to_string_view());
         data.push_back(proposal.patch_hash.to_string_view());
+        data.push_back(proposal.group_nonce.to_string_view());
         data.push_back(user_hash);
         data.push_back(input_hash);
         data.push_back(proposal.output_hash);
@@ -268,9 +269,11 @@ namespace ledger
             data_hash,
             std::string(proposal.state_hash.to_string_view()),
             std::string(proposal.patch_hash.to_string_view()),
+            std::string(proposal.group_nonce.to_string_view()),
             user_hash,
             input_hash,
-            proposal.output_hash}; // Merkle root output hash.
+            proposal.output_hash // Merkle root output hash.
+        };
 
         if (sqlite::insert_ledger_row(db, ledger) == -1)
         {
@@ -703,7 +706,7 @@ namespace ledger
      * @param last_shard_id Struct which holds last shard data. (sequence number and hash).
      * @param shard_parent_dir Parent director vpath of the shards.
      * @return 0 on success. -1 on error.
-    */
+     */
     int get_last_shard_info(std::string_view session_name, util::sequence_hash &last_shard_id, const std::string &shard_parent_dir)
     {
         const std::string last_shard_seq_no_vpath = shard_parent_dir + SHARD_SEQ_NO_FILENAME;
@@ -746,12 +749,12 @@ namespace ledger
     }
 
     /**
-     * Update max_shard.seq_no meta file with the given latest shard sequence number which can be used to identify last shard 
+     * Update max_shard.seq_no meta file with the given latest shard sequence number which can be used to identify last shard
      * sequence number in startup.
      * @param shard_parent_dir Shard's parent directory. (primary or raw).
      * @param last_shard_seq_no Last shard sequence number of the given parent.
      * @return Return -1 on error and 0 on success.
-    */
+     */
     int persist_max_shard_seq_no(const std::string &shard_parent_dir, const uint64_t last_shard_seq_no)
     {
         const std::string last_shard_seq_no_vpath = shard_parent_dir + SHARD_SEQ_NO_FILENAME;
@@ -789,7 +792,7 @@ namespace ledger
      * @param root_hash The calculated root hash as of the given seq_no.
      * @param seq_no Ledger's sequence number.
      * @return Returns -1 on error and 0 on success.
-    */
+     */
     int get_root_hash_from_ledger(util::h32 &root_hash, const uint64_t seq_no)
     {
         sqlite3 *db = NULL;

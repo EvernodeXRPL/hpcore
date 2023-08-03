@@ -5,7 +5,6 @@
 
 namespace util
 {
-
     // blake3b hash is 32 bytes which we store as 4 quad words
     // Originally from https://github.com/codetsunami/file-ptracer/blob/master/merkle.cpp
     struct h32
@@ -15,14 +14,17 @@ namespace util
         bool operator==(const h32 rhs) const;
         bool operator!=(const h32 rhs) const;
         void operator^=(const h32 rhs);
-        std::string_view to_string_view() const;
         h32 &operator=(std::string_view sv);
         void operator^=(std::string_view sv);
         bool operator<(const h32 rhs) const;
+        std::string_view to_string_view() const;
 
         h32()
         {
-            memset(data, 0, sizeof(data));
+            data[0] = 0;
+            data[1] = 0;
+            data[2] = 0;
+            data[3] = 0;
         }
     };
     extern h32 h32_empty;

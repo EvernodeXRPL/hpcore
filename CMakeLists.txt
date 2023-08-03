@@ -12,8 +12,7 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY build)
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Werror")
 
-#-------hpcore-------
-
+# -------hpcore-------
 add_subdirectory(src/killswitch)
 
 add_executable(hpcore
@@ -76,6 +75,7 @@ target_link_libraries(hpcore
 )
 
 add_custom_command(TARGET hpcore POST_BUILD
+
     # COMMAND strip ./build/hpcore
     COMMAND cp ./test/bin/hpws ./test/bin/hpfs ./build/
 )
@@ -85,10 +85,10 @@ target_precompile_headers(hpcore PUBLIC src/pchheader.hpp)
 # Create docker image for local cluster testing from hpcore build output with 'make docker'
 # Requires docker to be runnable without 'sudo'
 add_custom_target(docker
-  COMMAND mkdir -p ./test/local-cluster/bin
-  COMMAND cp ./build/hpcore ./test/local-cluster/bin/
-  COMMAND cp ./test/bin/libblake3.so ./test/bin/hpws ./test/bin/hpfs ./test/local-cluster/bin/
-  COMMAND docker build -t hpcore:latest -t hpcore:0.6.1 -f ./test/local-cluster/Dockerfile ./test/local-cluster/bin/
+    COMMAND mkdir -p ./test/local-cluster/bin
+    COMMAND cp ./build/hpcore ./test/local-cluster/bin/
+    COMMAND cp ./test/bin/libblake3.so ./test/bin/hpws ./test/bin/hpfs ./test/local-cluster/bin/
+    COMMAND docker build -t hpcore:latest -t hpcore:0.6.3 -f ./test/local-cluster/Dockerfile ./test/local-cluster/bin/
 )
 set_target_properties(docker PROPERTIES EXCLUDE_FROM_ALL TRUE)
 add_dependencies(docker hpcore)
