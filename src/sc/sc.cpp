@@ -1147,8 +1147,12 @@ namespace sc
         {
             std::vector<p2p::peer_properties> added_peers;
             std::vector<p2p::peer_properties> removed_peers;
-            if (parser.extract_peer_changeset(added_peers, removed_peers) != -1)
-                p2p::merge_peer_list("Control_MSG", &added_peers, &removed_peers);
+            bool overwrite = false;
+            if (parser.extract_peer_changeset(added_peers, removed_peers, overwrite) != -1)
+            {
+                const p2p::PEERS_UPDATE_MODE update_mode = (overwrite ? p2p::PEERS_UPDATE_MODE::OVERWRITE : p2p::PEERS_UPDATE_MODE::FORCE);
+                p2p::update_peer_list(update_mode, &added_peers, &removed_peers);
+            }
         }
     }
 

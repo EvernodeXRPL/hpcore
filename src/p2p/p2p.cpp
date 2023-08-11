@@ -37,7 +37,7 @@ namespace p2p
         metric_thresholds[3] = conf::cfg.mesh.max_bad_msgs_per_min;
         metric_thresholds[4] = conf::cfg.mesh.idle_timeout;
 
-        //Entry point for p2p which will start peer connections to other nodes
+        // Entry point for p2p which will start peer connections to other nodes
         if (start_peer_connections() == -1)
             return -1;
 
@@ -223,7 +223,7 @@ namespace p2p
         if (send_to_self)
             self::send(message);
 
-        //Broadcast while locking the peer_connections.
+        // Broadcast while locking the peer_connections.
         std::scoped_lock<std::mutex> lock(ctx.peer_connections_mutex);
 
         for (const auto &[k, session] : ctx.peer_connections)
@@ -244,7 +244,7 @@ namespace p2p
      * @param msg_type The message type.
      * @param originated_on The originated epoch of the received message.
      * @return Returns true if the message is qualified for forwarding to peers. False otherwise.
-    */
+     */
     bool validate_for_peer_msg_forwarding(const peer_comm_session &session, const enum msg::fbuf::p2pmsg::P2PMsgContent msg_type, const uint64_t originated_on)
     {
         // Checking whether the message forwarding is enabled.
@@ -291,7 +291,7 @@ namespace p2p
      */
     void send_message_to_random_peer(const flatbuffers::FlatBufferBuilder &fbuf, std::string &target_pubkey, const bool full_history_only)
     {
-        //Send while locking the peer_connections.
+        // Send while locking the peer_connections.
         std::scoped_lock<std::mutex> lock(ctx.peer_connections_mutex);
 
         const size_t connected_peers = ctx.peer_connections.size();
@@ -333,14 +333,14 @@ namespace p2p
             session = it->second;
         }
 
-        //send message to selected peer.
+        // send message to selected peer.
         session->send(msg::fbuf::builder_to_string_view(fbuf));
         target_pubkey = session->uniqueid;
     }
 
     /**
      * Handle proposal message. This is called from peer and self message handlers.
-    */
+     */
     void handle_proposal_message(const p2p::proposal &p)
     {
         // Check the cap and insert proposal with lock.
@@ -355,7 +355,7 @@ namespace p2p
 
     /**
      * Handle nonunl proposal message. This is called from peer and self message handlers.
-    */
+     */
     void handle_nonunl_proposal_message(const p2p::nonunl_proposal &nup)
     {
         // Check the cap and insert proposal with lock.
@@ -465,22 +465,29 @@ namespace p2p
     }
 
     /**
-     * Merging the response peer list with the own known peer list.
-     * @param merge_peers Peers that must be merged with existing known peers.
-     * @param remove_peers Peers that must be removed from existing known peers.
-     * @param from The session that sent us the peer list.
+     * Update the known peer list with the specified modifications.
+     * @param mode Update applying priority.
+     * @param add_peers Peers that must be added to existing known peers.
+     * @param remove_peers Peers that must be removed from existing known peers. Ignored if mode is OVERWRITE.
+     * @param from The session that sent us the peer list. Optional.
      */
-    void merge_peer_list(const std::string &caller, const std::vector<peer_properties> *merge_peers, const std::vector<peer_properties> *remove_peers, const p2p::peer_comm_session *from)
+    void update_peer_list(const p2p::PEERS_UPDATE_MODE mode, const std::vector<peer_properties> *add_peers,
+                          const std::vector<peer_properties> *remove_peers, const p2p::peer_comm_session *from)
     {
         std::scoped_lock<std::mutex> lock(ctx.server->req_known_remotes_mutex);
 
-        if (merge_peers)
+        if (mode == p2p::PEERS_UPDATE_MODE::OVERWRITE)
         {
-            for (const peer_properties &peer : *merge_peers)
+            ctx.server->req_known_remotes.clear();
+        }
+
+        if (add_peers)
+        {
+            for (const peer_properties &peer : *add_peers)
             {
                 if (peer.ip_port.host_address.empty())
                 {
-                    LOG_DEBUG << caller << " : Skip received peer with blank host address " << peer.ip_port.to_string() << " from " << peer.ip_port.to_string();
+                    LOG_DEBUG << "Skip received peer with blank host address " << peer.ip_port.to_string() << " from " << peer.ip_port.to_string();
                     continue;
                 }
 
@@ -498,10 +505,14 @@ namespace p2p
                     continue;
                 }
 
-                if (ctx.server->dead_known_peers.exists(peer.ip_port.to_string()))
+                if (mode == p2p::PEERS_UPDATE_MODE::MERGE)
                 {
                     LOG_DEBUG << "Rejecting " + peer.ip_port.to_string() + ". Peer was removed prior due to unavailability.";
                     continue;
+                }
+                else if (ctx.server->dead_known_peers.exists(peer.ip_port.to_string()))
+                {
+                    ctx.server->dead_known_peers.erase(peer.ip_port.to_string());
                 }
 
                 const auto itr = std::find_if(ctx.server->req_known_remotes.begin(), ctx.server->req_known_remotes.end(), [&](peer_properties &p)
@@ -531,7 +542,7 @@ namespace p2p
             }
         }
 
-        if (remove_peers)
+        if (mode != p2p::PEERS_UPDATE_MODE::OVERWRITE && remove_peers)
         {
             for (const peer_properties &peer : *remove_peers)
             {
@@ -547,7 +558,7 @@ namespace p2p
         }
 
         // Sorting the known remote list according to the weight value after merging the peer list.
-        if (merge_peers || remove_peers)
+        if (add_peers || remove_peers)
             sort_known_remotes();
     }
 
@@ -593,7 +604,7 @@ namespace p2p
 
     /**
      * Update the peer trusted status on unl list updates.
-    */
+     */
     void update_unl_connections()
     {
         std::scoped_lock<std::mutex> lock(ctx.peer_connections_mutex);

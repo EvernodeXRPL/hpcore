@@ -19,7 +19,14 @@ namespace p2p
     constexpr uint16_t HPFS_RES_LIST_CAP = 255;        // Maximum state response count.
     constexpr uint16_t LOG_RECORD_REQ_LIST_CAP = 255;  // Maximum log record request count.
     constexpr uint16_t LOG_RECORD_RES_LIST_CAP = 255;  // Maximum log record response count.
-    constexpr uint16_t PEER_LIST_CAP = 128;            // Maximum peer count.
+    constexpr uint16_t PEER_LIST_CAP = 256;            // Maximum peer count.
+
+    enum PEERS_UPDATE_MODE
+    {
+        MERGE = 0,      // Gracefully merge new changes to our known peers.
+        FORCE = 1,      // Update our known peers while giving priority to specified changes.
+        OVERWRITE = 2   // Completely overwrite our known peers with the given set of peers.
+    };
 
     // Struct to represent information about a peer.
     // Initially available capacity is set to -1 and timestamp is set to 0.
@@ -238,7 +245,8 @@ namespace p2p
 
     void update_known_peer_available_capacity(const conf::peer_ip_port &ip_port, const int16_t available_capacity, const uint64_t &timestamp);
 
-    void merge_peer_list(const std::string &caller, const std::vector<peer_properties> *merge_peers, const std::vector<peer_properties> *remove_peers, const p2p::peer_comm_session *from = NULL);
+    void update_peer_list(const p2p::PEERS_UPDATE_MODE mode, const std::vector<peer_properties> *add_peers,
+                          const std::vector<peer_properties> *remove_peers, const p2p::peer_comm_session *from = NULL);
 
     void sort_known_remotes();
 
