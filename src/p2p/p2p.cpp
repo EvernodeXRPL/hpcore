@@ -507,10 +507,13 @@ namespace p2p
 
                 if (mode == p2p::PEERS_UPDATE_MODE::MERGE)
                 {
-                    LOG_DEBUG << "Rejecting " + peer.ip_port.to_string() + ". Peer was removed prior due to unavailability.";
-                    continue;
+                    if (ctx.server->dead_known_peers.exists(peer.ip_port.to_string()))
+                    {
+                        LOG_DEBUG << "Rejecting " + peer.ip_port.to_string() + ". Peer was removed prior due to unavailability.";
+                        continue;
+                    }
                 }
-                else if (ctx.server->dead_known_peers.exists(peer.ip_port.to_string()))
+                else
                 {
                     ctx.server->dead_known_peers.erase(peer.ip_port.to_string());
                 }
