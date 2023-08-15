@@ -16,7 +16,8 @@ union P2PMsgContent {
     PeerListRequestMsg,
     PeerListResponseMsg,
     HpfsLogRequest,
-    HpfsLogResponse
+    HpfsLogResponse,
+    SuppressMsg
 }
 
 table P2PMsg {
@@ -80,6 +81,13 @@ table NplMsg {
     lcl_id:SequenceHash;
 
     // Make sure to update signature generation/verification whenever these fields are changed.
+}
+
+enum SuppressReasonType : byte { ContractIdMismatch = 0 }
+
+table SuppressMsg {
+    pubkey:[ubyte]; // Sender pubkey.
+    reason_type: SuppressReasonType;
 }
 
 //--hpfs requests and responses--//

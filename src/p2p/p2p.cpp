@@ -37,7 +37,7 @@ namespace p2p
         metric_thresholds[3] = conf::cfg.mesh.max_bad_msgs_per_min;
         metric_thresholds[4] = conf::cfg.mesh.idle_timeout;
 
-        //Entry point for p2p which will start peer connections to other nodes
+        // Entry point for p2p which will start peer connections to other nodes
         if (start_peer_connections() == -1)
             return -1;
 
@@ -223,7 +223,7 @@ namespace p2p
         if (send_to_self)
             self::send(message);
 
-        //Broadcast while locking the peer_connections.
+        // Broadcast while locking the peer_connections.
         std::scoped_lock<std::mutex> lock(ctx.peer_connections_mutex);
 
         for (const auto &[k, session] : ctx.peer_connections)
@@ -244,7 +244,7 @@ namespace p2p
      * @param msg_type The message type.
      * @param originated_on The originated epoch of the received message.
      * @return Returns true if the message is qualified for forwarding to peers. False otherwise.
-    */
+     */
     bool validate_for_peer_msg_forwarding(const peer_comm_session &session, const enum msg::fbuf::p2pmsg::P2PMsgContent msg_type, const uint64_t originated_on)
     {
         // Checking whether the message forwarding is enabled.
@@ -291,7 +291,7 @@ namespace p2p
      */
     void send_message_to_random_peer(const flatbuffers::FlatBufferBuilder &fbuf, std::string &target_pubkey, const bool full_history_only)
     {
-        //Send while locking the peer_connections.
+        // Send while locking the peer_connections.
         std::scoped_lock<std::mutex> lock(ctx.peer_connections_mutex);
 
         const size_t connected_peers = ctx.peer_connections.size();
@@ -333,14 +333,14 @@ namespace p2p
             session = it->second;
         }
 
-        //send message to selected peer.
+        // send message to selected peer.
         session->send(msg::fbuf::builder_to_string_view(fbuf));
         target_pubkey = session->uniqueid;
     }
 
     /**
      * Handle proposal message. This is called from peer and self message handlers.
-    */
+     */
     void handle_proposal_message(const p2p::proposal &p)
     {
         // Check the cap and insert proposal with lock.
@@ -355,7 +355,7 @@ namespace p2p
 
     /**
      * Handle nonunl proposal message. This is called from peer and self message handlers.
-    */
+     */
     void handle_nonunl_proposal_message(const p2p::nonunl_proposal &nup)
     {
         // Check the cap and insert proposal with lock.
@@ -377,6 +377,14 @@ namespace p2p
         {
             LOG_DEBUG << "NPL message from self enqueue failure.";
         }
+    }
+
+    void handle_suppress_message(const p2p::suppress_message &suppression, peer_comm_session *session)
+    {
+        if (suppression.reason_type == SUPPRESS_REASON_TYPE::CONTRACT_MISMATCH)
+            session->state = comm::SESSION_STATE::SUSPENDED;
+        else
+            LOG_DEBUG << "Invalid suppressing reason.";
     }
 
     /**
@@ -593,7 +601,7 @@ namespace p2p
 
     /**
      * Update the peer trusted status on unl list updates.
-    */
+     */
     void update_unl_connections()
     {
         std::scoped_lock<std::mutex> lock(ctx.peer_connections_mutex);
