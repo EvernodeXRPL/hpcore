@@ -321,6 +321,7 @@ namespace hpws
             std::string_view host,
             uint16_t port,
             std::string_view get,
+            bool visa_req,
             std::vector<std::string_view> argv,
             std::function<void()> fork_child_init = NULL)
         {
@@ -381,6 +382,8 @@ namespace hpws
                 argv_pass[upto++] = cfd2;
                 argv_pass[upto++] = "--get";
                 argv_pass[upto++] = get.data();
+                if (visa_req)
+                    argv_pass[upto++] = "--visareq";
                 for (std::string_view &arg : argv)
                     argv_pass[upto++] = arg.data();
                 argv_pass[upto] = NULL;
@@ -876,6 +879,7 @@ namespace hpws
             uint16_t max_con_per_ip,
             std::string_view cert_path,
             std::string_view key_path,
+            bool visa_req,
             std::vector<std::string_view> argv, //additional_arguments
             std::function<void()> fork_child_init = NULL)
         {
@@ -934,6 +938,8 @@ namespace hpws
                 argv_pass[upto++] = max_con_str;
                 argv_pass[upto++] = "--maxconip";
                 argv_pass[upto++] = max_con_per_ip_str;
+                if (visa_req)
+                    argv_pass[upto++] = "--visareq";
                 for (std::string_view &arg : argv)
                     argv_pass[upto++] = arg.data();
                 argv_pass[upto] = NULL;

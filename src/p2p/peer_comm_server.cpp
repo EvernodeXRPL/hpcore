@@ -171,7 +171,7 @@ namespace p2p
             const uint16_t port = peer.ip_port.port;
             LOG_DEBUG << "Trying to connect " << host << ":" << std::to_string(port);
 
-            std::variant<hpws::client, hpws::error> client_result = hpws::client::connect(conf::ctx.hpws_exe_path, max_msg_size, host, port, "/", {}, util::fork_detach);
+            std::variant<hpws::client, hpws::error> client_result = hpws::client::connect(conf::ctx.hpws_exe_path, max_msg_size, host, port, "/", true, {}, util::fork_detach);
 
             if (std::holds_alternative<hpws::error>(client_result))
             {

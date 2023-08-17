@@ -265,6 +265,7 @@ namespace comm
                 max_in_connections_per_host,
                 conf::ctx.tls_cert_file,
                 conf::ctx.tls_key_file,
+                name == "Peer",
                 {},
                 util::fork_detach);
 
