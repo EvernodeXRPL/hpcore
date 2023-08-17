@@ -791,7 +791,12 @@ namespace consensus
     {
         std::scoped_lock lock(ctx.contract_ctx_mutex);
         if (ctx.contract_ctx)
-            return ctx.contract_ctx->args.npl_messages.try_enqueue(std::move(npl_msg));
+        {
+            if (ctx.contract_ctx->args.lcl_id == npl_msg.lcl_id)
+                return ctx.contract_ctx->args.npl_messages.try_enqueue(std::move(npl_msg));
+            else
+                LOG_DEBUG << "Trying to add irrelevant NPL from " << util::to_hex(npl_msg.pubkey) <<  " | Ledger Seq: " << npl_msg.lcl_id.seq_no;
+        }
         return false;
     }
 
