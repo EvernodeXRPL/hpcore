@@ -461,6 +461,10 @@ namespace sc
             if (exec_timeout > 0 && (util::get_epoch_milliseconds() - start_time) > exec_timeout)
             {
                 LOG_INFO << "Contract process timeout of " << exec_timeout << "ms exceeded.";
+
+                // Issue kill signal if the contract process exceeds the timeout.
+                kill(ctx.contract_pid, SIGKILL);
+                check_contract_exited(ctx, true);
                 break;
             }
 
@@ -525,7 +529,7 @@ namespace sc
             {
                 // Issue kill signal if the contract hasn't indicated the termination control message.
                 if (!ctx.termination_signaled)
-                    kill(ctx.contract_pid, SIGTERM);
+                    kill(ctx.contract_pid, SIGKILL);
                 check_contract_exited(ctx, true); // Blocking wait until exit.
             }
         }
