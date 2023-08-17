@@ -795,7 +795,7 @@ namespace consensus
             if (ctx.contract_ctx->args.lcl_id == npl_msg.lcl_id)
                 return ctx.contract_ctx->args.npl_messages.try_enqueue(std::move(npl_msg));
             else
-                LOG_DEBUG << "Trying to add irrelevant NPL from " << util::to_hex(npl_msg.pubkey) <<  " | Ledger Seq: " << npl_msg.lcl_id.seq_no;
+                LOG_DEBUG << "Trying to add irrelevant NPL from " << util::to_hex(npl_msg.pubkey) <<  " | lcl-seq: " << npl_msg.lcl_id.seq_no;
         }
         return false;
     }
