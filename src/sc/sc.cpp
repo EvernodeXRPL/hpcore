@@ -461,10 +461,6 @@ namespace sc
             if (exec_timeout > 0 && (util::get_epoch_milliseconds() - start_time) > exec_timeout)
             {
                 LOG_INFO << "Contract process timeout of " << exec_timeout << "ms exceeded.";
-
-                // Issue kill signal if the contract process exceeds the timeout.
-                kill(ctx.contract_pid, SIGKILL);
-                check_contract_exited(ctx, true);
                 break;
             }
 
@@ -488,7 +484,7 @@ namespace sc
             const int user_read_res = read_contract_fdmap_outputs(ctx.user_fds, out_fds, ctx.args.userbufs);
             messages_read = (control_read_res + npl_read_res + user_read_res) > 0;
 
-            if (ctx.termination_signaled || ctx.contract_pid == 0)
+            if (ctx.contract_pid == 0)
             {
                 // If no messages were read after contract finished execution, exit the polling loop.
                 // Otherwise keep running the loop becaue there might be further messages to read.
@@ -527,9 +523,8 @@ namespace sc
             // Check if the contract has exited voluntarily.
             if (check_contract_exited(ctx, false) == 0)
             {
-                // Issue kill signal if the contract hasn't indicated the termination control message.
-                if (!ctx.termination_signaled)
-                    kill(ctx.contract_pid, SIGKILL);
+                // Issue kill signal to kill the contract process.
+                kill(ctx.contract_pid, SIGKILL);
                 check_contract_exited(ctx, true); // Blocking wait until exit.
             }
         }
