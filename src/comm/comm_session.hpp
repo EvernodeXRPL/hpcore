@@ -22,7 +22,7 @@ namespace comm
         ACTIVE,     // Session is active and functioning.
         MUST_CLOSE, // Session socket is in unusable state and must be closed.
         CLOSED,     // Session is fully closed.
-        SUSPENDED   // Session is suspended.
+        SUPPRESSED  // Session is suppressed by the peer.
     };
 
     enum CLOSE_VIOLATION

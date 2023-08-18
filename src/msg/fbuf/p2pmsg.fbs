@@ -83,11 +83,11 @@ table NplMsg {
     // Make sure to update signature generation/verification whenever these fields are changed.
 }
 
-enum SuppressReasonType : byte { ContractIdMismatch = 0 }
+enum SuppressReason : byte { ContractIdMismatch = 0 }
 
 table SuppressMsg {
     pubkey:[ubyte]; // Sender pubkey.
-    reason_type: SuppressReasonType;
+    reason: SuppressReason;
 }
 
 //--hpfs requests and responses--//

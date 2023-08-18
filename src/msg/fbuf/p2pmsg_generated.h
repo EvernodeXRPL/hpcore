@@ -220,20 +220,20 @@ template<> struct P2PMsgContentTraits<msg::fbuf::p2pmsg::SuppressMsg> {
 bool VerifyP2PMsgContent(flatbuffers::Verifier &verifier, const void *obj, P2PMsgContent type);
 bool VerifyP2PMsgContentVector(flatbuffers::Verifier &verifier, const flatbuffers::Vector<flatbuffers::Offset<void>> *values, const flatbuffers::Vector<uint8_t> *types);
 
-enum SuppressReasonType {
-  SuppressReasonType_ContractIdMismatch = 0,
-  SuppressReasonType_MIN = SuppressReasonType_ContractIdMismatch,
-  SuppressReasonType_MAX = SuppressReasonType_ContractIdMismatch
+enum SuppressReason {
+  SuppressReason_ContractIdMismatch = 0,
+  SuppressReason_MIN = SuppressReason_ContractIdMismatch,
+  SuppressReason_MAX = SuppressReason_ContractIdMismatch
 };
 
-inline const SuppressReasonType (&EnumValuesSuppressReasonType())[1] {
-  static const SuppressReasonType values[] = {
-    SuppressReasonType_ContractIdMismatch
+inline const SuppressReason (&EnumValuesSuppressReason())[1] {
+  static const SuppressReason values[] = {
+    SuppressReason_ContractIdMismatch
   };
   return values;
 }
 
-inline const char * const *EnumNamesSuppressReasonType() {
+inline const char * const *EnumNamesSuppressReason() {
   static const char * const names[2] = {
     "ContractIdMismatch",
     nullptr
@@ -241,10 +241,10 @@ inline const char * const *EnumNamesSuppressReasonType() {
   return names;
 }
 
-inline const char *EnumNameSuppressReasonType(SuppressReasonType e) {
-  if (flatbuffers::IsOutRange(e, SuppressReasonType_ContractIdMismatch, SuppressReasonType_ContractIdMismatch)) return "";
+inline const char *EnumNameSuppressReason(SuppressReason e) {
+  if (flatbuffers::IsOutRange(e, SuppressReason_ContractIdMismatch, SuppressReason_ContractIdMismatch)) return "";
   const size_t index = static_cast<size_t>(e);
-  return EnumNamesSuppressReasonType()[index];
+  return EnumNamesSuppressReason()[index];
 }
 
 enum HpfsFsEntryResponseType {
@@ -1386,7 +1386,7 @@ struct SuppressMsg FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   typedef SuppressMsgBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_PUBKEY = 4,
-    VT_REASON_TYPE = 6
+    VT_REASON = 6
   };
   const flatbuffers::Vector<uint8_t> *pubkey() const {
     return GetPointer<const flatbuffers::Vector<uint8_t> *>(VT_PUBKEY);
@@ -1394,17 +1394,17 @@ struct SuppressMsg FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   flatbuffers::Vector<uint8_t> *mutable_pubkey() {
     return GetPointer<flatbuffers::Vector<uint8_t> *>(VT_PUBKEY);
   }
-  msg::fbuf::p2pmsg::SuppressReasonType reason_type() const {
-    return static_cast<msg::fbuf::p2pmsg::SuppressReasonType>(GetField<int8_t>(VT_REASON_TYPE, 0));
+  msg::fbuf::p2pmsg::SuppressReason reason() const {
+    return static_cast<msg::fbuf::p2pmsg::SuppressReason>(GetField<int8_t>(VT_REASON, 0));
   }
-  bool mutate_reason_type(msg::fbuf::p2pmsg::SuppressReasonType _reason_type) {
-    return SetField<int8_t>(VT_REASON_TYPE, static_cast<int8_t>(_reason_type), 0);
+  bool mutate_reason(msg::fbuf::p2pmsg::SuppressReason _reason) {
+    return SetField<int8_t>(VT_REASON, static_cast<int8_t>(_reason), 0);
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
            VerifyOffset(verifier, VT_PUBKEY) &&
            verifier.VerifyVector(pubkey()) &&
-           VerifyField<int8_t>(verifier, VT_REASON_TYPE) &&
+           VerifyField<int8_t>(verifier, VT_REASON) &&
            verifier.EndTable();
   }
 };
@@ -1416,8 +1416,8 @@ struct SuppressMsgBuilder {
   void add_pubkey(flatbuffers::Offset<flatbuffers::Vector<uint8_t>> pubkey) {
     fbb_.AddOffset(SuppressMsg::VT_PUBKEY, pubkey);
   }
-  void add_reason_type(msg::fbuf::p2pmsg::SuppressReasonType reason_type) {
-    fbb_.AddElement<int8_t>(SuppressMsg::VT_REASON_TYPE, static_cast<int8_t>(reason_type), 0);
+  void add_reason(msg::fbuf::p2pmsg::SuppressReason reason) {
+    fbb_.AddElement<int8_t>(SuppressMsg::VT_REASON, static_cast<int8_t>(reason), 0);
   }
   explicit SuppressMsgBuilder(flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
@@ -1434,22 +1434,22 @@ struct SuppressMsgBuilder {
 inline flatbuffers::Offset<SuppressMsg> CreateSuppressMsg(
     flatbuffers::FlatBufferBuilder &_fbb,
     flatbuffers::Offset<flatbuffers::Vector<uint8_t>> pubkey = 0,
-    msg::fbuf::p2pmsg::SuppressReasonType reason_type = msg::fbuf::p2pmsg::SuppressReasonType_ContractIdMismatch) {
+    msg::fbuf::p2pmsg::SuppressReason reason = msg::fbuf::p2pmsg::SuppressReason_ContractIdMismatch) {
   SuppressMsgBuilder builder_(_fbb);
   builder_.add_pubkey(pubkey);
-  builder_.add_reason_type(reason_type);
+  builder_.add_reason(reason);
   return builder_.Finish();
 }
 
 inline flatbuffers::Offset<SuppressMsg> CreateSuppressMsgDirect(
     flatbuffers::FlatBufferBuilder &_fbb,
     const std::vector<uint8_t> *pubkey = nullptr,
-    msg::fbuf::p2pmsg::SuppressReasonType reason_type = msg::fbuf::p2pmsg::SuppressReasonType_ContractIdMismatch) {
+    msg::fbuf::p2pmsg::SuppressReason reason = msg::fbuf::p2pmsg::SuppressReason_ContractIdMismatch) {
   auto pubkey__ = pubkey ? _fbb.CreateVector<uint8_t>(*pubkey) : 0;
   return msg::fbuf::p2pmsg::CreateSuppressMsg(
       _fbb,
       pubkey__,
-      reason_type);
+      reason);
 }
 
 struct HpfsFSHashEntry FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {

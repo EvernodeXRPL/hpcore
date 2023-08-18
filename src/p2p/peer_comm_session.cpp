@@ -114,7 +114,7 @@ namespace p2p
                 LOG_ERROR << "Contract id mismatch. Dropping connection " << display_name();
 
                 // Sending the a graceful rejection.
-                p2pmsg::create_suppress_msg(fbuf, p2p::SUPPRESS_REASON_TYPE::CONTRACT_MISMATCH);
+                p2pmsg::create_suppress_msg(fbuf, p2p::SUPPRESS_REASON::CONTRACT_MISMATCH);
                 return send(msg::fbuf::builder_to_string_view(fbuf));
 
             }

@@ -303,7 +303,7 @@ namespace msg::fbuf::p2pmsg
         const auto &msg = *mi.p2p_msg->content_as_SuppressMsg();
         return {
             std::string(flatbuf_bytes_to_sv(msg.pubkey())),
-            (p2p::SUPPRESS_REASON_TYPE)msg.reason_type()};
+            (p2p::SUPPRESS_REASON)msg.reason()};
     }
 
     void flatbuf_hpfsfshashentries_to_hpfsfshashentries(std::vector<p2p::hpfs_fs_hash_entry> &fs_entries, const flatbuffers::Vector<flatbuffers::Offset<HpfsFSHashEntry>> *fhashes)
@@ -610,12 +610,12 @@ namespace msg::fbuf::p2pmsg
         create_p2p_msg(builder, P2PMsgContent_PeerListResponseMsg, msg.Union());
     }
 
-    void create_suppress_msg(flatbuffers::FlatBufferBuilder &builder, const uint8_t reason_type)
+    void create_suppress_msg(flatbuffers::FlatBufferBuilder &builder, const uint8_t reason)
     {
         const auto msg = CreateSuppressMsg(
             builder,
             sv_to_flatbuf_bytes(builder, conf::cfg.node.public_key),
-            (SuppressReasonType)reason_type);
+            (SuppressReason)reason);
 
         create_p2p_msg(builder, P2PMsgContent_SuppressMsg, msg.Union());
     }

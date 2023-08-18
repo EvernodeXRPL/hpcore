@@ -381,8 +381,11 @@ namespace p2p
 
     void handle_suppress_message(const p2p::suppress_message &suppression, peer_comm_session *session)
     {
-        if (suppression.reason_type == SUPPRESS_REASON_TYPE::CONTRACT_MISMATCH)
-            session->state = comm::SESSION_STATE::SUSPENDED;
+        if (suppression.reason == SUPPRESS_REASON::CONTRACT_MISMATCH)
+        {
+            LOG_DEBUG << "Peer " << session->known_ipport->host_address << ":" << session->known_ipport->port << " suppressed us. Reason (" << SUPPRESS_REASON::CONTRACT_MISMATCH << ").";
+            session->state = comm::SESSION_STATE::SUPPRESSED;
+        }
         else
             LOG_DEBUG << "Invalid suppressing reason.";
     }

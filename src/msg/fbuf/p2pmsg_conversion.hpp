@@ -103,7 +103,7 @@ namespace msg::fbuf::p2pmsg
 
     void create_msg_from_peer_list_response(flatbuffers::FlatBufferBuilder &builder, const std::vector<p2p::peer_properties> &peers, const std::optional<conf::peer_ip_port> &skipping_ip_port);
 
-    void create_suppress_msg(flatbuffers::FlatBufferBuilder &builder, const uint8_t reason_type);
+    void create_suppress_msg(flatbuffers::FlatBufferBuilder &builder, const uint8_t reason);
 
     const flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<UserInputGroup>>>
     user_input_map_to_flatbuf_user_input_group(flatbuffers::FlatBufferBuilder &builder, const std::unordered_map<std::string, std::list<usr::submitted_user_input>> &map);

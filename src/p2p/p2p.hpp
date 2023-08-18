@@ -31,7 +31,7 @@ namespace p2p
         uint64_t timestamp = 0;
         int64_t weight = 0;
         int32_t failed_attempts = 0;
-        bool is_suspended = false;
+        bool has_suppressed_us = false;
     };
 
     struct proposal
@@ -118,7 +118,7 @@ namespace p2p
         NOT_AVAILABLE = 3 // The entry does not exist on responder side. Requester must delete this on his side.
     };
 
-    enum SUPPRESS_REASON_TYPE
+    enum SUPPRESS_REASON
     {
         CONTRACT_MISMATCH = 0 // Suppress due to contract mismatch.
     };
@@ -127,7 +127,7 @@ namespace p2p
     struct suppress_message
     {
         std::string pubkey; // Peer binary pubkey.
-        SUPPRESS_REASON_TYPE reason_type;
+        SUPPRESS_REASON reason;
     };
 
     // Represents hpfs file system entry.

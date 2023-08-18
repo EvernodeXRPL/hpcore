@@ -115,12 +115,12 @@ namespace p2p
                 if (!session.known_ipport)
                     continue;
 
-                if (session.state == comm::SESSION_STATE::SUSPENDED)
+                if (session.state == comm::SESSION_STATE::SUPPRESSED)
                 {
                     for (size_t i = 0; i < req_known_remotes.size(); ++i)
                     {
                         if (req_known_remotes[i].ip_port == session.known_ipport)
-                            req_known_remotes[i].is_suspended = true;
+                            req_known_remotes[i].has_suppressed_us = true;
                     }
 
                     continue;
@@ -164,8 +164,8 @@ namespace p2p
             if (conf::cfg.mesh.max_connections != 0 && known_remote_count == conf::cfg.mesh.max_connections)
                 break;
 
-            // Continue if the peer has no free slots or peer is suspended.
-            if (peer.available_capacity == 0 || peer.is_suspended)
+            // Continue if the peer has no free slots or the peer has issued a suppression.
+            if (peer.available_capacity == 0 || peer.has_suppressed_us)
                 continue;
 
             if (peer.ip_port.host_address.empty())
