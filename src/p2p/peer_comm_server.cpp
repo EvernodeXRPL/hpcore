@@ -115,17 +115,6 @@ namespace p2p
                 if (!session.known_ipport)
                     continue;
 
-                if (session.state == comm::SESSION_STATE::SUPPRESSED)
-                {
-                    for (size_t i = 0; i < req_known_remotes.size(); ++i)
-                    {
-                        if (req_known_remotes[i].ip_port == session.known_ipport)
-                            req_known_remotes[i].has_suppressed_us = true;
-                    }
-
-                    continue;
-                }
-
                 if (session.state != comm::SESSION_STATE::CLOSED)
                     known_remotes.push_back(session.known_ipport.value());
 

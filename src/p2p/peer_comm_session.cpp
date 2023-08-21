@@ -139,6 +139,9 @@ namespace p2p
         {
             LOG_DEBUG << "Received suppress message. " << display_name();
             handle_suppress_message(p2pmsg::create_suppress_from_msg(mi), this);
+
+            // Returning -1 to close the session as this should not be progressed.
+            return -1;
         }
 
         if (challenge_status != comm::CHALLENGE_STATUS::CHALLENGE_VERIFIED)

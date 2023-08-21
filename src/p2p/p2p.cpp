@@ -384,7 +384,13 @@ namespace p2p
         if (suppression.reason == SUPPRESS_REASON::CONTRACT_MISMATCH)
         {
             LOG_DEBUG << "Peer " << session->known_ipport->host_address << ":" << session->known_ipport->port << " suppressed us. Reason (" << SUPPRESS_REASON::CONTRACT_MISMATCH << ").";
-            session->state = comm::SESSION_STATE::SUPPRESSED;
+            const auto itr = std::find_if(ctx.server->req_known_remotes.begin(), ctx.server->req_known_remotes.end(), [&](peer_properties &p)
+                                          { return p.ip_port == session->known_ipport; });
+            if (itr != ctx.server->req_known_remotes.end())
+            {
+                LOG_DEBUG << "Marking to omit peer " << session->known_ipport->host_address << ":" << session->known_ipport->port;
+                itr->has_suppressed_us = true;
+            }
         }
         else
             LOG_DEBUG << "Invalid suppressing reason.";

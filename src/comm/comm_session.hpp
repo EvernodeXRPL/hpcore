@@ -21,8 +21,7 @@ namespace comm
         NONE,       // Session is not yet initialized properly.
         ACTIVE,     // Session is active and functioning.
         MUST_CLOSE, // Session socket is in unusable state and must be closed.
-        CLOSED,     // Session is fully closed.
-        SUPPRESSED  // Session is suppressed by the peer.
+        CLOSED      // Session is fully closed.
     };
 
     enum CLOSE_VIOLATION
