@@ -48,7 +48,7 @@ namespace hpws
 #define HPWS_SMALL_TIMEOUT 10
 // used when waiting for server process to spawn
 #define HPWS_LONG_TIMEOUT 1500  // This timeout has to account the possible delays in communication via internet.
-#define HPWS_VISA_TIMEOUT 60000 // This timeout has to account the possible delays in visa pow calculation.
+#define HPWS_VISA_TIMEOUT 5000 // This timeout has to account the possible delays in visa pow calculation.
 
     typedef union
     {
@@ -324,7 +324,8 @@ namespace hpws
             std::string_view get,
             std::optional<std::string> visa_data,
             std::vector<std::string_view> argv,
-            std::function<void()> fork_child_init = NULL)
+            std::function<void()> fork_child_init = NULL,
+            std::function<bool()> con_wait_terminated = NULL)
         {
 
 #define HPWS_CONNECT_ERROR(code, msg) \
@@ -426,7 +427,23 @@ namespace hpws
 
                 pfd.fd = child_fd[0]; // we receive setup events on control line 0 (hpws->hpcore)
                 pfd.events = POLLIN;
-                ret = poll(&pfd, 1, HPWS_LONG_TIMEOUT + (visa_data.has_value() ? HPWS_VISA_TIMEOUT : 0)); // default= 1500 ms timeout
+                if (!visa_data.has_value())
+                    ret = poll(&pfd, 1, HPWS_LONG_TIMEOUT); // default= 1500 ms timeout
+                else
+                {
+                    // If the signals are blocked in the caller we handle termination from outside.
+                    // We wait in a loop because visa timeout could be long otherwise termination hangs.
+                    uint32_t timer = 0;
+                    while (ret == 0 && timer < HPWS_VISA_TIMEOUT)
+                    {
+                        // Break if connection is terminated from the server.
+                        if (con_wait_terminated && con_wait_terminated())
+                            break;
+
+                        ret = poll(&pfd, 1, 1000);
+                        timer += 1000;
+                    }
+                }
 
                 // timeout or error
                 if (ret < 1)
