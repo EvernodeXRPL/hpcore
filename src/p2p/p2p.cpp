@@ -379,6 +379,9 @@ namespace p2p
         }
     }
 
+    /**
+     * Handle a suppress message. This message is issued by a peer to suppress connection.
+     */
     void handle_suppress_message(const p2p::suppress_message &suppression, peer_comm_session *session)
     {
         if (suppression.reason == SUPPRESS_REASON::CONTRACT_MISMATCH)

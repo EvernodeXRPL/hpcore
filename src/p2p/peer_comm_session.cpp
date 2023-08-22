@@ -113,10 +113,21 @@ namespace p2p
             {
                 LOG_ERROR << "Contract id mismatch. Dropping connection " << display_name();
 
-                // Sending the a graceful rejection.
-                p2pmsg::create_suppress_msg(fbuf, p2p::SUPPRESS_REASON::CONTRACT_MISMATCH);
-                return send(msg::fbuf::builder_to_string_view(fbuf));
+                if (is_inbound)
+                {
+                    // Sending the a graceful rejection.
+                    p2pmsg::create_suppress_msg(fbuf, p2p::SUPPRESS_REASON::CONTRACT_MISMATCH);
 
+                    /**
+                     * Returning with suppression message.
+                     * If we do return -1 here, the session will be closed before the sending the message.
+                     */
+                    return send(msg::fbuf::builder_to_string_view(fbuf));
+
+                }
+
+                // Returning 0, but the session will be removed when corresponding peer suppression is received.
+                return 0;
             }
 
             // Remember the time config reported by this peer.
