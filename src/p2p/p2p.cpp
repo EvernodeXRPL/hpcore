@@ -52,9 +52,11 @@ namespace p2p
     {
         if (init_success)
         {
-            // If peer discovery was enabled, update latest known peers information to config
-            // before the peer server is stopped. (config will permanently save it to disk upon exit)
-            if (conf::cfg.mesh.peer_discovery.enabled)
+
+            /**
+             * Update latest known peers information to config
+             * before the peer server is stopped. (config will permanently save it to disk upon exit).
+             */
             {
                 std::scoped_lock lock(ctx.server->req_known_remotes_mutex);
                 const std::vector<peer_properties> &peers = ctx.server->req_known_remotes;

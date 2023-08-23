@@ -862,10 +862,7 @@ namespace conf
      */
     int persist_updated_configs()
     {
-        const bool contains_updated_config = cfg.mesh.peer_discovery.enabled;
         bool changes_made = false;
-        if (!contains_updated_config)
-            return 0;
 
         // Read the original config into a temp struct.
         hp_config temp_cfg;
@@ -875,7 +872,7 @@ namespace conf
         // Apply any actual changes to the temp struct.
 
         // Apply known peer list updates.
-        if (conf::cfg.mesh.peer_discovery.enabled && !cfg.mesh.known_peers.empty())
+        if (!cfg.mesh.known_peers.empty())
         {
             temp_cfg.mesh.known_peers = cfg.mesh.known_peers;
             changes_made = true;

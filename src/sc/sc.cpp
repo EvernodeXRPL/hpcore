@@ -1144,14 +1144,19 @@ namespace sc
         }
         else if (type == msg::controlmsg::MSGTYPE_PEER_CHANGESET)
         {
-            std::vector<p2p::peer_properties> added_peers;
-            std::vector<p2p::peer_properties> removed_peers;
-            bool overwrite = false;
-            if (parser.extract_peer_changeset(added_peers, removed_peers, overwrite) != -1)
+            if (!conf::cfg.mesh.peer_discovery.enabled)
             {
-                const p2p::PEERS_UPDATE_MODE update_mode = (overwrite ? p2p::PEERS_UPDATE_MODE::OVERWRITE : p2p::PEERS_UPDATE_MODE::FORCE);
-                p2p::update_peer_list(update_mode, &added_peers, &removed_peers);
+                std::vector<p2p::peer_properties> added_peers;
+                std::vector<p2p::peer_properties> removed_peers;
+                bool overwrite = false;
+                if (parser.extract_peer_changeset(added_peers, removed_peers, overwrite) != -1)
+                {
+                    const p2p::PEERS_UPDATE_MODE update_mode = (overwrite ? p2p::PEERS_UPDATE_MODE::OVERWRITE : p2p::PEERS_UPDATE_MODE::FORCE);
+                    p2p::update_peer_list(update_mode, &added_peers, &removed_peers);
+                }
             }
+            else
+                LOG_WARNING << "Not allowed to update peers via control msgs, as peer discovery is enabled.";
         }
     }
 
