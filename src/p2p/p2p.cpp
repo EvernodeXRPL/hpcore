@@ -485,22 +485,29 @@ namespace p2p
     }
 
     /**
-     * Merging the response peer list with the own known peer list.
-     * @param merge_peers Peers that must be merged with existing known peers.
-     * @param remove_peers Peers that must be removed from existing known peers.
-     * @param from The session that sent us the peer list.
+     * Update the known peer list with the specified modifications.
+     * @param mode Update applying priority.
+     * @param add_peers Peers that must be added to existing known peers.
+     * @param remove_peers Peers that must be removed from existing known peers. Ignored if mode is OVERWRITE.
+     * @param from The session that sent us the peer list. Optional.
      */
-    void merge_peer_list(const std::string &caller, const std::vector<peer_properties> *merge_peers, const std::vector<peer_properties> *remove_peers, const p2p::peer_comm_session *from)
+    void update_peer_list(const p2p::PEERS_UPDATE_MODE mode, const std::vector<peer_properties> *add_peers,
+                          const std::vector<peer_properties> *remove_peers, const p2p::peer_comm_session *from)
     {
         std::scoped_lock<std::mutex> lock(ctx.server->req_known_remotes_mutex);
 
-        if (merge_peers)
+        if (mode == p2p::PEERS_UPDATE_MODE::OVERWRITE)
         {
-            for (const peer_properties &peer : *merge_peers)
+            ctx.server->req_known_remotes.clear();
+        }
+
+        if (add_peers)
+        {
+            for (const peer_properties &peer : *add_peers)
             {
                 if (peer.ip_port.host_address.empty())
                 {
-                    LOG_DEBUG << caller << " : Skip received peer with blank host address " << peer.ip_port.to_string() << " from " << peer.ip_port.to_string();
+                    LOG_DEBUG << "Skip received peer with blank host address " << peer.ip_port.to_string() << " from " << peer.ip_port.to_string();
                     continue;
                 }
 
@@ -518,10 +525,17 @@ namespace p2p
                     continue;
                 }
 
-                if (ctx.server->dead_known_peers.exists(peer.ip_port.to_string()))
+                if (mode == p2p::PEERS_UPDATE_MODE::MERGE)
                 {
-                    LOG_DEBUG << "Rejecting " + peer.ip_port.to_string() + ". Peer was removed prior due to unavailability.";
-                    continue;
+                    if (ctx.server->dead_known_peers.exists(peer.ip_port.to_string()))
+                    {
+                        LOG_DEBUG << "Rejecting " + peer.ip_port.to_string() + ". Peer was removed prior due to unavailability.";
+                        continue;
+                    }
+                }
+                else
+                {
+                    ctx.server->dead_known_peers.erase(peer.ip_port.to_string());
                 }
 
                 const auto itr = std::find_if(ctx.server->req_known_remotes.begin(), ctx.server->req_known_remotes.end(), [&](peer_properties &p)
@@ -551,7 +565,7 @@ namespace p2p
             }
         }
 
-        if (remove_peers)
+        if (mode != p2p::PEERS_UPDATE_MODE::OVERWRITE && remove_peers)
         {
             for (const peer_properties &peer : *remove_peers)
             {
@@ -567,7 +581,7 @@ namespace p2p
         }
 
         // Sorting the known remote list according to the weight value after merging the peer list.
-        if (merge_peers || remove_peers)
+        if (add_peers || remove_peers)
             sort_known_remotes();
     }
 

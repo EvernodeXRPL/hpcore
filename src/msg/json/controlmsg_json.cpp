@@ -60,45 +60,73 @@ namespace msg::controlmsg::json
      * {
      *   'type': 'peer_changeset',
      *   'add': ['<ip1>','<ip2>', ...],
-     *   'remove': ['<ip1>','<ip2>', ...]
+     *   'remove': ['<ip1>','<ip2>', ...] | "*"
      * }
      */
-    int extract_peer_changeset(std::vector<p2p::peer_properties> &added_peers, std::vector<p2p::peer_properties> &removed_peers, const jsoncons::json &d)
+    int extract_peer_changeset(std::vector<p2p::peer_properties> &added_peers, std::vector<p2p::peer_properties> &removed_peers, bool &overwrite, const jsoncons::json &d)
     {
-        if (extract_peers_from_array(added_peers, msg::controlmsg::FLD_ADD, d) == -1 ||
-            extract_peers_from_array(removed_peers, msg::controlmsg::FLD_REMOVE, d) == -1)
+        overwrite = false;
+
+        if (!d.contains(msg::controlmsg::FLD_ADD) ||
+            extract_peers_from_array(added_peers, msg::controlmsg::FLD_ADD, d) == -1)
+        {
             return -1;
+        }
+
+        if (d.contains(msg::controlmsg::FLD_REMOVE))
+        {
+            // Remove field can be string "*" or an array of strings.
+            // "*" means peers should be overwritten. (remove all peers and add the specified peers)
+            if (d[msg::controlmsg::FLD_REMOVE].is_string())
+            {
+                const std::string remove_str = d[msg::controlmsg::FLD_REMOVE].as<std::string>();
+                if (remove_str == "*")
+                {
+                    overwrite = true;
+                }
+                else
+                {
+                    return -1;
+                }
+            }
+            else
+            {
+                if (extract_peers_from_array(removed_peers, msg::controlmsg::FLD_REMOVE, d) == -1)
+                    return -1;
+            }
+        }
+        else
+        {
+            return -1;
+        }
 
         return 0;
     }
 
     int extract_peers_from_array(std::vector<p2p::peer_properties> &peers, std::string_view field, const jsoncons::json &d)
     {
-        if (d.contains(field))
+        if (!d[field].is_array())
         {
-            if (!d[field].is_array())
+            LOG_ERROR << "Extract peers: Invalid array field: " << field;
+            return -1;
+        }
+
+        for (auto &peer : d[field].array_range())
+        {
+            if (!peer.is<std::string>())
             {
-                LOG_ERROR << "Extract peers: Invalid array field: " << field;
+                LOG_ERROR << "Extract peers: Invalid peer entry in field: " << field;
                 return -1;
             }
 
-            for (auto &peer : d[field].array_range())
+            conf::peer_ip_port ipp;
+            if (ipp.from_string(peer.as<std::string_view>()) == -1)
             {
-                if (!peer.is<std::string>())
-                {
-                    LOG_ERROR << "Extract peers: Invalid peer entry in field: " << field;
-                    return -1;
-                }
-
-                conf::peer_ip_port ipp;
-                if (ipp.from_string(peer.as<std::string_view>()) == -1)
-                {
-                    LOG_ERROR << "Extract peers: Invalid peer format in field: " << field;
-                    return -1;
-                }
-
-                peers.push_back(p2p::peer_properties{ipp, -1, 0, 0});
+                LOG_ERROR << "Extract peers: Invalid peer format in field: " << field;
+                return -1;
             }
+
+            peers.push_back(p2p::peer_properties{ipp, -1, 0, 0});
         }
 
         return 0;

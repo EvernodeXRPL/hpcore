@@ -484,7 +484,7 @@ namespace sc
             const int user_read_res = read_contract_fdmap_outputs(ctx.user_fds, out_fds, ctx.args.userbufs);
             messages_read = (control_read_res + npl_read_res + user_read_res) > 0;
 
-            if (ctx.termination_signaled || ctx.contract_pid == 0)
+            if (ctx.contract_pid == 0)
             {
                 // If no messages were read after contract finished execution, exit the polling loop.
                 // Otherwise keep running the loop becaue there might be further messages to read.
@@ -523,9 +523,8 @@ namespace sc
             // Check if the contract has exited voluntarily.
             if (check_contract_exited(ctx, false) == 0)
             {
-                // Issue kill signal if the contract hasn't indicated the termination control message.
-                if (!ctx.termination_signaled)
-                    kill(ctx.contract_pid, SIGTERM);
+                // Issue kill signal to kill the contract process.
+                kill(ctx.contract_pid, SIGKILL);
                 check_contract_exited(ctx, true); // Blocking wait until exit.
             }
         }
@@ -1147,8 +1146,12 @@ namespace sc
         {
             std::vector<p2p::peer_properties> added_peers;
             std::vector<p2p::peer_properties> removed_peers;
-            if (parser.extract_peer_changeset(added_peers, removed_peers) != -1)
-                p2p::merge_peer_list("Control_MSG", &added_peers, &removed_peers);
+            bool overwrite = false;
+            if (parser.extract_peer_changeset(added_peers, removed_peers, overwrite) != -1)
+            {
+                const p2p::PEERS_UPDATE_MODE update_mode = (overwrite ? p2p::PEERS_UPDATE_MODE::OVERWRITE : p2p::PEERS_UPDATE_MODE::FORCE);
+                p2p::update_peer_list(update_mode, &added_peers, &removed_peers);
+            }
         }
     }
 
