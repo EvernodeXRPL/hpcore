@@ -265,9 +265,10 @@ namespace comm
                 max_in_connections_per_host,
                 conf::ctx.tls_cert_file,
                 conf::ctx.tls_key_file,
-                name == "User" ? std::optional<std::string>{} : conf::cfg.contract.id,
                 {},
-                util::fork_detach);
+                util::fork_detach,
+                false,
+                name == "User" ? std::optional<std::string>{} : conf::cfg.contract.id);
 
             if (std::holds_alternative<hpws::error>(result))
             {
