@@ -1138,11 +1138,7 @@ namespace sc
         if (parser.parse(msg) == -1 || parser.extract_type(type) == -1)
             return;
 
-        if (type == msg::controlmsg::MSGTYPE_CONTRACT_END)
-        {
-            ctx.termination_signaled = true;
-        }
-        else if (type == msg::controlmsg::MSGTYPE_PEER_CHANGESET)
+        if (type == msg::controlmsg::MSGTYPE_PEER_CHANGESET)
         {
             std::vector<p2p::peer_properties> added_peers;
             std::vector<p2p::peer_properties> removed_peers;
