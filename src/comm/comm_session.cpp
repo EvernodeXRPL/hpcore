@@ -13,8 +13,9 @@ namespace comm
     constexpr uint16_t MAX_IN_MSG_QUEUE_SIZE = 255;        // Maximum in message queue size, The size passed is rounded to next number in binary sequence 1(1),11(3),111(7),1111(15),11111(31)....
 
     comm_session::comm_session(corebill::tracker &violation_tracker,
-                               std::string_view host_address, hpws::client &&hpws_client, const bool is_ipv4, const bool is_inbound, const uint64_t (&metric_thresholds)[5])
+                               std::string_view host_address, hpws::client &&hpws_client, const bool is_ipv4, const bool is_inbound, const uint64_t (&metric_thresholds)[5], const bool corebill_enabled)
         : violation_tracker(violation_tracker),
+          corebill_enabled(corebill_enabled),
           hpws_client(std::move(hpws_client)),
           in_msg_queue1(MAX_IN_MSG_QUEUE_SIZE),
           in_msg_queue2(MAX_IN_MSG_QUEUE_SIZE),
@@ -168,7 +169,7 @@ namespace comm
      * @param message Message to be added to the outbound queue.
      * @param priority If 1 adds to high priority queue. Else adds to low priority queue.
      * @return 0 on successful addition and -1 if the session is already closed.
-    */
+     */
     int comm_session::send(const std::vector<uint8_t> &message, const uint16_t priority)
     {
         std::string_view sv(reinterpret_cast<const char *>(message.data()), message.size());
@@ -180,7 +181,7 @@ namespace comm
      * @param message Message to be added to the outbound queue.
      * @param priority If 1 adds to high priority queue. Else adds to low priority queue.
      * @return 0 on successful addition and -1 if the session is already closed.
-    */
+     */
     int comm_session::send(std::string_view message, const uint16_t priority)
     {
         if (state == SESSION_STATE::CLOSED)
@@ -202,7 +203,7 @@ namespace comm
      * This function constructs and sends the message to the target from the given message.
      * @param message Message to be sent via the pipe.
      * @return 0 on successful message sent and -1 on error.
-    */
+     */
     int comm_session::process_outbound_message(std::string_view message)
     {
         if (state == SESSION_STATE::CLOSED || !hpws_client)
@@ -219,7 +220,7 @@ namespace comm
 
     /**
      * Process message sending in the queue in the outbound_queue_thread.
-    */
+     */
     void comm_session::process_outbound_msg_queue()
     {
         // Appling a signal mask to prevent receiving control signals from linux kernel.
@@ -263,7 +264,7 @@ namespace comm
 
         state = SESSION_STATE::MUST_CLOSE;
 
-        if (reason != CLOSE_VIOLATION::VIOLATION_NONE)
+        if (corebill_enabled && reason != CLOSE_VIOLATION::VIOLATION_NONE)
             violation_tracker.report_violation(host_address, is_ipv4, std::to_string(reason));
     }
 
@@ -310,7 +311,7 @@ namespace comm
 
     /**
      * Set thresholds to the socket session
-    */
+     */
     void comm_session::set_threshold(const SESSION_THRESHOLDS threshold_type, const uint64_t threshold_limit, const uint32_t intervalms)
     {
         session_threshold &t = thresholds[threshold_type];
@@ -320,9 +321,9 @@ namespace comm
     }
 
     /*
-    * Increment the provided thresholds counter value with the provided amount and validate it against the
-    * configured threshold limit.
-    */
+     * Increment the provided thresholds counter value with the provided amount and validate it against the
+     * configured threshold limit.
+     */
     void comm_session::increment_metric(const SESSION_THRESHOLDS threshold_type, const uint64_t amount)
     {
         session_threshold &t = thresholds[threshold_type];
@@ -360,7 +361,7 @@ namespace comm
 
     /**
      * Check whether the connection expires according to last activity time rules and then mark for closure.
-    */
+     */
     void comm_session::check_last_activity_rules()
     {
         const uint32_t timeout = (challenge_status == CHALLENGE_STATUS::CHALLENGE_VERIFIED ? thresholds[SESSION_THRESHOLDS::IDLE_CONNECTION_TIMEOUT].threshold_limit : UNVERIFIED_INACTIVE_TIMEOUT);
@@ -378,7 +379,7 @@ namespace comm
 
     /**
      * Mark the connection as a verified connection.
-    */
+     */
     void comm_session::mark_as_verified()
     {
         challenge_status = CHALLENGE_STATUS::CHALLENGE_VERIFIED;

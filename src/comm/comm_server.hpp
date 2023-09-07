@@ -24,6 +24,7 @@ namespace comm
         const uint64_t max_in_connections;
         const uint64_t max_in_connections_per_host;
         bool use_priority_queues = false; // Whether to activate inbound message high vs low priority-based processing.
+        const bool visa_required = false; // Wether clients need to send visa requests to connect.
         bool is_shutting_down = false;
         std::list<T> sessions;
         std::list<T> new_sessions; // Sessions that haven't been initialized properly which are yet to be merge to "sessions" list.
@@ -192,7 +193,7 @@ namespace comm
                 // loop will take care of initialize the new sessions. This is because inherited classes (eg. peer_comm_server)
                 // need a way to safely inject new sessions from another thread.
                 std::scoped_lock<std::mutex> lock(new_sessions_mutex);
-                new_sessions.emplace_back(this->violation_tracker, host_address, std::move(client), client.is_ipv4, true, metric_thresholds);
+                new_sessions.emplace_back(this->violation_tracker, host_address, std::move(client), client.is_ipv4, true, metric_thresholds, !visa_required);
                 return 1;
             }
 
@@ -268,7 +269,7 @@ namespace comm
                 {},
                 util::fork_detach,
                 false,
-                name == "User" ? std::optional<std::string>{} : conf::cfg.contract.id);
+                visa_required ? conf::cfg.contract.id : std::optional<std::string>{});
 
             if (std::holds_alternative<hpws::error>(result))
             {
@@ -286,12 +287,13 @@ namespace comm
         corebill::tracker violation_tracker;
 
         comm_server(std::string_view name, const uint16_t port, const uint64_t (&metric_thresholds)[5], const uint64_t max_msg_size,
-                    const uint64_t max_in_connections, const uint64_t max_in_connections_per_host, const bool use_priority_queues)
+                    const uint64_t max_in_connections, const uint64_t max_in_connections_per_host, const bool use_priority_queues, const bool visa_required)
             : metric_thresholds(metric_thresholds),
               max_msg_size(max_msg_size > 0 ? max_msg_size : DEFAULT_MAX_MSG_SIZE),
               max_in_connections(max_in_connections > 0 ? max_in_connections : DEFAULT_MAX_CONNECTIONS),
               max_in_connections_per_host(max_in_connections_per_host > 0 ? max_in_connections_per_host : DEFAULT_MAX_CONNECTIONS),
               use_priority_queues(use_priority_queues),
+              visa_required(visa_required),
               name(name),
               listen_port(port)
         {

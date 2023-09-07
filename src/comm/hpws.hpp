@@ -775,6 +775,10 @@ namespace hpws
             if (ret < 1)
                 HPWS_ACCEPT_ERROR(202, "timeout waiting for hpws accept child message");
 
+            // check weather write end in forcefully closed closed
+            if (pfd.revents & POLLHUP)
+                HPWS_ACCEPT_ERROR(205, "child connection closed");
+
             // first thing we'll receive is the pid of the client
             if (recv(child_fd[0], (unsigned char *)(&pid), sizeof(pid), 0) < (ssize_t)sizeof(pid))
                 HPWS_ACCEPT_ERROR(212, "did not receive expected 4 byte pid of child process on accept");
