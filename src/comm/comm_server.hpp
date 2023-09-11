@@ -24,7 +24,7 @@ namespace comm
         const uint64_t max_in_connections;
         const uint64_t max_in_connections_per_host;
         bool use_priority_queues = false; // Whether to activate inbound message high vs low priority-based processing.
-        const bool visa_required = false; // Wether clients need to send visa requests to connect.
+        const bool visa_required = false; // Whether clients need to send visa requests to connect.
         bool is_shutting_down = false;
         std::list<T> sessions;
         std::list<T> new_sessions; // Sessions that haven't been initialized properly which are yet to be merge to "sessions" list.
