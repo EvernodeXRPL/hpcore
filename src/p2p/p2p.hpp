@@ -38,6 +38,7 @@ namespace p2p
         uint64_t timestamp = 0;
         int64_t weight = 0;
         int32_t failed_attempts = 0;
+        bool has_suppressed_us = false;
     };
 
     struct proposal
@@ -122,6 +123,18 @@ namespace p2p
         MISMATCHED = 1,   // The entry does not match (either hash mismatch or new entry). Requester must request for this entry.
         RESPONDED = 2,    // The entry does not match and the repsonder has dispatched the sync response.
         NOT_AVAILABLE = 3 // The entry does not exist on responder side. Requester must delete this on his side.
+    };
+
+    enum SUPPRESS_REASON
+    {
+        CONTRACT_MISMATCH = 0 // Suppress due to contract mismatch.
+    };
+
+    // Represents a peer suppression.
+    struct suppress_message
+    {
+        std::string pubkey; // Peer binary pubkey.
+        SUPPRESS_REASON reason;
     };
 
     // Represents hpfs file system entry.
@@ -232,6 +245,8 @@ namespace p2p
     void handle_nonunl_proposal_message(const p2p::nonunl_proposal &nup);
 
     void handle_npl_message(const p2p::npl_message &npl);
+
+    void handle_suppress_message(const p2p::suppress_message &suppression, peer_comm_session *session);
 
     bool validate_for_peer_msg_forwarding(const peer_comm_session &session, const enum msg::fbuf::p2pmsg::P2PMsgContent msg_type, const uint64_t originated_on);
 

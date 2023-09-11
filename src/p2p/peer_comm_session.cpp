@@ -106,12 +106,28 @@ namespace p2p
         if (mi.type == p2pmsg::P2PMsgContent_PeerChallengeMsg)
         {
             const p2p::peer_challenge chall = p2pmsg::create_peer_challenge_from_msg(mi);
+            flatbuffers::FlatBufferBuilder fbuf;
 
             // Check whether contract ids match.
             if (chall.contract_id != conf::cfg.contract.id)
             {
                 LOG_ERROR << "Contract id mismatch. Dropping connection " << display_name();
-                return -1;
+
+                if (is_inbound)
+                {
+                    // Sending the a graceful rejection.
+                    p2pmsg::create_suppress_msg(fbuf, p2p::SUPPRESS_REASON::CONTRACT_MISMATCH);
+
+                    /**
+                     * Returning with suppression message.
+                     * If we do return -1 here, the session will be closed before the sending the message.
+                     */
+                    return send(msg::fbuf::builder_to_string_view(fbuf));
+
+                }
+
+                // Returning 0, but the session will be removed when corresponding peer suppression is received.
+                return 0;
             }
 
             // Remember the time config reported by this peer.
@@ -121,7 +137,6 @@ namespace p2p
             is_full_history = chall.is_full_history;
 
             // Sending the challenge response to the sender.
-            flatbuffers::FlatBufferBuilder fbuf;
             p2pmsg::create_peer_challenge_response_from_challenge(fbuf, chall.challenge);
             return send(msg::fbuf::builder_to_string_view(fbuf));
         }
@@ -130,6 +145,14 @@ namespace p2p
             // Ignore if challenge is already resolved.
             if (challenge_status == comm::CHALLENGE_STATUS::CHALLENGE_ISSUED)
                 return p2p::resolve_peer_challenge(*this, p2pmsg::create_peer_challenge_response_from_msg(mi));
+        }
+        else if (mi.type == p2pmsg::P2PMsgContent_SuppressMsg)
+        {
+            LOG_DEBUG << "Received suppress message. " << display_name();
+            handle_suppress_message(p2pmsg::create_suppress_from_msg(mi), this);
+
+            // Returning -1 to close the session as this should not be progressed.
+            return -1;
         }
 
         if (challenge_status != comm::CHALLENGE_STATUS::CHALLENGE_VERIFIED)

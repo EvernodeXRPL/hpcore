@@ -380,6 +380,26 @@ namespace p2p
     }
 
     /**
+     * Handle a suppress message. This message is issued by a peer to suppress connection.
+     */
+    void handle_suppress_message(const p2p::suppress_message &suppression, peer_comm_session *session)
+    {
+        if (suppression.reason == SUPPRESS_REASON::CONTRACT_MISMATCH)
+        {
+            LOG_DEBUG << "Peer " << session->known_ipport->to_string() << " suppressed us. Reason (" << SUPPRESS_REASON::CONTRACT_MISMATCH << ").";
+            const auto itr = std::find_if(ctx.server->req_known_remotes.begin(), ctx.server->req_known_remotes.end(), [&](peer_properties &p)
+                                          { return p.ip_port == session->known_ipport; });
+            if (itr != ctx.server->req_known_remotes.end())
+            {
+                LOG_DEBUG << "Marking to omit peer " << session->known_ipport->to_string();
+                itr->has_suppressed_us = true;
+            }
+        }
+        else
+            LOG_DEBUG << "Invalid suppressing reason.";
+    }
+
+    /**
      * Sends the peer requirement to the given peer session. If a session is not given, broadcast to all the connected peers.
      * @param need_consensus_msg_forwarding True if the number of connections are below the threshold value.
      * @param session The destination peer node.

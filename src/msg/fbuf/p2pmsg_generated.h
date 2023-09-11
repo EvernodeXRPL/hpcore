@@ -34,6 +34,9 @@ struct ProposalMsgBuilder;
 struct NplMsg;
 struct NplMsgBuilder;
 
+struct SuppressMsg;
+struct SuppressMsgBuilder;
+
 struct HpfsFSHashEntry;
 struct HpfsFSHashEntryBuilder;
 
@@ -100,11 +103,12 @@ enum P2PMsgContent {
   P2PMsgContent_PeerListResponseMsg = 11,
   P2PMsgContent_HpfsLogRequest = 12,
   P2PMsgContent_HpfsLogResponse = 13,
+  P2PMsgContent_SuppressMsg = 14,
   P2PMsgContent_MIN = P2PMsgContent_NONE,
-  P2PMsgContent_MAX = P2PMsgContent_HpfsLogResponse
+  P2PMsgContent_MAX = P2PMsgContent_SuppressMsg
 };
 
-inline const P2PMsgContent (&EnumValuesP2PMsgContent())[14] {
+inline const P2PMsgContent (&EnumValuesP2PMsgContent())[15] {
   static const P2PMsgContent values[] = {
     P2PMsgContent_NONE,
     P2PMsgContent_PeerChallengeMsg,
@@ -119,13 +123,14 @@ inline const P2PMsgContent (&EnumValuesP2PMsgContent())[14] {
     P2PMsgContent_PeerListRequestMsg,
     P2PMsgContent_PeerListResponseMsg,
     P2PMsgContent_HpfsLogRequest,
-    P2PMsgContent_HpfsLogResponse
+    P2PMsgContent_HpfsLogResponse,
+    P2PMsgContent_SuppressMsg
   };
   return values;
 }
 
 inline const char * const *EnumNamesP2PMsgContent() {
-  static const char * const names[15] = {
+  static const char * const names[16] = {
     "NONE",
     "PeerChallengeMsg",
     "PeerChallengeResponseMsg",
@@ -140,13 +145,14 @@ inline const char * const *EnumNamesP2PMsgContent() {
     "PeerListResponseMsg",
     "HpfsLogRequest",
     "HpfsLogResponse",
+    "SuppressMsg",
     nullptr
   };
   return names;
 }
 
 inline const char *EnumNameP2PMsgContent(P2PMsgContent e) {
-  if (flatbuffers::IsOutRange(e, P2PMsgContent_NONE, P2PMsgContent_HpfsLogResponse)) return "";
+  if (flatbuffers::IsOutRange(e, P2PMsgContent_NONE, P2PMsgContent_SuppressMsg)) return "";
   const size_t index = static_cast<size_t>(e);
   return EnumNamesP2PMsgContent()[index];
 }
@@ -207,8 +213,39 @@ template<> struct P2PMsgContentTraits<msg::fbuf::p2pmsg::HpfsLogResponse> {
   static const P2PMsgContent enum_value = P2PMsgContent_HpfsLogResponse;
 };
 
+template<> struct P2PMsgContentTraits<msg::fbuf::p2pmsg::SuppressMsg> {
+  static const P2PMsgContent enum_value = P2PMsgContent_SuppressMsg;
+};
+
 bool VerifyP2PMsgContent(flatbuffers::Verifier &verifier, const void *obj, P2PMsgContent type);
 bool VerifyP2PMsgContentVector(flatbuffers::Verifier &verifier, const flatbuffers::Vector<flatbuffers::Offset<void>> *values, const flatbuffers::Vector<uint8_t> *types);
+
+enum SuppressReason {
+  SuppressReason_ContractIdMismatch = 0,
+  SuppressReason_MIN = SuppressReason_ContractIdMismatch,
+  SuppressReason_MAX = SuppressReason_ContractIdMismatch
+};
+
+inline const SuppressReason (&EnumValuesSuppressReason())[1] {
+  static const SuppressReason values[] = {
+    SuppressReason_ContractIdMismatch
+  };
+  return values;
+}
+
+inline const char * const *EnumNamesSuppressReason() {
+  static const char * const names[2] = {
+    "ContractIdMismatch",
+    nullptr
+  };
+  return names;
+}
+
+inline const char *EnumNameSuppressReason(SuppressReason e) {
+  if (flatbuffers::IsOutRange(e, SuppressReason_ContractIdMismatch, SuppressReason_ContractIdMismatch)) return "";
+  const size_t index = static_cast<size_t>(e);
+  return EnumNamesSuppressReason()[index];
+}
 
 enum HpfsFsEntryResponseType {
   HpfsFsEntryResponseType_Matched = 0,
@@ -415,6 +452,9 @@ struct P2PMsg FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   const msg::fbuf::p2pmsg::HpfsLogResponse *content_as_HpfsLogResponse() const {
     return content_type() == msg::fbuf::p2pmsg::P2PMsgContent_HpfsLogResponse ? static_cast<const msg::fbuf::p2pmsg::HpfsLogResponse *>(content()) : nullptr;
   }
+  const msg::fbuf::p2pmsg::SuppressMsg *content_as_SuppressMsg() const {
+    return content_type() == msg::fbuf::p2pmsg::P2PMsgContent_SuppressMsg ? static_cast<const msg::fbuf::p2pmsg::SuppressMsg *>(content()) : nullptr;
+  }
   void *mutable_content() {
     return GetPointer<void *>(VT_CONTENT);
   }
@@ -480,6 +520,10 @@ template<> inline const msg::fbuf::p2pmsg::HpfsLogRequest *P2PMsg::content_as<ms
 
 template<> inline const msg::fbuf::p2pmsg::HpfsLogResponse *P2PMsg::content_as<msg::fbuf::p2pmsg::HpfsLogResponse>() const {
   return content_as_HpfsLogResponse();
+}
+
+template<> inline const msg::fbuf::p2pmsg::SuppressMsg *P2PMsg::content_as<msg::fbuf::p2pmsg::SuppressMsg>() const {
+  return content_as_SuppressMsg();
 }
 
 struct P2PMsgBuilder {
@@ -1336,6 +1380,76 @@ inline flatbuffers::Offset<NplMsg> CreateNplMsgDirect(
       sig__,
       data__,
       lcl_id);
+}
+
+struct SuppressMsg FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef SuppressMsgBuilder Builder;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_PUBKEY = 4,
+    VT_REASON = 6
+  };
+  const flatbuffers::Vector<uint8_t> *pubkey() const {
+    return GetPointer<const flatbuffers::Vector<uint8_t> *>(VT_PUBKEY);
+  }
+  flatbuffers::Vector<uint8_t> *mutable_pubkey() {
+    return GetPointer<flatbuffers::Vector<uint8_t> *>(VT_PUBKEY);
+  }
+  msg::fbuf::p2pmsg::SuppressReason reason() const {
+    return static_cast<msg::fbuf::p2pmsg::SuppressReason>(GetField<int8_t>(VT_REASON, 0));
+  }
+  bool mutate_reason(msg::fbuf::p2pmsg::SuppressReason _reason) {
+    return SetField<int8_t>(VT_REASON, static_cast<int8_t>(_reason), 0);
+  }
+  bool Verify(flatbuffers::Verifier &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyOffset(verifier, VT_PUBKEY) &&
+           verifier.VerifyVector(pubkey()) &&
+           VerifyField<int8_t>(verifier, VT_REASON) &&
+           verifier.EndTable();
+  }
+};
+
+struct SuppressMsgBuilder {
+  typedef SuppressMsg Table;
+  flatbuffers::FlatBufferBuilder &fbb_;
+  flatbuffers::uoffset_t start_;
+  void add_pubkey(flatbuffers::Offset<flatbuffers::Vector<uint8_t>> pubkey) {
+    fbb_.AddOffset(SuppressMsg::VT_PUBKEY, pubkey);
+  }
+  void add_reason(msg::fbuf::p2pmsg::SuppressReason reason) {
+    fbb_.AddElement<int8_t>(SuppressMsg::VT_REASON, static_cast<int8_t>(reason), 0);
+  }
+  explicit SuppressMsgBuilder(flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  SuppressMsgBuilder &operator=(const SuppressMsgBuilder &);
+  flatbuffers::Offset<SuppressMsg> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = flatbuffers::Offset<SuppressMsg>(end);
+    return o;
+  }
+};
+
+inline flatbuffers::Offset<SuppressMsg> CreateSuppressMsg(
+    flatbuffers::FlatBufferBuilder &_fbb,
+    flatbuffers::Offset<flatbuffers::Vector<uint8_t>> pubkey = 0,
+    msg::fbuf::p2pmsg::SuppressReason reason = msg::fbuf::p2pmsg::SuppressReason_ContractIdMismatch) {
+  SuppressMsgBuilder builder_(_fbb);
+  builder_.add_pubkey(pubkey);
+  builder_.add_reason(reason);
+  return builder_.Finish();
+}
+
+inline flatbuffers::Offset<SuppressMsg> CreateSuppressMsgDirect(
+    flatbuffers::FlatBufferBuilder &_fbb,
+    const std::vector<uint8_t> *pubkey = nullptr,
+    msg::fbuf::p2pmsg::SuppressReason reason = msg::fbuf::p2pmsg::SuppressReason_ContractIdMismatch) {
+  auto pubkey__ = pubkey ? _fbb.CreateVector<uint8_t>(*pubkey) : 0;
+  return msg::fbuf::p2pmsg::CreateSuppressMsg(
+      _fbb,
+      pubkey__,
+      reason);
 }
 
 struct HpfsFSHashEntry FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
@@ -2690,6 +2804,10 @@ inline bool VerifyP2PMsgContent(flatbuffers::Verifier &verifier, const void *obj
     }
     case P2PMsgContent_HpfsLogResponse: {
       auto ptr = reinterpret_cast<const msg::fbuf::p2pmsg::HpfsLogResponse *>(obj);
+      return verifier.VerifyTable(ptr);
+    }
+    case P2PMsgContent_SuppressMsg: {
+      auto ptr = reinterpret_cast<const msg::fbuf::p2pmsg::SuppressMsg *>(obj);
       return verifier.VerifyTable(ptr);
     }
     default: return true;
