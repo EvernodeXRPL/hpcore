@@ -482,6 +482,7 @@ namespace p2p
         {
             for (const peer_properties &kp : ctx.server->req_known_remotes)
             {
+                std::scoped_lock<std::mutex> lock(ctx.peer_connections_mutex);
                 const auto itr = std::find_if(ctx.peer_connections.begin(), ctx.peer_connections.end(), [&](const std::pair<std::string, peer_comm_session *> &pc)
                                               { return pc.second->known_ipport == kp.ip_port; });
                 if (itr != ctx.peer_connections.end())
@@ -568,6 +569,7 @@ namespace p2p
                 if (itr != ctx.server->req_known_remotes.end())
                 {
                     LOG_DEBUG << "Removing " << peer.ip_port.to_string() << " from known peer list.";
+                    std::scoped_lock<std::mutex> lock(ctx.peer_connections_mutex);
                     const auto conn_itr = std::find_if(ctx.peer_connections.begin(), ctx.peer_connections.end(), [&](const std::pair<std::string, peer_comm_session *> &pc)
                                                        { return pc.second->known_ipport == itr->ip_port; });
 
