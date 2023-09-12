@@ -477,11 +477,20 @@ namespace p2p
                           const std::vector<peer_properties> *remove_peers, const p2p::peer_comm_session *from)
     {
         std::scoped_lock<std::mutex> lock(ctx.server->req_known_remotes_mutex);
-        std::vector<peer_properties> no_longer_known_peers;
 
         if (mode == p2p::PEERS_UPDATE_MODE::OVERWRITE)
         {
-            no_longer_known_peers = ctx.server->req_known_remotes;
+            for (const peer_properties &kp : ctx.server->req_known_remotes)
+            {
+                const auto itr = std::find_if(ctx.peer_connections.begin(), ctx.peer_connections.end(), [&](const std::pair<std::string, peer_comm_session *> &pc)
+                                              { return pc.second->known_ipport == kp.ip_port; });
+                if (itr != ctx.peer_connections.end())
+                {
+                    LOG_DEBUG << "Marking to close the session of removing peer conn:" << kp.ip_port.to_string();
+                    peer_comm_session &session_to_close = *itr->second;
+                    session_to_close.mark_for_closure(comm::CLOSE_VIOLATION::VIOLATION_IRRELEVANT_KNOWN_PEER);
+                }
+            }
             ctx.server->req_known_remotes.clear();
         }
 
@@ -559,7 +568,15 @@ namespace p2p
                 if (itr != ctx.server->req_known_remotes.end())
                 {
                     LOG_DEBUG << "Removing " << peer.ip_port.to_string() << " from known peer list.";
-                    no_longer_known_peers.push_back(peer);
+                    const auto conn_itr = std::find_if(ctx.peer_connections.begin(), ctx.peer_connections.end(), [&](const std::pair<std::string, peer_comm_session *> &pc)
+                                                       { return pc.second->known_ipport == itr->ip_port; });
+
+                    if (conn_itr != ctx.peer_connections.end())
+                    {
+                        LOG_DEBUG << "Marking to close the session of removing peer conn:" << peer.ip_port.to_string();
+                        peer_comm_session &session_to_close = *conn_itr->second;
+                        session_to_close.mark_for_closure(comm::CLOSE_VIOLATION::VIOLATION_IRRELEVANT_KNOWN_PEER);
+                    }
                     ctx.server->req_known_remotes.erase(itr);
                 }
             }
@@ -568,22 +585,6 @@ namespace p2p
         // Sorting the known remote list according to the weight value after merging the peer list.
         if (add_peers || remove_peers)
             sort_known_remotes();
-
-        // Marking removed peer connections related sessions for closure.
-        {
-            std::scoped_lock<std::mutex> lock(ctx.peer_connections_mutex);
-            for (const peer_properties &no_longer_peer : no_longer_known_peers)
-            {
-                const auto itr = std::find_if(ctx.peer_connections.begin(), ctx.peer_connections.end(), [&](const std::pair<std::string, peer_comm_session *> &pc)
-                                              { return pc.second->known_ipport == no_longer_peer.ip_port; });
-                if (itr != ctx.peer_connections.end())
-                {
-                    LOG_DEBUG << "Marking to close the session of removing peer conn:" << no_longer_peer.ip_port.to_string();
-                    peer_comm_session &session_to_close = *itr->second;
-                    session_to_close.mark_for_closure(comm::CLOSE_VIOLATION::VIOLATION_IRRELEVANT_KNOWN_PEER);
-                }
-            }
-        }
     }
 
     /**
