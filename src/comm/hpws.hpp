@@ -775,7 +775,7 @@ namespace hpws
             if (ret < 1)
                 HPWS_ACCEPT_ERROR(202, "timeout waiting for hpws accept child message");
 
-            // check weather write end in forcefully closed
+            // check whether write end in forcefully closed
             if (pfd.revents & POLLHUP)
                 HPWS_ACCEPT_ERROR(205, "child connection closed");
 
