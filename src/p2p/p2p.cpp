@@ -52,9 +52,11 @@ namespace p2p
     {
         if (init_success)
         {
-            // If peer discovery was enabled, update latest known peers information to config
-            // before the peer server is stopped. (config will permanently save it to disk upon exit)
-            if (conf::cfg.mesh.peer_discovery.enabled)
+
+            /**
+             * Update latest known peers information to config
+             * before the peer server is stopped. (config will permanently save it to disk upon exit).
+             */
             {
                 std::scoped_lock lock(ctx.server->req_known_remotes_mutex);
                 const std::vector<peer_properties> &peers = ctx.server->req_known_remotes;
@@ -498,6 +500,18 @@ namespace p2p
 
         if (mode == p2p::PEERS_UPDATE_MODE::OVERWRITE)
         {
+            for (const peer_properties &kp : ctx.server->req_known_remotes)
+            {
+                std::scoped_lock<std::mutex> lock(ctx.peer_connections_mutex);
+                const auto itr = std::find_if(ctx.peer_connections.begin(), ctx.peer_connections.end(), [&](const std::pair<std::string, peer_comm_session *> &pc)
+                                              { return pc.second->known_ipport == kp.ip_port; });
+                if (itr != ctx.peer_connections.end())
+                {
+                    LOG_DEBUG << "Marking to close the session of removing peer conn:" << kp.ip_port.to_string();
+                    peer_comm_session &session_to_close = *itr->second;
+                    session_to_close.mark_for_closure(comm::CLOSE_VIOLATION::VIOLATION_IRRELEVANT_KNOWN_PEER);
+                }
+            }
             ctx.server->req_known_remotes.clear();
         }
 
@@ -575,6 +589,16 @@ namespace p2p
                 if (itr != ctx.server->req_known_remotes.end())
                 {
                     LOG_DEBUG << "Removing " << peer.ip_port.to_string() << " from known peer list.";
+                    std::scoped_lock<std::mutex> lock(ctx.peer_connections_mutex);
+                    const auto conn_itr = std::find_if(ctx.peer_connections.begin(), ctx.peer_connections.end(), [&](const std::pair<std::string, peer_comm_session *> &pc)
+                                                       { return pc.second->known_ipport == itr->ip_port; });
+
+                    if (conn_itr != ctx.peer_connections.end())
+                    {
+                        LOG_DEBUG << "Marking to close the session of removing peer conn:" << peer.ip_port.to_string();
+                        peer_comm_session &session_to_close = *conn_itr->second;
+                        session_to_close.mark_for_closure(comm::CLOSE_VIOLATION::VIOLATION_IRRELEVANT_KNOWN_PEER);
+                    }
                     ctx.server->req_known_remotes.erase(itr);
                 }
             }
