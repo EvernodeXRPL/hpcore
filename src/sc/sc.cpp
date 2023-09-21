@@ -478,7 +478,7 @@ namespace sc
                 break;
             }
 
-            // Atempt to read messages from contract (regardless of contract terminated or not).
+            // Attempt to read messages from contract (regardless of contract terminated or not).
             const int control_read_res = read_control_outputs(ctx, out_fds[control_fd_idx]);
             const int npl_read_res = ctx.args.readonly ? 0 : read_npl_outputs(ctx, &out_fds[npl_fd_idx]);
             const int user_read_res = read_contract_fdmap_outputs(ctx.user_fds, out_fds, ctx.args.userbufs);
@@ -619,6 +619,9 @@ namespace sc
         {
             if (write_iosocket_seq_packet(ctx.control_fds, control_msg) == -1)
             {
+                // Consider that no write operation occurred; assume that contract termination might have caused these errors.
+                if (errno == EPIPE || errno == ECONNRESET)
+                    return 0;
                 LOG_ERROR << "Error writing HP inputs to SC";
                 return -1;
             }
@@ -657,6 +660,9 @@ namespace sc
                 // Writing the public key to the contract's fd (Skip first byte for key type prefix).
                 if (write(writefd, pubkeyhex.data(), pubkeyhex.size()) == -1)
                 {
+                    // Consider that no write operation occurred; assume that contract termination might have caused these errors.                if (errno == EPIPE || errno == ECONNRESET)
+                    if (errno == EPIPE || errno == ECONNRESET)
+                        return 0;
                     LOG_ERROR << errno << ": Error writing npl message pubkey.";
                     return -1;
                 }
@@ -664,6 +670,9 @@ namespace sc
                 // Writing the message to the contract's fd.
                 if (write(writefd, npl_msg.data.data(), npl_msg.data.size()) == -1)
                 {
+                    // Consider that no write operation occurred; assume that contract termination might have caused these errors.
+                    if (errno == EPIPE || errno == ECONNRESET)
+                        return 0;
                     LOG_ERROR << errno << ": Error writing npl message data.";
                     return -1;
                 }
@@ -675,7 +684,6 @@ namespace sc
                 LOG_DEBUG << "NPL message dropped due to last primary shard mismatch.";
             }
         }
-
         return 0;
     }
 
@@ -1029,7 +1037,7 @@ namespace sc
      * @param is_stream_socket Indicates whether socket is steam socket or not.
      * @param pfd The pollfd struct containing poll status.
      * @param output The buffer to place the read output.
-     * @return -1 on error. Otherwise no. of bytes read.
+     * @return Returns -2 on neutral read, -1 on error, Otherwise no. of bytes read.
      */
     int read_iosocket(const bool is_stream_socket, const pollfd pfd, std::string &output)
     {
@@ -1044,7 +1052,11 @@ namespace sc
 
             if (res == -1)
             {
-                LOG_ERROR << errno << ": Error reading from contract socket. stream:" << is_stream_socket;
+                // Assuming that EPIPE or ECONNRESET resulted from contract termination, consider this as a neutral read.
+                if (errno == EPIPE || errno == ECONNRESET)
+                    return -2;
+                else
+                    LOG_ERROR << errno << ": Error reading from contract socket. stream:" << is_stream_socket;
             }
 
             return res;
