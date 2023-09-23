@@ -41,6 +41,7 @@ namespace comm
     {
     private:
         corebill::tracker &violation_tracker;
+        const bool corebill_enabled; // Wether corebill enabled for the session.
         std::optional<hpws::client> hpws_client;
         std::vector<session_threshold> thresholds; // track down various communication thresholds
 
@@ -72,7 +73,7 @@ namespace comm
         uint64_t last_activity_timestamp; // Keep track of the last activity timestamp in milliseconds.
 
         comm_session(corebill::tracker &violation_tracker,
-                     std::string_view host_address, hpws::client &&hpws_client, const bool is_ipv4, const bool is_inbound, const uint64_t (&metric_thresholds)[5]);
+                     std::string_view host_address, hpws::client &&hpws_client, const bool is_ipv4, const bool is_inbound, const uint64_t (&metric_thresholds)[5], const bool corebill_enabled);
         int init();
         int process_next_inbound_message(const uint16_t priority);
         int send(const std::vector<uint8_t> &message, const uint16_t priority = 2);

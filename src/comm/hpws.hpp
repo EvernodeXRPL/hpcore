@@ -48,6 +48,7 @@ namespace hpws
 #define HPWS_SMALL_TIMEOUT 10
 // used when waiting for server process to spawn
 #define HPWS_LONG_TIMEOUT 1500 // This timeout has to account the possible delays in communication via internet.
+#define HPWS_VISA_TIMEOUT 5000 // This timeout has to account the possible delays in visa pow calculation.
 
     typedef union
     {
@@ -322,7 +323,10 @@ namespace hpws
             uint16_t port,
             std::string_view get,
             std::vector<std::string_view> argv,
-            std::function<void()> fork_child_init = NULL)
+            std::function<void()> fork_child_init = NULL,
+            bool is_ipv4 = false,
+            std::optional<std::string_view> visa_token = {},
+            std::function<bool()> parent_terminated = NULL)
         {
 
 #define HPWS_CONNECT_ERROR(code, msg) \
@@ -338,7 +342,7 @@ namespace hpws
             int buffer_fd[4] = {-1, -1, -1, -1};
             void *mapping[4] = {NULL, NULL, NULL, NULL};
             int pid = -1;
-            int count_args = 14 + argv.size();
+            int count_args = 14 + argv.size() + (visa_token.has_value() ? 2 : 0) + (is_ipv4 ? 1 : 0);
             char const **argv_pass = NULL;
 
             if (socketpair(AF_UNIX, SOCK_SEQPACKET, 0, fd))
@@ -381,6 +385,13 @@ namespace hpws
                 argv_pass[upto++] = cfd2;
                 argv_pass[upto++] = "--get";
                 argv_pass[upto++] = get.data();
+                if (is_ipv4)
+                    argv_pass[upto++] = "--ipv4";
+                if (visa_token.has_value())
+                {
+                    argv_pass[upto++] = "--visatoken";
+                    argv_pass[upto++] = visa_token.value().data();
+                }
                 for (std::string_view &arg : argv)
                     argv_pass[upto++] = arg.data();
                 argv_pass[upto] = NULL;
@@ -415,11 +426,27 @@ namespace hpws
 
                 // we will set a timeout and wait for the initial startup message from hpws client mode
                 struct pollfd pfd;
-                int ret;
+                int ret = 0;
 
                 pfd.fd = child_fd[0]; // we receive setup events on control line 0 (hpws->hpcore)
                 pfd.events = POLLIN;
-                ret = poll(&pfd, 1, HPWS_LONG_TIMEOUT); // default= 1500 ms timeout
+                if (!visa_token.has_value())
+                    ret = poll(&pfd, 1, HPWS_LONG_TIMEOUT); // default= 1500 ms timeout
+                else
+                {
+                    // If the signals are blocked in the caller we handle termination from outside.
+                    // We wait in a loop because visa timeout could be long otherwise termination hangs.
+                    uint32_t timer = 0;
+                    while (ret == 0 && timer < HPWS_VISA_TIMEOUT)
+                    {
+                        // Break if connection is terminated from the server.
+                        if (parent_terminated && parent_terminated())
+                            break;
+
+                        ret = poll(&pfd, 1, 1000);
+                        timer += 1000;
+                    }
+                }
 
                 // timeout or error
                 if (ret < 1)
@@ -454,7 +481,7 @@ namespace hpws
                     memcpy(&buffer_fd, CMSG_DATA(cmsg), sizeof(buffer_fd));
                     for (int i = 0; i < 4; ++i)
                     {
-                        //fprintf(stderr, "scm passed buffer_fd[%d] = %d\n", i, buffer_fd[i]);
+                        // fprintf(stderr, "scm passed buffer_fd[%d] = %d\n", i, buffer_fd[i]);
                         if (buffer_fd[i] < 0)
                             HPWS_CONNECT_ERROR(203, "child accept scm_rights a passed buffer fd was negative");
                         mapping[i] =
@@ -748,6 +775,10 @@ namespace hpws
             if (ret < 1)
                 HPWS_ACCEPT_ERROR(202, "timeout waiting for hpws accept child message");
 
+            // check whether write end in forcefully closed
+            if (pfd.revents & POLLHUP)
+                HPWS_ACCEPT_ERROR(205, "child connection closed");
+
             // first thing we'll receive is the pid of the client
             if (recv(child_fd[0], (unsigned char *)(&pid), sizeof(pid), 0) < (ssize_t)sizeof(pid))
                 HPWS_ACCEPT_ERROR(212, "did not receive expected 4 byte pid of child process on accept");
@@ -788,7 +819,7 @@ namespace hpws
 
                 for (int i = 0; i < 4; ++i)
                 {
-                    //fprintf(stderr, "scm passed buffer_fd[%d] = %d\n", i, buffer_fd[i]);
+                    // fprintf(stderr, "scm passed buffer_fd[%d] = %d\n", i, buffer_fd[i]);
                     if (buffer_fd[i] < 0)
                         HPWS_ACCEPT_ERROR(203, "child accept scm_rights a passed buffer fd was negative");
                     mapping[i] =
@@ -876,8 +907,10 @@ namespace hpws
             uint16_t max_con_per_ip,
             std::string_view cert_path,
             std::string_view key_path,
-            std::vector<std::string_view> argv, //additional_arguments
-            std::function<void()> fork_child_init = NULL)
+            std::vector<std::string_view> argv, // additional_arguments
+            std::function<void()> fork_child_init = NULL,
+            bool is_ipv6 = false,
+            std::optional<std::string_view> visa_token = {})
         {
 #define HPWS_SERVER_ERROR(code, msg) \
     {                                \
@@ -890,7 +923,7 @@ namespace hpws
             const char *error_msg = NULL;
             int fd[2] = {-1, -1};
             pid_t pid = -1;
-            int count_args = 17 + argv.size();
+            int count_args = 16 + argv.size() + (is_ipv6 ? 1 : 0) + (visa_token.has_value() ? 2 : 0);
             char const **argv_pass = NULL;
 
             if (socketpair(AF_UNIX, SOCK_SEQPACKET, 0, fd))
@@ -934,6 +967,13 @@ namespace hpws
                 argv_pass[upto++] = max_con_str;
                 argv_pass[upto++] = "--maxconip";
                 argv_pass[upto++] = max_con_per_ip_str;
+                if (is_ipv6)
+                    argv_pass[upto++] = "--ipv6";
+                if (visa_token.has_value())
+                {
+                    argv_pass[upto++] = "--visatoken";
+                    argv_pass[upto++] = visa_token.value().data();
+                }
                 for (std::string_view &arg : argv)
                     argv_pass[upto++] = arg.data();
                 argv_pass[upto] = NULL;

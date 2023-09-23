@@ -18,7 +18,7 @@ namespace p2p
     peer_comm_server::peer_comm_server(const uint16_t port, const uint64_t (&metric_thresholds)[5], const uint64_t max_msg_size,
                                        const uint64_t max_in_connections, const uint64_t max_in_connections_per_host,
                                        const std::vector<peer_properties> &req_known_remotes)
-        : comm::comm_server<peer_comm_session>("Peer", port, metric_thresholds, max_msg_size, max_in_connections, max_in_connections_per_host, true),
+        : comm::comm_server<peer_comm_session>("Peer", port, metric_thresholds, max_msg_size, max_in_connections, max_in_connections_per_host, true, true),
           req_known_remotes(req_known_remotes) // Copy over known peers into internal collection.
     {
     }
@@ -171,7 +171,8 @@ namespace p2p
             const uint16_t port = peer.ip_port.port;
             LOG_DEBUG << "Trying to connect " << host << ":" << std::to_string(port);
 
-            std::variant<hpws::client, hpws::error> client_result = hpws::client::connect(conf::ctx.hpws_exe_path, max_msg_size, host, port, "/", {}, util::fork_detach);
+            std::variant<hpws::client, hpws::error> client_result = hpws::client::connect(conf::ctx.hpws_exe_path, max_msg_size, host, port, "/", {}, util::fork_detach, true, conf::cfg.contract.id, [&]() -> bool
+                                                                                          { return is_shutting_down; });
 
             if (std::holds_alternative<hpws::error>(client_result))
             {
@@ -198,7 +199,7 @@ namespace p2p
                 else
                 {
                     const std::string &host_address = std::get<std::string>(host_result);
-                    p2p::peer_comm_session session(this->violation_tracker, host_address, std::move(client), client.is_ipv4, false, metric_thresholds);
+                    p2p::peer_comm_session session(this->violation_tracker, host_address, std::move(client), client.is_ipv4, false, metric_thresholds, !visa_required);
 
                     // Skip if this peer is banned due to corebill violations.
                     if (violation_tracker.is_banned(host_address))
