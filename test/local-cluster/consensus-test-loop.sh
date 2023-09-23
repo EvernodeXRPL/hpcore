@@ -3,7 +3,7 @@
 
 clusterloc=$(pwd)/hpcluster
 n=1
-hpversion=0.6.3
+hpversion=0.6.4
 let pubport=8080+$n
 while true; do
     CONSENSUS="0"

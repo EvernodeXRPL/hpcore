@@ -11,7 +11,6 @@ namespace msg::controlmsg
     constexpr const char *FLD_REMOVE = "remove";
 
     // Message types
-    constexpr const char *MSGTYPE_CONTRACT_END = "contract_end";
     constexpr const char *MSGTYPE_PEER_CHANGESET = "peer_changeset";
 
 } // namespace msg::controlmsg

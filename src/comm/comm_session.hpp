@@ -30,7 +30,8 @@ namespace comm
         VIOLATION_MSG_READ = 1,
         VIOLATION_READ_ERROR = 2,
         VIOLATION_THRESHOLD_EXCEEDED = 3,
-        VIOLATION_INACTIVITY = 4
+        VIOLATION_INACTIVITY = 4,
+        VIOLATION_IRRELEVANT_KNOWN_PEER = 5
     };
 
     /**
