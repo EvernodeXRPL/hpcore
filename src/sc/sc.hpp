@@ -134,9 +134,6 @@ namespace sc
         std::string stdout_file;
         std::string stderr_file;
 
-        // Indicates that the contract has sent termination control message.
-        bool termination_signaled = false;
-
         // Indicates whether the contract exited normally without any errors.
         bool exit_success = false;
 

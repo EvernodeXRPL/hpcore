@@ -298,6 +298,14 @@ namespace msg::fbuf::p2pmsg
         return map;
     }
 
+    const p2p::suppress_message create_suppress_from_msg(const p2p::peer_message_info &mi)
+    {
+        const auto &msg = *mi.p2p_msg->content_as_SuppressMsg();
+        return {
+            std::string(flatbuf_bytes_to_sv(msg.pubkey())),
+            (p2p::SUPPRESS_REASON)msg.reason()};
+    }
+
     void flatbuf_hpfsfshashentries_to_hpfsfshashentries(std::vector<p2p::hpfs_fs_hash_entry> &fs_entries, const flatbuffers::Vector<flatbuffers::Offset<HpfsFSHashEntry>> *fhashes)
     {
         for (const HpfsFSHashEntry *f_hash : *fhashes)
@@ -600,6 +608,16 @@ namespace msg::fbuf::p2pmsg
             peer_propertiesvector_to_flatbuf_peer_propertieslist(builder, peers, skipping_ip_port));
 
         create_p2p_msg(builder, P2PMsgContent_PeerListResponseMsg, msg.Union());
+    }
+
+    void create_suppress_msg(flatbuffers::FlatBufferBuilder &builder, const uint8_t reason)
+    {
+        const auto msg = CreateSuppressMsg(
+            builder,
+            sv_to_flatbuf_bytes(builder, conf::cfg.node.public_key),
+            (SuppressReason)reason);
+
+        create_p2p_msg(builder, P2PMsgContent_SuppressMsg, msg.Union());
     }
 
     const flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<UserInputGroup>>>

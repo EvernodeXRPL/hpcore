@@ -153,8 +153,8 @@ namespace p2p
             if (conf::cfg.mesh.max_connections != 0 && known_remote_count == conf::cfg.mesh.max_connections)
                 break;
 
-            // Continue if the peer has no free slots.
-            if (peer.available_capacity == 0)
+            // Continue if the peer has no free slots or the peer has issued a suppression.
+            if (peer.available_capacity == 0 || peer.has_suppressed_us)
                 continue;
 
             if (peer.ip_port.host_address.empty())

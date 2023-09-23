@@ -30,10 +30,11 @@ namespace comm
         VIOLATION_MSG_READ = 1,
         VIOLATION_READ_ERROR = 2,
         VIOLATION_THRESHOLD_EXCEEDED = 3,
-        VIOLATION_INACTIVITY = 4
+        VIOLATION_INACTIVITY = 4,
+        VIOLATION_IRRELEVANT_KNOWN_PEER = 5
     };
 
-    /** 
+    /**
      * Represents an active WebSocket connection
      */
     class comm_session
@@ -63,7 +64,7 @@ namespace comm
         std::string uniqueid; // Verified session: Pubkey in hex format, Unverified session: IP address.
         std::string pubkey;   // Pubkey in binary format.
         const bool is_inbound;
-        const bool is_ipv4;   // Whether the host is ipv4 or ipv6.
+        const bool is_ipv4;             // Whether the host is ipv4 or ipv6.
         const std::string host_address; // Connection host address of the remote party.
         std::string issued_challenge;
         SESSION_STATE state = SESSION_STATE::NONE;
@@ -71,7 +72,7 @@ namespace comm
         uint64_t last_activity_timestamp; // Keep track of the last activity timestamp in milliseconds.
 
         comm_session(corebill::tracker &violation_tracker,
-            std::string_view host_address, hpws::client &&hpws_client, const bool is_ipv4, const bool is_inbound, const uint64_t (&metric_thresholds)[5]);
+                     std::string_view host_address, hpws::client &&hpws_client, const bool is_ipv4, const bool is_inbound, const uint64_t (&metric_thresholds)[5]);
         int init();
         int process_next_inbound_message(const uint16_t priority);
         int send(const std::vector<uint8_t> &message, const uint16_t priority = 2);

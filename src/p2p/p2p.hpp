@@ -19,7 +19,14 @@ namespace p2p
     constexpr uint16_t HPFS_RES_LIST_CAP = 255;        // Maximum state response count.
     constexpr uint16_t LOG_RECORD_REQ_LIST_CAP = 255;  // Maximum log record request count.
     constexpr uint16_t LOG_RECORD_RES_LIST_CAP = 255;  // Maximum log record response count.
-    constexpr uint16_t PEER_LIST_CAP = 128;            // Maximum peer count.
+    constexpr uint16_t PEER_LIST_CAP = 256;            // Maximum peer count.
+
+    enum PEERS_UPDATE_MODE
+    {
+        MERGE = 0,      // Gracefully merge new changes to our known peers.
+        FORCE = 1,      // Update our known peers while giving priority to specified changes.
+        OVERWRITE = 2   // Completely overwrite our known peers with the given set of peers.
+    };
 
     // Struct to represent information about a peer.
     // Initially available capacity is set to -1 and timestamp is set to 0.
@@ -31,6 +38,7 @@ namespace p2p
         uint64_t timestamp = 0;
         int64_t weight = 0;
         int32_t failed_attempts = 0;
+        bool has_suppressed_us = false;
     };
 
     struct proposal
@@ -115,6 +123,18 @@ namespace p2p
         MISMATCHED = 1,   // The entry does not match (either hash mismatch or new entry). Requester must request for this entry.
         RESPONDED = 2,    // The entry does not match and the repsonder has dispatched the sync response.
         NOT_AVAILABLE = 3 // The entry does not exist on responder side. Requester must delete this on his side.
+    };
+
+    enum SUPPRESS_REASON
+    {
+        CONTRACT_MISMATCH = 0 // Suppress due to contract mismatch.
+    };
+
+    // Represents a peer suppression.
+    struct suppress_message
+    {
+        std::string pubkey; // Peer binary pubkey.
+        SUPPRESS_REASON reason;
     };
 
     // Represents hpfs file system entry.
@@ -226,6 +246,8 @@ namespace p2p
 
     void handle_npl_message(const p2p::npl_message &npl);
 
+    void handle_suppress_message(const p2p::suppress_message &suppression, peer_comm_session *session);
+
     bool validate_for_peer_msg_forwarding(const peer_comm_session &session, const enum msg::fbuf::p2pmsg::P2PMsgContent msg_type, const uint64_t originated_on);
 
     void send_peer_requirement_announcement(const bool need_consensus_msg_forwarding, peer_comm_session *session = NULL);
@@ -238,7 +260,8 @@ namespace p2p
 
     void update_known_peer_available_capacity(const conf::peer_ip_port &ip_port, const int16_t available_capacity, const uint64_t &timestamp);
 
-    void merge_peer_list(const std::string &caller, const std::vector<peer_properties> *merge_peers, const std::vector<peer_properties> *remove_peers, const p2p::peer_comm_session *from = NULL);
+    void update_peer_list(const p2p::PEERS_UPDATE_MODE mode, const std::vector<peer_properties> *add_peers,
+                          const std::vector<peer_properties> *remove_peers, const p2p::peer_comm_session *from = NULL);
 
     void sort_known_remotes();
 
