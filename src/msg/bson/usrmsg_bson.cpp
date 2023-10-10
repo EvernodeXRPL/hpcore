@@ -497,6 +497,39 @@ namespace msg::usrmsg::bson
         return 0;
     }
 
+        /**
+     * Extracts a contract shell input message sent by user.
+     * 
+     * @param extracted_content The content to be passed to the contract, extracted from the message.
+     * @param d The bson document holding the shell input message.
+     *          Accepted signed input container format:
+     *          {
+     *            "type": "contract_shell_input",
+     *            "id": "<any string>",
+     *            "content": <binary buffer>
+     *          }
+     * @return 0 on successful extraction. -1 for failure.
+     */
+    int extract_shell_input(std::string &extracted_id, std::string &extracted_content, const jsoncons::ojson &d)
+    {
+        if (!d.contains(msg::usrmsg::FLD_ID) || !d[msg::usrmsg::FLD_ID].is<std::string>())
+        {
+            LOG_DEBUG << "Shell input 'id' field missing or invalid.";
+            return -1;
+        }
+
+        if (!d.contains(msg::usrmsg::FLD_CONTENT) || !d[msg::usrmsg::FLD_CONTENT].is_byte_string_view())
+        {
+            LOG_DEBUG << "Shell input 'content' field missing or invalid.";
+            return -1;
+        }
+
+        extracted_id = d[msg::usrmsg::FLD_ID].as<std::string>();
+        const jsoncons::byte_string_view &bsv = d[msg::usrmsg::FLD_CONTENT].as_byte_string_view();
+        extracted_content = std::string_view(reinterpret_cast<const char *>(bsv.data()), bsv.size());
+        return 0;
+    }
+
     /**
      * Extracts a signed input container message sent by user.
      * 

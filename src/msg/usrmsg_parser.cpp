@@ -121,6 +121,14 @@ namespace msg::usrmsg
             return busrmsg::extract_read_request(extracted_id, extracted_content, bdoc);
     }
 
+    int usrmsg_parser::extract_shell_input(std::string &extracted_id, std::string &extracted_content) const
+    {
+        if (protocol == util::PROTOCOL::JSON)
+            return jusrmsg::extract_shell_input(extracted_id, extracted_content, jdoc);
+        else
+            return busrmsg::extract_shell_input(extracted_id, extracted_content, bdoc);
+    }
+
     int usrmsg_parser::extract_signed_input_container(std::string &extracted_input_container, std::string &extracted_sig) const
     {
         if (protocol == util::PROTOCOL::JSON)

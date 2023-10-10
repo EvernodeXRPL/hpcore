@@ -272,6 +272,22 @@ namespace usr
                 user.session.send(resp);
                 return 0;
             }
+            else if (msg_type == msg::usrmsg::MSGTYPE_CONTRACT_SHELL_INPUT)
+            {
+                std::string id, content;
+                if (parser.extract_shell_input(id, content) != -1){
+                    LOG_INFO << "Received Shell Input.";
+                    LOG_INFO << "User PubKey:" << user.pubkey;
+                    LOG_INFO << "ID:" << id;
+                    LOG_INFO << "Content:" << content;
+                    return 0;
+                }
+                else
+                {
+                    send_input_status(parser, user.session, msg::usrmsg::STATUS_REJECTED, msg::usrmsg::REASON_BAD_MSG_FORMAT, "");
+                    return -1;
+                }
+            }
             else
             {
                 LOG_DEBUG << "Invalid user message type: " << msg_type;

@@ -43,6 +43,8 @@ namespace msg::usrmsg::bson
 
     int extract_read_request(std::string &extracted_id, std::string &extracted_content, const jsoncons::ojson &d);
 
+    int extract_shell_input(std::string &extracted_id, std::string &extracted_content, const jsoncons::ojson &d);
+
     int extract_signed_input_container(std::string &extracted_input_container, std::string &extracted_sig,
                                        const jsoncons::ojson &d);
 

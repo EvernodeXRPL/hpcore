@@ -872,6 +872,38 @@ namespace msg::usrmsg::json
         return 0;
     }
 
+        /**
+     * Extracts a contract shell input message sent by user.
+     * 
+     * @param extracted_content The content to be passed to the contract, extracted from the message.
+     * @param d The json document holding the shell input message.
+     *          Accepted signed input container format:
+     *          {
+     *            "type": "contract_shell_input",
+     *            "id": "<any string>",
+     *            "content": "<any string>"
+     *          }
+     * @return 0 on successful extraction. -1 for failure.
+     */
+    int extract_shell_input(std::string &extracted_id, std::string &extracted_content, const jsoncons::json &d)
+    {
+        if (!d.contains(msg::usrmsg::FLD_ID) || !d[msg::usrmsg::FLD_ID].is<std::string>())
+        {
+            LOG_DEBUG << "Shell input 'id' field missing or invalid.";
+            return -1;
+        }
+
+        if (!d.contains(msg::usrmsg::FLD_CONTENT) || !d[msg::usrmsg::FLD_CONTENT].is<std::string>())
+        {
+            LOG_DEBUG << "Shell input 'content' field missing or invalid.";
+            return -1;
+        }
+
+        extracted_id = d[msg::usrmsg::FLD_ID].as<std::string>();
+        extracted_content = d[msg::usrmsg::FLD_CONTENT].as<std::string>();
+        return 0;
+    }
+
     /**
      * Extracts a signed input container message sent by user.
      * 

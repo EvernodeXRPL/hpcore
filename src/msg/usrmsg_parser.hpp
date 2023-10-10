@@ -49,6 +49,8 @@ namespace msg::usrmsg
 
         int extract_read_request(std::string &extracted_id, std::string &extracted_content) const;
 
+        int extract_shell_input(std::string &extracted_id, std::string &extracted_content) const;
+
         int extract_signed_input_container(std::string &extracted_input_container, std::string &extracted_sig) const;
 
         int extract_input_container(std::string &input, uint64_t &nonce,
