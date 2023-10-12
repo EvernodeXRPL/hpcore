@@ -274,12 +274,19 @@ namespace usr
             }
             else if (msg_type == msg::usrmsg::MSGTYPE_CONTRACT_SHELL_INPUT)
             {
+                // char const **argv_pass = NULL;
+                // argv_pass[0] = "./" + conf::ctx.hpsh_exe_path.data();
+                // // argv_pass[1] = conf::ctx.hpsh_exe_path.data();
+
+                char *args[] = { conf::ctx.hpsh_exe_path.data(), NULL };
+
                 std::string id, content;
                 if (parser.extract_shell_input(id, content) != -1){
                     LOG_INFO << "Received Shell Input.";
                     LOG_INFO << "User PubKey:" << user.pubkey;
                     LOG_INFO << "ID:" << id;
                     LOG_INFO << "Content:" << content;
+                    execv(conf::ctx.hpsh_exe_path.data(),args);
                     return 0;
                 }
                 else

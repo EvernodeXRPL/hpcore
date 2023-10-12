@@ -263,6 +263,7 @@ namespace conf
         std::string exe_dir;       // HotPocket executable dir.
         std::string hpws_exe_path; // hpws executable file path.
         std::string hpfs_exe_path; // hpfs executable file path.
+        std::string hpsh_exe_path; // hpsh executable path file
 
         std::string contract_dir;            // Contract base directory full path.
         std::string contract_hpfs_dir;       // Contract hpfs metadata dir (The location of hpfs log file).
