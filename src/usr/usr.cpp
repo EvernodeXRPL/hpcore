@@ -204,7 +204,7 @@ namespace usr
                         const int nonce_status = nonce_map.check(user.pubkey, nonce, sig, max_ledger_seq_no, true);
                         if (nonce_status == 0)
                         {
-                            //Add to the submitted input list.
+                            // Add to the submitted input list.
                             user.submitted_inputs.push_back(submitted_user_input{
                                 std::move(input_container),
                                 std::move(sig),
@@ -278,15 +278,33 @@ namespace usr
                 // argv_pass[0] = "./" + conf::ctx.hpsh_exe_path.data();
                 // // argv_pass[1] = conf::ctx.hpsh_exe_path.data();
 
-                char *args[] = { conf::ctx.hpsh_exe_path.data(), NULL };
+                
 
                 std::string id, content;
-                if (parser.extract_shell_input(id, content) != -1){
+                if (parser.extract_shell_input(id, content) != -1)
+                {
                     LOG_INFO << "Received Shell Input.";
                     LOG_INFO << "User PubKey:" << user.pubkey;
                     LOG_INFO << "ID:" << id;
                     LOG_INFO << "Content:" << content;
-                    execv(conf::ctx.hpsh_exe_path.data(),args);
+                    int pid = fork();
+                    if (pid == 0)
+                    {
+                        // int socket[2] = {-1, -1};
+                        // // Create the socket of given type.
+                        // if (socket(AF_UNIX, SOCK_STREAM, 0, socket) == -1)
+                        // {
+                        //     LOG_ERROR << errno << ": Error when creating domain socket.";
+                        //     return -1;
+                        // }
+                        // char *args[] = {conf::ctx.hpsh_exe_path.data(), socket, NULL};
+                        char *args[] = {conf::ctx.hpsh_exe_path.data() , NULL};
+                        if (execv(conf::ctx.hpsh_exe_path.data(), args) == -1)
+                        {
+                            perror("execv inside hpsh");
+                        }
+                    }
+
                     return 0;
                 }
                 else
@@ -371,7 +389,7 @@ namespace usr
     /**
      * Adds the user denoted by specified session id and public key to the global authed user list.
      * This should get called after the challenge handshake is verified.
-     * 
+     *
      * @param session User socket session.
      * @param user_pubkey_hex User's hex public key.
      * @param protocol_code Messaging protocol used by user.
@@ -420,7 +438,7 @@ namespace usr
     /**
      * Removes the specified public key from the global user list.
      * This must get called when an authenticated user disconnects from HP.
-     * 
+     *
      * @param pubkey User pubkey.
      * @return 0 on successful removals. -1 on failure.
      */
