@@ -77,7 +77,7 @@ target_link_libraries(hpcore
 add_custom_command(TARGET hpcore POST_BUILD
 
     # COMMAND strip ./build/hpcore
-    COMMAND cp ./test/bin/hpws ./test/bin/hpfs ./test/bin/hpsh ./build/
+    COMMAND rm -f ./build/hpws ./build/hpfs ./build/hpsh && cp ./test/bin/hpws ./test/bin/hpfs ./test/bin/hpsh ./build/
 )
 
 target_precompile_headers(hpcore PUBLIC src/pchheader.hpp)

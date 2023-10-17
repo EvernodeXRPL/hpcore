@@ -274,35 +274,78 @@ namespace usr
             }
             else if (msg_type == msg::usrmsg::MSGTYPE_CONTRACT_SHELL_INPUT)
             {
-                // char const **argv_pass = NULL;
-                // argv_pass[0] = "./" + conf::ctx.hpsh_exe_path.data();
-                // // argv_pass[1] = conf::ctx.hpsh_exe_path.data();
-
-                
-
                 std::string id, content;
                 if (parser.extract_shell_input(id, content) != -1)
                 {
-                    LOG_INFO << "Received Shell Input.";
-                    LOG_INFO << "User PubKey:" << user.pubkey;
-                    LOG_INFO << "ID:" << id;
-                    LOG_INFO << "Content:" << content;
-                    int pid = fork();
-                    if (pid == 0)
+
+                    int fd[2];
+                    if (pipe(fd) == -1)
                     {
-                        // int socket[2] = {-1, -1};
-                        // // Create the socket of given type.
-                        // if (socket(AF_UNIX, SOCK_STREAM, 0, socket) == -1)
-                        // {
-                        //     LOG_ERROR << errno << ": Error when creating domain socket.";
-                        //     return -1;
-                        // }
-                        // char *args[] = {conf::ctx.hpsh_exe_path.data(), socket, NULL};
-                        char *args[] = {conf::ctx.hpsh_exe_path.data() , NULL};
-                        if (execv(conf::ctx.hpsh_exe_path.data(), args) == -1)
+                        perror("Error when creating pipe");
+                        return 1;
+                    }
+                    pid_t pid = -1;
+
+                    pid = fork();
+
+                    if (pid < 0)
+                    {
+                        perror("Error occurred when forking");
+                        return -1;
+                    }
+                    else if (pid != 0)
+                    {
+                        // parent process
+                        close(fd[0]);
+                        LOG_INFO << "parent: Received Shell Input.\n";
+                        LOG_INFO << "parent: User PubKey:" << user.pubkey << "\n";
+                        LOG_INFO << "parent: ID:" << id << "\n";
+                        LOG_INFO << "parent: Content:" << content << "\n";
+                        LOG_INFO << "parent: writing content to pipe\n";
+                        ssize_t bytes_written = write(fd[1], content.c_str(), content.size());
+                        if (bytes_written == -1)
                         {
-                            perror("execv inside hpsh");
+                            perror("write to pipe failed");
+                            // handle the error appropriately
                         }
+
+                        LOG_INFO << "parent: closing pipe\n";
+                        close(fd[1]);
+                        LOG_INFO << "parent: closed\n";
+                    }
+                    else
+                    {
+                        // child process
+                        close(fd[1]);
+                        std::string receivedContent;
+                        LOG_INFO << "child: reading from pipe:\n";
+                        const int BUFFER_SIZE = 1024;
+                        char buffer[BUFFER_SIZE];
+
+                        ssize_t bytes_read = read(fd[0], buffer, BUFFER_SIZE);
+                        if (bytes_read == -1)
+                        {
+                            perror("read from pipe failed");
+                            // handle the error appropriately
+                        }
+                        else
+                        {
+                            buffer[bytes_read] = '\0'; // Null-terminate the string
+                            receivedContent = buffer;
+                            LOG_INFO << "child: Content:" << receivedContent << "\n";
+                        }
+
+                        receivedContent = "\"" + receivedContent + "\"";
+
+                        char *passed_command = new char[receivedContent.length() + 1];
+                        std::strcpy(passed_command, receivedContent.c_str());
+
+                        char *args[] = {const_cast<char *>(conf::ctx.hpsh_exe_path.c_str()), passed_command, NULL};
+                        if (execv(conf::ctx.hpsh_exe_path.c_str(), args) == -1)
+                        {
+                            perror("Error when executing HPSH");
+                        }
+                        close(fd[0]);
                     }
 
                     return 0;
