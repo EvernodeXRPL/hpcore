@@ -278,31 +278,34 @@ namespace usr
                 if (parser.extract_shell_input(id, content) != -1)
                 {
 
-                    int fd[2];
-                    if (pipe(fd) == -1)
-                    {
-                        perror("Error when creating pipe");
-                        return 1;
-                    }
+                    int p1[2] ; // 0,1 are hpcore to hphs 
+                    int p2[2] ; // 2,3 are hpsh to hpcore
+                    if (socketpair(AF_UNIX, SOCK_SEQPACKET, 0, p1))
+                        perror("could not create unix domain socket pair");
+
+                    if (socketpair(AF_UNIX, SOCK_SEQPACKET, 0, p2))
+                        perror("could not create unix domain socket pair");
+                    
                     pid_t pid = -1;
 
                     pid = fork();
 
-                    if (pid < 0)
+                    if (pid == -1)
                     {
                         perror("Error occurred when forking");
                         return -1;
                     }
-                    else if (pid != 0)
+                    if (pid != 0)
                     {
                         // parent process
-                        close(fd[0]);
+                        close(p1[0]);
+                        close(p2[1]);
                         LOG_INFO << "parent: Received Shell Input.\n";
                         LOG_INFO << "parent: User PubKey:" << user.pubkey << "\n";
                         LOG_INFO << "parent: ID:" << id << "\n";
                         LOG_INFO << "parent: Content:" << content << "\n";
                         LOG_INFO << "parent: writing content to pipe\n";
-                        ssize_t bytes_written = write(fd[1], content.c_str(), content.size());
+                        ssize_t bytes_written = write(p1[1], content.c_str(), content.size());
                         if (bytes_written == -1)
                         {
                             perror("write to pipe failed");
@@ -310,19 +313,21 @@ namespace usr
                         }
 
                         LOG_INFO << "parent: closing pipe\n";
-                        close(fd[1]);
+                        close(p1[1]);
+                        close(p2[0]);
                         LOG_INFO << "parent: closed\n";
                     }
                     else
                     {
                         // child process
-                        close(fd[1]);
+                        close(p1[1]);
+                        close(p2[0]);
                         std::string receivedContent;
                         LOG_INFO << "child: reading from pipe:\n";
                         const int BUFFER_SIZE = 1024;
                         char buffer[BUFFER_SIZE];
 
-                        ssize_t bytes_read = read(fd[0], buffer, BUFFER_SIZE);
+                        ssize_t bytes_read = read(p1[0], buffer, BUFFER_SIZE);
                         if (bytes_read == -1)
                         {
                             perror("read from pipe failed");
@@ -345,7 +350,8 @@ namespace usr
                         {
                             perror("Error when executing HPSH");
                         }
-                        close(fd[0]);
+                        close(p1[0]);
+                        close(p2[1]);
                     }
 
                     return 0;
