@@ -57,10 +57,25 @@ const echoContract = async (ctx) => {
 
     // NPL messages example.
     // if (!ctx.readonly) {
-    //     ctx.unl.onMessage((node, msg) => {
-    //         console.log(msg + " from " + node.publicKey);
-    //     })
+    //     // Start listening to incoming NPL messages before we send ours.
+    //     const promise = new Promise((resolve, reject) => {
+    //         let timeout = setTimeout(() => {
+    //             reject('NPL timeout.');
+    //         }, 2000);
+
+    //         let list = [];
+    //         ctx.unl.onMessage((node, msg) => {
+    //             console.log(`${node.publicKey} said ${msg} to me.`);
+    //             list.push(msg);
+    //             if (list.length == ctx.unl.list().length) {
+    //                 clearTimeout(timeout);
+    //                 resolve();
+    //             }
+    //         });
+    //     });
+
     //     await ctx.unl.send("Hello");
+    //     await promise;
     // }
 
     // Update patch config
