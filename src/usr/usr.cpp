@@ -311,6 +311,11 @@ namespace usr
                             perror("write to pipe failed");
                             // handle the error appropriately
                         }
+                        char buffer[1024] = {0};
+                        if(read(p2[0], &buffer, sizeof(buffer))==-1){
+                            perror("Error in reading to the fd");
+                        }
+                        std::cout <<"bufferread"<< buffer << std::endl;
 
                         LOG_INFO << "parent: closing pipe\n";
                         close(p1[1]);
@@ -319,9 +324,14 @@ namespace usr
                     }
                     else
                     {
+
                         // child process
                         close(p1[1]);
                         close(p2[0]);
+                        char read_end[16];
+                        snprintf(read_end, sizeof(read_end), "%d", p1[0]);
+                        char write_end[16];
+                        snprintf(write_end, sizeof(write_end), "%d", p2[1]);
                         std::string receivedContent;
                         LOG_INFO << "child: reading from pipe:\n";
                         const int BUFFER_SIZE = 1024;
@@ -345,7 +355,7 @@ namespace usr
                         char *passed_command = new char[receivedContent.length() + 1];
                         std::strcpy(passed_command, receivedContent.c_str());
 
-                        char *args[] = {const_cast<char *>(conf::ctx.hpsh_exe_path.c_str()), passed_command, NULL};
+                        char *args[] = {const_cast<char *>(conf::ctx.hpsh_exe_path.c_str()), passed_command,read_end, write_end, NULL};
                         if (execv(conf::ctx.hpsh_exe_path.c_str(), args) == -1)
                         {
                             perror("Error when executing HPSH");
