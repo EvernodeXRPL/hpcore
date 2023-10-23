@@ -62,6 +62,7 @@ add_executable(hpcore
     src/status.cpp
     src/consensus.cpp
     src/main.cpp
+    src/hpsh/hpsh.cpp
 )
 target_link_libraries(hpcore
     killswitch

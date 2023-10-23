@@ -16,6 +16,7 @@
 #include "ledger/ledger.hpp"
 #include "unl.hpp"
 #include "killswitch/killswitch.h"
+#include "hpsh/hpsh.hpp"
 
 /**
  * Parses CLI args and extracts HotPocket command and parameters given.
@@ -75,6 +76,7 @@ void deinit()
     sc::deinit();
     ledger::deinit();
     conf::deinit();
+    hpsh::deinit();
 }
 
 void sig_exit_handler(int signum)
@@ -213,7 +215,8 @@ int main(int argc, char **argv)
                     consensus::init() == -1 ||
                     read_req::init() == -1 ||
                     p2p::init() == -1 ||
-                    usr::init() == -1)
+                    usr::init() == -1 ||
+                    hpsh::init() == -1)
                 {
                     deinit();
                     return -1;

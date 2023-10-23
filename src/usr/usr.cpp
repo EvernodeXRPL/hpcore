@@ -17,6 +17,7 @@
 #include "user_input.hpp"
 #include "read_req.hpp"
 #include "input_nonce_map.hpp"
+#include "../hpsh/hpsh.hpp"
 
 namespace usr
 {
@@ -278,91 +279,9 @@ namespace usr
                 if (parser.extract_shell_input(id, content) != -1)
                 {
 
-                    int p1[2] ; // 0,1 are hpcore to hphs 
-                    int p2[2] ; // 2,3 are hpsh to hpcore
-                    if (socketpair(AF_UNIX, SOCK_SEQPACKET, 0, p1))
-                        perror("could not create unix domain socket pair");
-
-                    if (socketpair(AF_UNIX, SOCK_SEQPACKET, 0, p2))
-                        perror("could not create unix domain socket pair");
-                    
-                    pid_t pid = -1;
-
-                    pid = fork();
-
-                    if (pid == -1)
-                    {
-                        perror("Error occurred when forking");
-                        return -1;
-                    }
-                    if (pid != 0)
-                    {
-                        // parent process
-                        close(p1[0]);
-                        close(p2[1]);
-                        LOG_INFO << "parent: Received Shell Input.\n";
-                        LOG_INFO << "parent: User PubKey:" << user.pubkey << "\n";
-                        LOG_INFO << "parent: ID:" << id << "\n";
-                        LOG_INFO << "parent: Content:" << content << "\n";
-                        LOG_INFO << "parent: writing content to pipe\n";
-                        ssize_t bytes_written = write(p1[1], content.c_str(), content.size());
-                        if (bytes_written == -1)
-                        {
-                            perror("write to pipe failed");
-                            // handle the error appropriately
-                        }
-                        char buffer[1024] = {0};
-                        if(read(p2[0], &buffer, sizeof(buffer))==-1){
-                            perror("Error in reading to the fd");
-                        }
-                        std::cout <<"bufferread"<< buffer << std::endl;
-
-                        LOG_INFO << "parent: closing pipe\n";
-                        close(p1[1]);
-                        close(p2[0]);
-                        LOG_INFO << "parent: closed\n";
-                    }
-                    else
-                    {
-
-                        // child process
-                        close(p1[1]);
-                        close(p2[0]);
-                        char read_end[16];
-                        snprintf(read_end, sizeof(read_end), "%d", p1[0]);
-                        char write_end[16];
-                        snprintf(write_end, sizeof(write_end), "%d", p2[1]);
-                        std::string receivedContent;
-                        LOG_INFO << "child: reading from pipe:\n";
-                        const int BUFFER_SIZE = 1024;
-                        char buffer[BUFFER_SIZE];
-
-                        ssize_t bytes_read = read(p1[0], buffer, BUFFER_SIZE);
-                        if (bytes_read == -1)
-                        {
-                            perror("read from pipe failed");
-                            // handle the error appropriately
-                        }
-                        else
-                        {
-                            buffer[bytes_read] = '\0'; // Null-terminate the string
-                            receivedContent = buffer;
-                            LOG_INFO << "child: Content:" << receivedContent << "\n";
-                        }
-
-                        receivedContent = "\"" + receivedContent + "\"";
-
-                        char *passed_command = new char[receivedContent.length() + 1];
-                        std::strcpy(passed_command, receivedContent.c_str());
-
-                        char *args[] = {const_cast<char *>(conf::ctx.hpsh_exe_path.c_str()), passed_command,read_end, write_end, NULL};
-                        if (execv(conf::ctx.hpsh_exe_path.c_str(), args) == -1)
-                        {
-                            perror("Error when executing HPSH");
-                        }
-                        close(p1[0]);
-                        close(p2[1]);
-                    }
+                    LOG_INFO << "shell input received:" << content;
+                    std::string response = hpsh::serve(content.c_str());
+                    LOG_INFO << "response: " << response;
 
                     return 0;
                 }
