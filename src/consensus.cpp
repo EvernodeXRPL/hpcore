@@ -147,7 +147,7 @@ namespace consensus
             if (verify_and_populate_candidate_user_inputs(lcl_id.seq_no) == -1)
                 return -1;
 
-            const p2p::proposal p = create_stage0_proposal(state_hash, patch_hash, last_primary_shard_id, last_raw_shard_id);
+            const p2p::proposal p = create_stage0_proposal(state_hash, patch_hash, last_primary_shard_id, last_raw_shard_id, lcl_id);
             broadcast_proposal(p);
 
             ctx.stage = 1; // Transition to next stage.
@@ -198,6 +198,7 @@ namespace consensus
 
             if (new_vote_status == status::VOTE_STATUS::UNRELIABLE)
             {
+                uint8_t cur_stage = ctx.stage;
                 ctx.stage = 0;
                 ctx.unreliable_votes_attempts++;
 
@@ -208,6 +209,9 @@ namespace consensus
                     refresh_time_config(true);
                     ctx.unreliable_votes_attempts = 0;
                 }
+
+                if (execute_contract_in_fallback(cur_stage, lcl_id))
+                    apply_consensed_patch_file_changes();
             }
             else
             {
@@ -216,7 +220,7 @@ namespace consensus
                 if (new_vote_status == status::VOTE_STATUS::SYNCED)
                 {
                     // If we are in sync, vote and broadcast the winning votes to next stage.
-                    const p2p::proposal p = create_stage123_proposal(votes, unl_count, state_hash, patch_hash, last_primary_shard_id, last_raw_shard_id);
+                    const p2p::proposal p = create_stage123_proposal(votes, unl_count, state_hash, patch_hash, last_primary_shard_id, last_raw_shard_id, lcl_id);
                     broadcast_proposal(p);
 
                     // This marks the moment we finish a sync cycle. We are in stage 1 and we just detected that our votes are in sync.
@@ -338,7 +342,8 @@ namespace consensus
 
         // Apply consensed config patch file changes to the hpcore runtime and hp.cfg.
         const util::h32 patch_hash = sc::contract_fs.get_parent_hash(sc::PATCH_FILE_PATH);
-        if (apply_consensed_patch_file_changes(cons_prop.patch_hash, patch_hash) == -1)
+        // Check whether is there any patch changes to be applied which reached consensus.
+        if (patch_hash == cons_prop.patch_hash && apply_consensed_patch_file_changes() == -1)
             return -1;
 
         // Execute the smart contract with the consensed user inputs.
@@ -795,7 +800,7 @@ namespace consensus
             if (ctx.contract_ctx->args.lcl_id == npl_msg.lcl_id)
                 return ctx.contract_ctx->args.npl_messages.try_enqueue(std::move(npl_msg));
             else
-                LOG_DEBUG << "Trying to add irrelevant NPL from " << util::to_hex(npl_msg.pubkey) <<  " | lcl-seq: " << npl_msg.lcl_id.seq_no;
+                LOG_DEBUG << "Trying to add irrelevant NPL from " << util::to_hex(npl_msg.pubkey) << " | lcl-seq: " << npl_msg.lcl_id.seq_no;
         }
         return false;
     }
@@ -904,8 +909,8 @@ namespace consensus
         return 0;
     }
 
-    p2p::proposal create_stage0_proposal(const util::h32 &state_hash, const util::h32 &patch_hash,
-                                         const util::sequence_hash &last_primary_shard_id, const util::sequence_hash &last_raw_shard_id)
+    p2p::proposal create_stage0_proposal(const util::h32 &state_hash, const util::h32 &patch_hash, const util::sequence_hash &last_primary_shard_id,
+                                         const util::sequence_hash &last_raw_shard_id, const util::sequence_hash &lcl_id)
     {
         // This is the proposal that stage 0 votes on.
         // We report our own values in stage 0.
@@ -917,6 +922,7 @@ namespace consensus
         p.last_primary_shard_id = last_primary_shard_id;
         p.last_raw_shard_id = last_raw_shard_id;
         p.time_config = CURRENT_TIME_CONFIG;
+        p.lcl_id = lcl_id;
 
         // In stage 0 proposals, we calculate a random nonce from this node to contribute to the group nonce
         std::string rand_bytes;
@@ -939,7 +945,7 @@ namespace consensus
     }
 
     p2p::proposal create_stage123_proposal(vote_counter &votes, const size_t unl_count, const util::h32 &state_hash, const util::h32 &patch_hash,
-                                           const util::sequence_hash &last_primary_shard_id, const util::sequence_hash &last_raw_shard_id)
+                                           const util::sequence_hash &last_primary_shard_id, const util::sequence_hash &last_raw_shard_id, const util::sequence_hash &lcl_id)
     {
         // The proposal to be emited at the end of this stage.
         p2p::proposal p;
@@ -955,6 +961,7 @@ namespace consensus
         p.time_config = CURRENT_TIME_CONFIG;
         p.output_hash.resize(BLAKE3_OUT_LEN); // Default empty hash.
         p.node_nonce = ctx.round_nonce;
+        p.lcl_id = lcl_id;
 
         const uint64_t time_now = util::get_epoch_milliseconds();
 
@@ -1208,7 +1215,7 @@ namespace consensus
         }
 
         sc::contract_execution_args &args = ctx.contract_ctx->args;
-        args.readonly = false;
+        args.mode = sc::EXECUTION_MODE::CONSENSUS;
         args.time = time;
 
         // lcl to be passed to the contract.
@@ -1250,6 +1257,92 @@ namespace consensus
         }
 
         return 0;
+    }
+
+    /**
+     * Executes the contract on consensus failure.
+     * @param stage Stage the consensus are currently in.
+     * @param lcl_id Current lcl id of the node.
+     */
+    bool execute_contract_in_fallback(const uint8_t stage, const util::sequence_hash &lcl_id)
+    {
+        if (!conf::cfg.contract.fallback.execute || ctx.is_shutting_down || ctx.candidate_proposals.size() == 0)
+            return false;
+
+        std::map<util::h32, std::vector<p2p::proposal>> proposal_groups; // Stores sets of proposals against grouped by their root hashes.
+
+        // Count votes of all stage 3 proposal hashes.
+        for (const auto &[pubkey, cp] : ctx.candidate_proposals)
+        {
+            if (cp.stage == ((stage + 3) % 4))
+            {
+                proposal_groups[cp.root_hash].push_back(cp);
+            }
+        }
+
+        // Find the winning hash and no. of votes for it.
+        uint32_t winning_votes = 0;
+        util::h32 winning_hash = util::h32_empty;
+        for (const auto [hash, proposals] : proposal_groups)
+        {
+            if (proposals.size() > winning_votes)
+            {
+                winning_votes = proposals.size();
+                winning_hash = hash;
+            }
+        }
+
+        std::vector<p2p::proposal> &winning_group = proposal_groups[winning_hash];
+
+        p2p::proposal &winning_prop = winning_group.front();
+
+        util::buffer_store fallback_store;
+        {
+            std::scoped_lock lock(ctx.contract_ctx_mutex);
+            ctx.contract_ctx.emplace(fallback_store);
+        }
+
+        sc::contract_execution_args &args = ctx.contract_ctx->args;
+        args.mode = sc::EXECUTION_MODE::FALLBACK;
+        args.time = winning_prop.time;
+
+        // lcl to be passed to the contract.
+        args.lcl_id = lcl_id;
+
+        const uint64_t now = util::get_epoch_milliseconds();
+        const uint64_t stage_end = ctx.round_start_time + ctx.stage0_duration + (stage * ctx.stage123_duration);
+
+        // Check wether we have time to execute the contract in this round. If not do not execute and reset the context.
+        if (now >= stage_end)
+        {
+            std::scoped_lock lock(ctx.contract_ctx_mutex);
+            ctx.contract_ctx.reset();
+            return false;
+        }
+
+        args.exec_timeout = stage_end - now;
+
+        bool executed = false;
+        // Execute contract in fallback mode without user inputs or outputs.
+        if (sc::execute_contract(ctx.contract_ctx.value()) == -1)
+        {
+            LOG_ERROR << "Contract execution for non consensus mode failed.";
+        }
+        else
+        {
+            // Get the new state hash after contract execution.
+            const util::h32 &new_state_hash = args.post_execution_state_hash;
+            // Update state hash in contract fs global hash tracker.
+            sc::contract_fs.set_parent_hash(sc::STATE_DIR_PATH, new_state_hash);
+            executed = true;
+        }
+
+        {
+            std::scoped_lock lock(ctx.contract_ctx_mutex);
+            ctx.contract_ctx.reset();
+        }
+
+        return executed;
     }
 
     /**
@@ -1417,14 +1510,12 @@ namespace consensus
 
     /**
      * Apply patch file changes after verification from consensus.
-     * @param prop_patch_hash Hash of patch file which reached consensus.
-     * @param current_patch_hash Hash of the current patch file.
      * @return 0 on success. -1 on failure.
      */
-    int apply_consensed_patch_file_changes(const util::h32 &prop_patch_hash, const util::h32 &current_patch_hash)
+    int apply_consensed_patch_file_changes()
     {
-        // Check whether is there any patch changes to be applied which reached consensus.
-        if (is_patch_update_pending && current_patch_hash == prop_patch_hash)
+        // Check whether is there any patch changes to be applied.
+        if (is_patch_update_pending)
         {
             if (sc::contract_fs.start_ro_session(HPFS_SESSION_NAME, false) != -1)
             {

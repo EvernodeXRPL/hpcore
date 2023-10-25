@@ -191,11 +191,11 @@ namespace consensus
 
     int verify_and_populate_candidate_user_inputs(const uint64_t lcl_seq_no);
 
-    p2p::proposal create_stage0_proposal(const util::h32 &state_hash, const util::h32 &patch_hash,
-                                         const util::sequence_hash &last_primary_shard_id, const util::sequence_hash &last_raw_shard_id);
+    p2p::proposal create_stage0_proposal(const util::h32 &state_hash, const util::h32 &patch_hash, const util::sequence_hash &last_primary_shard_id,
+                                         const util::sequence_hash &last_raw_shard_id, const util::sequence_hash &lcl_id);
 
     p2p::proposal create_stage123_proposal(vote_counter &votes, const size_t unl_count, const util::h32 &state_hash, const util::h32 &patch_hash,
-                                           const util::sequence_hash &last_primary_shard_id, const util::sequence_hash &last_raw_shard_id);
+                                           const util::sequence_hash &last_primary_shard_id, const util::sequence_hash &last_raw_shard_id, const util::sequence_hash &lcl_id);
 
     void broadcast_proposal(const p2p::proposal &p);
 
@@ -215,6 +215,8 @@ namespace consensus
 
     int execute_contract(const uint64_t time, const consensed_user_map &consensed_users, const util::sequence_hash &lcl_id);
 
+    bool execute_contract_in_fallback(const uint8_t stage, const util::sequence_hash &lcl_id);
+
     void dispatch_consensed_user_input_responses(const consensed_user_map &consensed_users, const util::sequence_hash &lcl_id);
 
     void dispatch_consensed_user_outputs(const consensed_user_map &consensed_users, const util::sequence_hash &lcl_id);
@@ -232,7 +234,7 @@ namespace consensus
 
     bool push_control_message(const std::string &control_msg);
 
-    int apply_consensed_patch_file_changes(const util::h32 &prop_patch_hash, const util::h32 &current_patch_hash);
+    int apply_consensed_patch_file_changes();
 
     void refresh_time_config(const bool perform_detection);
 

@@ -186,6 +186,11 @@ namespace conf
         MODE mode; // If PUBLIC, npl messages are broadcasted to non-unl nodes as well.
     };
 
+    struct fallback_config
+    {
+        bool execute = false;    // Whether or not to execute the contract on fallback mode.
+    };
+
     struct contract_config
     {
         std::string id;          // Contract guid.
@@ -202,6 +207,7 @@ namespace conf
         consensus_config consensus;
         npl_config npl;
         round_limits_config round_limits;
+        fallback_config fallback;
 
         // Config element which are initialized in memory (This is not directly loaded from the config file)
         std::vector<std::string> runtime_binexec_args; // Contract binary execution args used during runtime.

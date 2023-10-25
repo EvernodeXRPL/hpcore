@@ -68,6 +68,7 @@ table ProposalMsg {
     output_sig:[ubyte];
     state_hash: [ubyte];
     patch_hash: [ubyte];
+    lcl_id:SequenceHash;
     last_primary_shard_id:SequenceHash;
     last_raw_shard_id: SequenceHash;
 

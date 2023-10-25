@@ -9,7 +9,7 @@ namespace version
     constexpr const char *HP_VERSION = "0.6.4";
 
     // Minimum compatible config version (this will be used to validate configs).
-    constexpr const char *MIN_CONFIG_VERSION = "0.6.3";
+    constexpr const char *MIN_CONFIG_VERSION = "0.6.4";
 
     // Ledger file storage version. All nodes in a cluster MUST use the same ledger version.
     constexpr const char *LEDGER_VERSION = "0.6.3";

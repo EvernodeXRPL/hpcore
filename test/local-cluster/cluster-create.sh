@@ -16,6 +16,7 @@ fi
 ncount=$1
 loglevel=$2
 roundtime=$3
+fallback_enabled=$4
 hpcore=$(realpath ../..)
 iprange="172.1.1"
 
@@ -51,7 +52,6 @@ elif [ "$CONTRACT" = "diag" ]; then # Diagnostic contract
 else # nodejs echo contract (default)
     echo "Using nodejs echo contract."
     pushd $hpcore/examples/nodejs_contract/ > /dev/null 2>&1
-    npm install
     npm run build-echo
     popd > /dev/null 2>&1
     copyfiles="$hpcore/examples/nodejs_contract/dist/echo-contract/index.js"
@@ -64,6 +64,9 @@ if [ "$loglevel" = "" ]; then
 fi
 if [ "$roundtime" = "" ]; then
     roundtime=1000
+fi
+if [ "$fallback_enabled" != "true" ]; then
+    fallback_enabled=false
 fi
 
 # Delete and recreate 'hpcluster' directory.
@@ -119,6 +122,9 @@ do
                     }, \
                     npl: { \
                         mode: 'public' \
+                    },\
+                    fallback: { \
+                        execute: $fallback_enabled \
                     }\
                 }, null, 2)")
 

@@ -971,6 +971,10 @@ namespace conf
         round_limits.insert_or_assign("proc_ofd_count", contract.round_limits.proc_ofd_count);
         round_limits.insert_or_assign("exec_timeout", contract.round_limits.exec_timeout);
         jdoc.insert_or_assign("round_limits", round_limits);
+
+        jsoncons::ojson fallback;
+        fallback.insert_or_assign("execute", contract.fallback.execute);
+        jdoc.insert_or_assign("fallback", fallback);
     }
 
     /**
@@ -1111,6 +1115,9 @@ namespace conf
             contract.round_limits.proc_mem_bytes = jdoc["round_limits"]["proc_mem_bytes"].as<size_t>();
             contract.round_limits.proc_ofd_count = jdoc["round_limits"]["proc_ofd_count"].as<size_t>();
             contract.round_limits.exec_timeout = jdoc["round_limits"]["exec_timeout"].as<uint64_t>();
+
+            jpath = "contract.fallback";
+            contract.fallback.execute = jdoc["fallback"]["execute"].as<bool>();
         }
         catch (const std::exception &e)
         {

@@ -19,6 +19,14 @@ namespace sc
     constexpr uint16_t MAX_NPL_MSG_QUEUE_SIZE = 255;     // Maximum npl message queue size, The size passed is rounded to next number in binary sequence 1(1),11(3),111(7),1111(15),11111(31)....
     constexpr uint16_t MAX_CONTROL_MSG_QUEUE_SIZE = 255; // Maximum out message queue size, The size passed is rounded to next number in binary sequence 1(1),11(3),111(7),1111(15),11111(31)....
 
+    // Contract execution mode.
+    enum EXECUTION_MODE
+    {
+        CONSENSUS = 0,
+        FALLBACK = 1,
+        READ_REQUEST = 2
+    };
+
     struct fd_pair
     {
         int hpfd = -1;
@@ -27,7 +35,7 @@ namespace sc
 
     /**
      * Stores contract output message length along with the message. Length is used to construct the message from the stream buffer.
-    */
+     */
     struct contract_output
     {
         uint32_t message_len = 0;
@@ -67,8 +75,8 @@ namespace sc
      */
     struct contract_execution_args
     {
-        // Whether the contract should execute in read only mode (to serve read requests).
-        bool readonly = false;
+        // Contract execution mode.
+        EXECUTION_MODE mode;
 
         // hpfs session name used for this execution.
         std::string hpfs_session_name;
@@ -93,6 +101,8 @@ namespace sc
 
         // State hash after execution will be copied to this (not applicable to read only mode).
         util::h32 post_execution_state_hash = util::h32_empty;
+
+        uint64_t exec_timeout = conf::cfg.contract.round_limits.exec_timeout;
 
         contract_execution_args(util::buffer_store &user_input_store)
             : user_input_store(user_input_store),
@@ -213,6 +223,8 @@ namespace sc
     int rename_and_cleanup_contract_log_files(const std::string &prefix, std::string_view postfix, const size_t depth = 0);
 
     void clean_extra_contract_log_files(const std::string &session_name, std::string_view postfix, const int start_point);
+
+    std::string_view get_exec_mode_string(const EXECUTION_MODE mode);
 
 } // namespace sc
 
