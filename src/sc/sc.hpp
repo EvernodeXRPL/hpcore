@@ -110,6 +110,21 @@ namespace sc
               control_messages(MAX_CONTROL_MSG_QUEUE_SIZE)
         {
         }
+
+        // Convert execution mode to string.
+        std::string_view get_exec_mode_str()
+        {
+            if (mode == EXECUTION_MODE::FALLBACK)
+            {
+                return "(fallback)";
+            }
+            else if (mode == EXECUTION_MODE::READ_REQUEST)
+            {
+                return "(read-request)";
+            }
+
+            return "";
+        }
     };
 
     /**
@@ -223,8 +238,6 @@ namespace sc
     int rename_and_cleanup_contract_log_files(const std::string &prefix, std::string_view postfix, const size_t depth = 0);
 
     void clean_extra_contract_log_files(const std::string &session_name, std::string_view postfix, const int start_point);
-
-    std::string_view get_exec_mode_string(const EXECUTION_MODE mode);
 
 } // namespace sc
 

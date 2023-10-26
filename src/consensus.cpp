@@ -29,7 +29,7 @@ namespace consensus
 
     // Max no. of time to get unreliable votes before we try heuristics to increase vote receiving reliability.
     constexpr uint16_t MAX_UNRELIABLE_VOTES_ATTEMPTS = 5;
-    constexpr uint16_t FALLBACK_CONTRACT_TERMINATE_MARGIN = 50;
+    constexpr uint16_t FALLBACK_CONTRACT_TERMINATE_MARGIN = 100;
 
     consensus_context ctx;
     bool init_success = false;
@@ -1321,7 +1321,7 @@ namespace consensus
         uint32_t stage3_prop_count = 0;
         uint32_t winning_votes = 0;
         p2p::proposal winning_prop;
-        // Evaluate proposals ann take tike from winning proposal.
+        // Evaluate proposals and take tike from winning proposal.
         if (evaluate_proposals(stage3_prop_count, winning_votes, winning_prop, (stage + 3) % 4) > 0)
             args.time = winning_prop.time;
 

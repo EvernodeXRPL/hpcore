@@ -129,7 +129,7 @@ namespace sc
             return -1;
         }
 
-        std::string_view mode = get_exec_mode_string(ctx.args.mode);
+        std::string_view mode = ctx.args.get_exec_mode_str();
 
         LOG_DEBUG << "Starting contract process..." << mode;
         int ret = 0;
@@ -285,7 +285,7 @@ namespace sc
         else // Child has exited
         {
             ctx.contract_pid = 0;
-            std::string_view mode = get_exec_mode_string(ctx.args.mode);
+            std::string_view mode = ctx.args.get_exec_mode_str();
 
             if (WIFEXITED(scstatus))
             {
@@ -561,7 +561,7 @@ namespace sc
             util::fork_detach();
 
             const std::string script_args = std::to_string(ctx.args.lcl_id.seq_no) + " " + util::to_hex(ctx.args.lcl_id.hash.to_string_view());
-            std::string_view mode = get_exec_mode_string(ctx.args.mode);
+            std::string_view mode = ctx.args.get_exec_mode_str();
 
             // We set current working dir and pass command line arg to the script.
             char *argv[] = {(char *)POST_EXEC_SCRIPT, (char *)script_args.data(), (char *)NULL};
@@ -1249,20 +1249,6 @@ namespace sc
         {
             LOG_DEBUG << (current - start_point) << " " << postfix << " contract log files cleaned up with log file count change.";
         }
-    }
-
-    std::string_view get_exec_mode_string(const EXECUTION_MODE mode)
-    {
-        if (mode == EXECUTION_MODE::FALLBACK)
-        {
-            return "(fallback)";
-        }
-        else if (mode == EXECUTION_MODE::READ_REQUEST)
-        {
-            return "(read-request)";
-        }
-
-        return "";
     }
 
 } // namespace sc
