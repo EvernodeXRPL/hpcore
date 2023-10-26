@@ -17,7 +17,7 @@ imgversion=$(echo "${hpversion% }")
 # imgversion="latest"
 
 # Ubuntu base image
-docker build -t "$img:udpvisa-test-0.0.1-ubt.20.04" -f ./$basefile $tmp/
+docker build -t "$img:$imgversion-ubt.20.04" -t "$img:latest-ubt.20.04" -f ./$basefile $tmp/
 rm -r $tmp/*
 
 # NodeJs image
@@ -27,6 +27,6 @@ tar -xvJf $tmp/nodejs.tar.xz --strip-components=2 -C $tmp/ node-v20.4.0-linux-x6
 rm $tmp/nodejs.tar.xz
 cp ./$njsfile $tmp/
 sed -i "s/%ver%/$imgversion/g" $tmp/$njsfile
-docker build -t "$img:udpvisa-test-0.0.1-ubt.20.04-njs.20" -f $tmp/$njsfile $tmp
+docker build -t "$img:$imgversion-ubt.20.04-njs.20" -t "$img:latest-ubt.20.04-njs.20" -f $tmp/$njsfile $tmp
 
 rm -r $tmp
