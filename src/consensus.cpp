@@ -1333,7 +1333,7 @@ namespace consensus
         // Execute contract in fallback mode without user inputs or outputs.
         if (sc::execute_contract(ctx.contract_ctx.value()) == -1)
         {
-            LOG_ERROR << "Contract execution for non consensus mode failed.";
+            LOG_ERROR << "Contract execution for fallback mode failed.";
         }
         else
         {

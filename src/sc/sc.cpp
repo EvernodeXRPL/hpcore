@@ -535,7 +535,7 @@ namespace sc
             if (check_contract_exited(ctx, false) == 0)
             {
                 // Issue kill signal to kill the contract process.
-                kill(ctx.contract_pid, SIGTERM);
+                kill(ctx.contract_pid, SIGKILL);
                 check_contract_exited(ctx, true); // Blocking wait until exit.
             }
         }
