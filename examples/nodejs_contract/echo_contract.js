@@ -56,27 +56,27 @@ const contract = async (ctx, readonly = false) => {
     // ctx.unl.find("<public key hex>");
 
     // NPL messages example.
-    if (!readonly) {
-        // Start listening to incoming NPL messages before we send ours.
-        const promise = new Promise((resolve, reject) => {
-            let timeout = setTimeout(() => {
-                reject('NPL timeout.');
-            }, 2000);
+    // if (!readonly) {
+    //     // Start listening to incoming NPL messages before we send ours.
+    //     const promise = new Promise((resolve, reject) => {
+    //         let timeout = setTimeout(() => {
+    //             reject('NPL timeout.');
+    //         }, 2000);
 
-            let list = [];
-            ctx.unl.onMessage((node, msg) => {
-                console.log(`${node.publicKey} said ${msg} to me.`);
-                list.push(msg);
-                if (list.length == ctx.unl.list().length) {
-                    clearTimeout(timeout);
-                    resolve();
-                }
-            });
-        });
+    //         let list = [];
+    //         ctx.unl.onMessage((node, msg) => {
+    //             console.log(`${node.publicKey} said ${msg} to me.`);
+    //             list.push(msg);
+    //             if (list.length == ctx.unl.list().length) {
+    //                 clearTimeout(timeout);
+    //                 resolve();
+    //             }
+    //         });
+    //     });
 
-        await ctx.unl.send("Hello");
-        await promise;
-    }
+    //     await ctx.unl.send("Hello");
+    //     await promise;
+    // }
 
     // Update patch config
     // const config = await ctx.getConfig();
