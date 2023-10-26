@@ -6,10 +6,10 @@
 namespace version
 {
     // HotPocket version. Written to new configs and p2p/user messages.
-    constexpr const char *HP_VERSION = "0.6.4";
+    constexpr const char *HP_VERSION = "0.6.5";
 
     // Minimum compatible config version (this will be used to validate configs).
-    constexpr const char *MIN_CONFIG_VERSION = "0.6.4";
+    constexpr const char *MIN_CONFIG_VERSION = "0.6.5";
 
     // Ledger file storage version. All nodes in a cluster MUST use the same ledger version.
     constexpr const char *LEDGER_VERSION = "0.6.3";
