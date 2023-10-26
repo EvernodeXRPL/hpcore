@@ -52,6 +52,7 @@ elif [ "$CONTRACT" = "diag" ]; then # Diagnostic contract
 else # nodejs echo contract (default)
     echo "Using nodejs echo contract."
     pushd $hpcore/examples/nodejs_contract/ > /dev/null 2>&1
+    npm install	
     npm run build-echo
     popd > /dev/null 2>&1
     copyfiles="$hpcore/examples/nodejs_contract/dist/echo-contract/index.js"
