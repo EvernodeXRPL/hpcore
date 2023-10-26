@@ -167,6 +167,8 @@ namespace consensus
 
     int consensus();
 
+    int evaluate_proposals(uint32_t &proposal_count, uint32_t &winning_votes, p2p::proposal &winning_proposal, const uint8_t stage);
+
     bool attempt_ledger_close();
 
     int commit_consensus_results(const p2p::proposal &cons_prop, const consensus::consensed_user_map &consensed_users);

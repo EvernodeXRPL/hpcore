@@ -249,34 +249,33 @@ namespace consensus
     }
 
     /**
-     * Scan the stage 3 proposals from last round and create the ledger if all majority critertia are met.
+     * Evaluates stage 3 proposals and populates winning info.
+     * @param proposal_count Number of stage proposals.
+     * @param winning_votes Number of votes fo winning proposal.
+     * @param winning_proposal The winning proposal.
+     * @param stage Stage to evaluate.
      */
-    bool attempt_ledger_close()
+    int evaluate_proposals(uint32_t &proposal_count, uint32_t &winning_votes, p2p::proposal &winning_proposal, const uint8_t stage)
     {
         std::map<util::h32, std::vector<p2p::proposal>> proposal_groups; // Stores sets of proposals against grouped by their root hashes.
-        uint32_t stage3_prop_count = 0;                                  // Keep track of the number of stage 3 proposals received.
+        proposal_count = 0;                                              // Keep track of the number of stage 3 proposals received.
 
         // Count votes of all stage 3 proposal hashes.
         for (const auto &[pubkey, cp] : ctx.candidate_proposals)
         {
-            if (cp.stage == 3)
+            if (cp.stage == stage)
             {
-                stage3_prop_count++;
+                proposal_count++;
                 proposal_groups[cp.root_hash].push_back(cp);
             }
         }
 
-        // Threshold is devided by 100 to convert average to decimal.
-        const uint32_t min_votes_required = ceil((conf::cfg.contract.consensus.threshold * unl::count()) / 100.0);
-        if (stage3_prop_count < min_votes_required)
-        {
-            // We don't have enough stage 3 proposals to create a ledger.
-            LOG_DEBUG << "Not enough stage 3 proposals to create a ledger. received:" << stage3_prop_count << " needed:" << min_votes_required;
-            return false;
-        }
+        // Return -1 if there are no proposals to evaluate.
+        if (proposal_count == 0)
+            return -1;
 
         // Find the winning hash and no. of votes for it.
-        uint32_t winning_votes = 0;
+        winning_votes = 0;
         util::h32 winning_hash = util::h32_empty;
         for (const auto [hash, proposals] : proposal_groups)
         {
@@ -287,16 +286,43 @@ namespace consensus
             }
         }
 
-        if (winning_votes < min_votes_required)
+        // Return -1 if there are no winning proposal.
+        if (winning_votes == 0)
+            return -1;
+
+        // Consensus reached. This is the winning set of proposals.
+        std::vector<p2p::proposal> &winning_group = proposal_groups[winning_hash];
+
+        winning_proposal = std::move(winning_group.front());
+
+        return winning_votes;
+    }
+
+    /**
+     * Scan the stage 3 proposals from last round and create the ledger if all majority critertia are met.
+     */
+    bool attempt_ledger_close()
+    {
+        uint32_t stage3_prop_count = 0;
+        uint32_t winning_votes = 0;
+        p2p::proposal winning_prop;
+        const uint32_t min_votes_required = ceil((conf::cfg.contract.consensus.threshold * unl::count()) / 100.0);
+
+        evaluate_proposals(stage3_prop_count, winning_votes, winning_prop, 3);
+
+        // Threshold is devided by 100 to convert average to decimal.
+        if (stage3_prop_count < min_votes_required)
+        {
+            // We don't have enough stage 3 proposals to create a ledger.
+            LOG_DEBUG << "Not enough stage 3 proposals to create a ledger. received:" << stage3_prop_count << " needed:" << min_votes_required;
+            return false;
+        }
+        else if (winning_votes < min_votes_required)
         {
             LOG_INFO << "Cannot close ledger. Possible fork condition. won:" << winning_votes << " needed:" << min_votes_required;
             return false;
         }
 
-        // Consensus reached. This is the winning set of proposals.
-        std::vector<p2p::proposal> &winning_group = proposal_groups[winning_hash];
-
-        p2p::proposal &winning_prop = winning_group.front();
         LOG_DEBUG << "Closing ledger with proposal:" << winning_prop.root_hash;
 
         // Upon successful ledger close condition, update the ledger and execute the contract using the consensus proposal.
@@ -1275,36 +1301,11 @@ namespace consensus
      */
     bool execute_contract_in_fallback(const uint8_t stage, const util::sequence_hash &lcl_id)
     {
-        if (!conf::cfg.contract.fallback.execute || ctx.is_shutting_down || ctx.candidate_proposals.size() == 0)
+        // Do not execute if fallback is not enabled, contract is shutting down.
+        if (!conf::cfg.contract.fallback.execute || ctx.is_shutting_down)
             return false;
 
-        std::map<util::h32, std::vector<p2p::proposal>> proposal_groups; // Stores sets of proposals against grouped by their root hashes.
-
-        // Count votes of all stage 3 proposal hashes.
-        for (const auto &[pubkey, cp] : ctx.candidate_proposals)
-        {
-            if (cp.stage == ((stage + 3) % 4))
-            {
-                proposal_groups[cp.root_hash].push_back(cp);
-            }
-        }
-
-        // Find the winning hash and no. of votes for it.
-        uint32_t winning_votes = 0;
-        util::h32 winning_hash = util::h32_empty;
-        for (const auto [hash, proposals] : proposal_groups)
-        {
-            if (proposals.size() > winning_votes)
-            {
-                winning_votes = proposals.size();
-                winning_hash = hash;
-            }
-        }
-
-        std::vector<p2p::proposal> &winning_group = proposal_groups[winning_hash];
-
-        p2p::proposal &winning_prop = winning_group.front();
-
+        // Pass new user store for inputs, We are not handling inputs in fallback mode right now.
         util::buffer_store fallback_store;
         {
             std::scoped_lock lock(ctx.contract_ctx_mutex);
@@ -1313,10 +1314,16 @@ namespace consensus
 
         sc::contract_execution_args &args = ctx.contract_ctx->args;
         args.mode = sc::EXECUTION_MODE::FALLBACK;
-        args.time = winning_prop.time;
 
         // lcl to be passed to the contract.
         args.lcl_id = lcl_id;
+
+        uint32_t stage3_prop_count = 0;
+        uint32_t winning_votes = 0;
+        p2p::proposal winning_prop;
+        // Evaluate proposals ann take tike from winning proposal.
+        if (evaluate_proposals(stage3_prop_count, winning_votes, winning_prop, (stage + 3) % 4) > 0)
+            args.time = winning_prop.time;
 
         // We should end the contact before this round end, Otherwise we'll trap inside a round reset loop.
         // We keep a margin of 100 milliseconds to avoid contract monitor thread hangs.
