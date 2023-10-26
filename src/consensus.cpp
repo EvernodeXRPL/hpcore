@@ -1327,7 +1327,7 @@ namespace consensus
 
         // We should end the contact before this round end, Otherwise we'll trap inside a round reset loop.
         // We keep a margin of 100 milliseconds to avoid contract monitor thread hangs.
-        args.end_before = (ctx.round_start_time + conf::cfg.contract.consensus.roundtime - 100);
+        args.end_before = (ctx.round_start_time + conf::cfg.contract.consensus.roundtime - FALLBACK_CONTRACT_TERMINATE_MARGIN);
 
         bool executed = false;
         // Execute contract in fallback mode without user inputs or outputs.
