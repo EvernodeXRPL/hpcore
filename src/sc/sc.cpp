@@ -438,6 +438,15 @@ namespace sc
 
         // We record the start time of the monitoring thread to track the contract execution timeout.
         const uint64_t start_time = util::get_epoch_milliseconds();
+        // If this is in fallback mode, we should terminate the contract before the given timeout.
+        const uint64_t exec_timeout = ctx.args.mode == EXECUTION_MODE::FALLBACK ? (ctx.args.end_before - start_time) : conf::cfg.contract.round_limits.exec_timeout;
+
+        // If this is in fallback mode, check wether we haven't passed the round end. If not, do not execute.
+        if (ctx.args.mode == EXECUTION_MODE::FALLBACK && start_time >= ctx.args.end_before)
+        {
+            LOG_INFO << "Contract process end time has passed.";
+            return;
+        }
 
         // Prepare output poll fd list.
         // User out fds + control fd + NPL fd (NPL fd not available in read request mode)
@@ -460,9 +469,9 @@ namespace sc
         // Polling loop which keeps checking contract fds.
         while (!ctx.is_shutting_down)
         {
-            if (ctx.args.exec_timeout > 0 && (util::get_epoch_milliseconds() - start_time) > ctx.args.exec_timeout)
+            if (exec_timeout > 0 && (util::get_epoch_milliseconds() - start_time) > exec_timeout)
             {
-                LOG_INFO << "Contract process timeout of " << ctx.args.exec_timeout << "ms exceeded.";
+                LOG_INFO << "Contract process timeout of " << exec_timeout << "ms exceeded.";
                 break;
             }
 

@@ -29,6 +29,7 @@ namespace consensus
 
     // Max no. of time to get unreliable votes before we try heuristics to increase vote receiving reliability.
     constexpr uint16_t MAX_UNRELIABLE_VOTES_ATTEMPTS = 5;
+    constexpr uint16_t FALLBACK_CONTRACT_TERMINATE_MARGIN = 50;
 
     consensus_context ctx;
     bool init_success = false;
@@ -121,9 +122,11 @@ namespace consensus
         // arived ones and expired ones.
         revise_candidate_proposals(was_in_sync);
 
+        bool execute_fallback = false;
+
         // Attempt to close the ledger after scanning last round stage 3 proposals.
         if (ctx.stage == 0 && was_in_sync)
-            attempt_ledger_close();
+            execute_fallback = attempt_ledger_close();
 
         // Get current lcl, state, patch, primary shard and raw shard info.
         util::sequence_hash lcl_id = ledger::ctx.get_lcl_id();
@@ -139,6 +142,9 @@ namespace consensus
             // This is also performed at stage 2, so the next round receives the inputs before it starts.
             broadcast_nonunl_proposal();
         }
+
+        // Keep copy of current stage since we might change the stage in following conditions.
+        uint8_t cur_stage = ctx.stage;
 
         if (ctx.stage == 0)
         {
@@ -198,7 +204,6 @@ namespace consensus
 
             if (new_vote_status == status::VOTE_STATUS::UNRELIABLE)
             {
-                uint8_t cur_stage = ctx.stage;
                 ctx.stage = 0;
                 ctx.unreliable_votes_attempts++;
 
@@ -210,8 +215,7 @@ namespace consensus
                     ctx.unreliable_votes_attempts = 0;
                 }
 
-                if (execute_contract_in_fallback(cur_stage, lcl_id))
-                    apply_consensed_patch_file_changes();
+                execute_fallback = true;
             }
             else
             {
@@ -233,6 +237,9 @@ namespace consensus
                 }
             }
 
+            if (execute_fallback && execute_contract_in_fallback(cur_stage, lcl_id))
+                apply_consensed_patch_file_changes();
+
             // We have finished a consensus stage.
             // Transition to next stage. (if at stage 3 go to next round stage 0)
             ctx.stage = (ctx.stage + 1) % 4;
@@ -244,7 +251,7 @@ namespace consensus
     /**
      * Scan the stage 3 proposals from last round and create the ledger if all majority critertia are met.
      */
-    void attempt_ledger_close()
+    bool attempt_ledger_close()
     {
         std::map<util::h32, std::vector<p2p::proposal>> proposal_groups; // Stores sets of proposals against grouped by their root hashes.
         uint32_t stage3_prop_count = 0;                                  // Keep track of the number of stage 3 proposals received.
@@ -265,7 +272,7 @@ namespace consensus
         {
             // We don't have enough stage 3 proposals to create a ledger.
             LOG_DEBUG << "Not enough stage 3 proposals to create a ledger. received:" << stage3_prop_count << " needed:" << min_votes_required;
-            return;
+            return false;
         }
 
         // Find the winning hash and no. of votes for it.
@@ -283,7 +290,7 @@ namespace consensus
         if (winning_votes < min_votes_required)
         {
             LOG_INFO << "Cannot close ledger. Possible fork condition. won:" << winning_votes << " needed:" << min_votes_required;
-            return;
+            return false;
         }
 
         // Consensus reached. This is the winning set of proposals.
@@ -303,6 +310,8 @@ namespace consensus
             cleanup_output_collections();
             cleanup_consensed_user_inputs(consensed_users);
         }
+
+        return true;
     }
 
     /**
@@ -1309,18 +1318,9 @@ namespace consensus
         // lcl to be passed to the contract.
         args.lcl_id = lcl_id;
 
-        const uint64_t now = util::get_epoch_milliseconds();
-        const uint64_t stage_end = ctx.round_start_time + ctx.stage0_duration + (stage * ctx.stage123_duration);
-
-        // Check wether we have time to execute the contract in this round. If not do not execute and reset the context.
-        if (now >= stage_end)
-        {
-            std::scoped_lock lock(ctx.contract_ctx_mutex);
-            ctx.contract_ctx.reset();
-            return false;
-        }
-
-        args.exec_timeout = stage_end - now;
+        // We should end the contact before this round end, Otherwise we'll trap inside a round reset loop.
+        // We keep a margin of 100 milliseconds to avoid contract monitor thread hangs.
+        args.end_before = (ctx.round_start_time + conf::cfg.contract.consensus.roundtime - 100);
 
         bool executed = false;
         // Execute contract in fallback mode without user inputs or outputs.

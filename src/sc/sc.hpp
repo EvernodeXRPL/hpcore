@@ -102,7 +102,7 @@ namespace sc
         // State hash after execution will be copied to this (not applicable to read only mode).
         util::h32 post_execution_state_hash = util::h32_empty;
 
-        uint64_t exec_timeout = conf::cfg.contract.round_limits.exec_timeout;
+        uint64_t end_before;
 
         contract_execution_args(util::buffer_store &user_input_store)
             : user_input_store(user_input_store),
