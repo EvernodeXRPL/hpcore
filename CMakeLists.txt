@@ -88,7 +88,7 @@ add_custom_target(docker
     COMMAND mkdir -p ./test/local-cluster/bin
     COMMAND cp ./build/hpcore ./test/local-cluster/bin/
     COMMAND cp ./test/bin/libblake3.so ./test/bin/hpws ./test/bin/hpfs ./test/local-cluster/bin/
-    COMMAND docker build -t hpcore:latest -t hpcore:0.6.4 -f ./test/local-cluster/Dockerfile ./test/local-cluster/bin/
+    COMMAND docker build -t hpcore:latest -t hpcore:0.6.5 -f ./test/local-cluster/Dockerfile ./test/local-cluster/bin/
 )
 set_target_properties(docker PROPERTIES EXCLUDE_FROM_ALL TRUE)
 add_dependencies(docker hpcore)
