@@ -280,8 +280,12 @@ namespace usr
                 {
 
                     LOG_INFO << "shell input received:" << content;
-                    std::string response = hpsh::serve(content.c_str());
-                    LOG_INFO << "response: " << response;
+                    // std::string response = hpsh::serve(content.c_str());
+                    if (hpsh::execute(std::string("user_").append(std::to_string(1)), content.c_str()) == -1)
+                    {
+                        std::cout << "\nError sending message:" << content.c_str() << std::endl;
+                    }
+                    // LOG_INFO << "response: " << response;
 
                     return 0;
                 }
