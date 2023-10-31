@@ -35,6 +35,8 @@ namespace hpsh
 
     int check_hpsh_exited(const bool block);
 
+    int send_terminate_message();
+
     int execute(std::string_view id, std::string_view pubkey, std::string_view message);
 
     void response_watcher();

@@ -2,6 +2,8 @@
 
 namespace hpsh
 {
+    constexpr const char *HPSH_CTR_SH = "sh";
+    constexpr const char *HPSH_CTR_TERMINATE = "terminate";
     constexpr uint32_t POLL_TIMEOUT = 1000;
     constexpr uint32_t READ_BUFFER_SIZE = 128 * 1024;
 
@@ -22,7 +24,7 @@ namespace hpsh
         ctx.hpsh_pid = fork();
         if (ctx.hpsh_pid == -1)
         {
-            LOG_ERROR << errno << ": Error forking.";
+            LOG_ERROR << errno << ": Error forking hpfs process.";
             close(ctx.control_fds[0]);
             close(ctx.control_fds[1]);
             return -1;
@@ -42,6 +44,7 @@ namespace hpsh
             std::string fd_str;
             fd_str.resize(10);
             snprintf(fd_str.data(), sizeof(fd_str), "%d", ctx.control_fds[0]);
+
             char *argv[] = {(char *)conf::ctx.hpsh_exe_path.data(), fd_str.data(), NULL};
 
             // Just before we execv the hpsh binary, we set user execution user/group if specified in hp config.
@@ -78,7 +81,7 @@ namespace hpsh
         ctx.is_shutting_down = true;
 
         if (ctx.hpsh_pid > 0)
-            kill(ctx.hpsh_pid, SIGTERM);
+            send_terminate_message();
 
         // Joining consensus processing thread.
         if (ctx.watcher_thread.joinable())
@@ -138,10 +141,21 @@ namespace hpsh
         }
     }
 
+    int send_terminate_message()
+    {
+        return (write(ctx.control_fds[1], HPSH_CTR_TERMINATE, 10) < 0) ? -1 : 0;
+    }
+
     int execute(std::string_view id, std::string_view pubkey, std::string_view message)
     {
         if (ctx.is_shutting_down)
             return -1;
+
+        if (write(ctx.control_fds[1], HPSH_CTR_SH, 3) < 0)
+        {
+            LOG_ERROR << errno << ": Error writing header message to control fd.";
+            return -1;
+        }
 
         int child_fds[2];
         if (socketpair(AF_UNIX, SOCK_SEQPACKET, 0, child_fds) == -1)
