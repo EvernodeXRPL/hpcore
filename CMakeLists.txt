@@ -59,10 +59,10 @@ add_executable(hpcore
     src/ledger/ledger_sync.cpp
     src/ledger/ledger_serve.cpp
     src/ledger/ledger.cpp
+    src/hpsh/hpsh.cpp
     src/status.cpp
     src/consensus.cpp
     src/main.cpp
-    src/hpsh/hpsh.cpp
 )
 target_link_libraries(hpcore
     killswitch
@@ -78,7 +78,7 @@ target_link_libraries(hpcore
 add_custom_command(TARGET hpcore POST_BUILD
 
     # COMMAND strip ./build/hpcore
-    COMMAND rm -f ./build/hpws ./build/hpfs ./build/hpsh && cp ./test/bin/hpws ./test/bin/hpfs ./test/bin/hpsh ./build/
+    COMMAND cp ./test/bin/hpws ./test/bin/hpfs ./test/bin/hpsh ./build/
 )
 
 target_precompile_headers(hpcore PUBLIC src/pchheader.hpp)

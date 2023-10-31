@@ -2,27 +2,27 @@
 
 namespace hpsh
 {
-    constexpr const char *HPSH_EXEC_PATH = "./executable/hpsh";
-    constexpr int MAX_BUFFER_LEN = 1024;
-    constexpr int POLL_TIMEOUT = 1000;
+    constexpr uint32_t POLL_TIMEOUT = 1000;
     constexpr uint32_t READ_BUFFER_SIZE = 128 * 1024;
 
     hpsh_context ctx;
 
     int init()
     {
-        std::cout << "Initializing hpsh process.." << std::endl;
+        // Do not initialize if disabled in config.
+        if (!conf::cfg.hpsh.enabled)
+            return 0;
 
         if (socketpair(AF_UNIX, SOCK_SEQPACKET, 0, ctx.control_fds) == -1)
         {
-            std::cerr << errno << "Error initializing socket pair." << std::endl;
+            LOG_ERROR << errno << ": Error initializing socket pair.";
             return -1;
         }
 
         ctx.hpsh_pid = fork();
         if (ctx.hpsh_pid == -1)
         {
-            std::cerr << errno << "Error forking." << std::endl;
+            LOG_ERROR << errno << ": Error forking.";
             close(ctx.control_fds[0]);
             close(ctx.control_fds[1]);
             return -1;
@@ -39,27 +39,41 @@ namespace hpsh
 
             close(ctx.control_fds[1]);
 
-            std::cout << "Starting hpsh process... " << std::endl;
-
             std::string fd_str;
             fd_str.resize(10);
             snprintf(fd_str.data(), sizeof(fd_str), "%d", ctx.control_fds[0]);
+            char *argv[] = {(char *)conf::ctx.hpsh_exe_path.data(), fd_str.data(), NULL};
 
-            char *argv[] = {(char *)HPSH_EXEC_PATH, (char *)("-s1"), fd_str.data(), NULL};
+            // Just before we execv the hpsh binary, we set user execution user/group if specified in hp config.
+            // (Must set gid before setting uid)
+            if (!conf::cfg.hpsh.run_as.empty() && (setgid(conf::cfg.hpsh.run_as.gid) == -1 || setuid(conf::cfg.hpsh.run_as.uid) == -1))
+            {
+                std::cerr << errno << ": Hpsh process setgid/uid failed."
+                          << "\n";
+                exit(1);
+            }
+
             execv(argv[0], argv);
 
-            std::cerr << errno << "Error executing hpfs." << std::endl;
+            std::cerr << errno << ": Error executing hpsh."
+                      << "\n";
 
             close(ctx.control_fds[0]);
-            exit(EXIT_FAILURE);
+            exit(1);
         }
+
+        ctx.is_initialized = true;
+
+        LOG_INFO << "Hpsh handler started.";
 
         return 0;
     }
 
     void deinit()
     {
-        std::cout << "De-initializing hpsh process.." << std::endl;
+        // This is not initialized if disabled in config.
+        if (!conf::cfg.hpsh.enabled)
+            return;
 
         ctx.is_shutting_down = true;
 
@@ -89,7 +103,7 @@ namespace hpsh
             }
         }
 
-        std::cout << "Stopped hpsh process.." << std::endl;
+        LOG_INFO << "Hpsh handler stopped.";
     }
 
     int check_hpsh_exited(const bool block)
@@ -103,7 +117,7 @@ namespace hpsh
         }
         if (wait_res == -1)
         {
-            std::cerr << errno << ": hpsh process waitpid error. pid:" << ctx.hpsh_pid << std::endl;
+            LOG_ERROR << errno << ": Hpsh process waitpid error. pid:" << ctx.hpsh_pid;
             ctx.hpsh_pid = 0;
             return -1;
         }
@@ -113,18 +127,18 @@ namespace hpsh
 
             if (WIFEXITED(scstatus))
             {
-                std::cerr << "Contract process ended normally." << std::endl;
+                LOG_DEBUG << "Hpsh process ended normally.";
                 return 1;
             }
             else
             {
-                std::cerr << "Contract process ended prematurely. Exit code " << WEXITSTATUS(scstatus) << std::endl;
+                LOG_WARNING << "Hpsh process ended prematurely. Exit code " << WEXITSTATUS(scstatus);
                 return -1;
             }
         }
     }
 
-    int execute(std::string_view pubkey, std::string_view message)
+    int execute(std::string_view id, std::string_view pubkey, std::string_view message)
     {
         if (ctx.is_shutting_down)
             return -1;
@@ -132,7 +146,7 @@ namespace hpsh
         int child_fds[2];
         if (socketpair(AF_UNIX, SOCK_SEQPACKET, 0, child_fds) == -1)
         {
-            std::cerr << errno << "Error initializing socket pair." << std::endl;
+            LOG_ERROR << errno << ": Error initializing socket pair.";
             return -1;
         }
 
@@ -161,7 +175,7 @@ namespace hpsh
 
         if (sendmsg(ctx.control_fds[1], &msg, 0) < 0)
         {
-            std::cerr << errno << "Error writing to control fd." << std::endl;
+            LOG_ERROR << errno << ": Error writing to control fd.";
             close(child_fds[0]);
             close(child_fds[1]);
             return -1;
@@ -169,7 +183,7 @@ namespace hpsh
 
         if (write(child_fds[1], message.data(), sizeof(message)) < 0)
         {
-            std::cerr << errno << "Error writing to child fd." << std::endl;
+            LOG_ERROR << errno << ": Error writing to child fd.";
             close(child_fds[0]);
             close(child_fds[1]);
             return -1;
@@ -177,7 +191,7 @@ namespace hpsh
 
         {
             std::scoped_lock lock(ctx.command_mutex);
-            ctx.commands.push_back(command_context{std::string(pubkey), {child_fds[0], child_fds[1]}, std::string(), false});
+            ctx.commands.push_back(command_context{std::string(id), std::string(pubkey), {child_fds[0], child_fds[1]}, std::string(), false});
         }
 
         return 0;
@@ -203,7 +217,7 @@ namespace hpsh
 
                     if (poll(&pfd, 1, POLL_TIMEOUT) == -1)
                     {
-                        std::cerr << errno << "Error in poll" << std::endl;
+                        LOG_ERROR << errno << ": Error in poll";
                         continue;
                     }
                     else if (pfd.revents & POLLIN)
@@ -219,7 +233,7 @@ namespace hpsh
                             if (errno == EPIPE || errno == ECONNRESET)
                                 itr->read_completed = true;
                             else
-                                std::cerr << errno << "Error reading from fd" << std::endl;
+                                LOG_ERROR << errno << ": Error reading from fd";
                         }
                     }
                     else
@@ -230,10 +244,20 @@ namespace hpsh
                     // Send command back to user;
                     if (itr->read_completed)
                     {
-                        std::cout << "Received full output for user " << itr->pubkey << std::endl;
-                        std::cout << itr->response.data() << std::endl;
+                        {
+                            std::scoped_lock<std::mutex> lock(usr::ctx.users_mutex);
 
-                        std::list<command_context> collected_commands;
+                            // Find the user session by user pubkey.
+                            const auto user_itr = usr::ctx.users.find(itr->pubkey);
+                            if (user_itr != usr::ctx.users.end()) // match found
+                            {
+                                const usr::connected_user &user = user_itr->second;
+                                msg::usrmsg::usrmsg_parser parser(user.protocol);
+                                std::vector<uint8_t> msg;
+                                parser.create_hpsh_response_container(msg, itr->id, itr->response);
+                                user.session.send(msg);
+                            }
+                        }
                         {
                             std::scoped_lock<std::mutex> lock(ctx.command_mutex);
                             itr = ctx.commands.erase(itr);

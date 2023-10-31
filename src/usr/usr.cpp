@@ -273,19 +273,13 @@ namespace usr
                 user.session.send(resp);
                 return 0;
             }
-            else if (msg_type == msg::usrmsg::MSGTYPE_CONTRACT_SHELL_INPUT)
+            else if (msg_type == msg::usrmsg::MSGTYPE_HPSH_REQUEST)
             {
                 std::string id, content;
-                if (parser.extract_shell_input(id, content) != -1)
+                if (hpsh::ctx.is_initialized && parser.extract_hpsh_request(id, content) != -1)
                 {
-
-                    LOG_INFO << "shell input received:" << content;
-                    // std::string response = hpsh::serve(content.c_str());
-                    if (hpsh::execute(std::string("user_").append(std::to_string(1)), content.c_str()) == -1)
-                    {
-                        std::cout << "\nError sending message:" << content.c_str() << std::endl;
-                    }
-                    // LOG_INFO << "response: " << response;
+                    if (hpsh::execute(id, user.pubkey, content.c_str()) == -1)
+                        return -1;
 
                     return 0;
                 }

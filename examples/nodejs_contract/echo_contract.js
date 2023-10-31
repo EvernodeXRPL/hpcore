@@ -84,5 +84,42 @@ const echoContract = async (ctx) => {
     // await ctx.updateConfig(config);
 }
 
+const fallback = async (ctx) => {
+    console.log("This is fallback mode");
+
+    const hpconfig = await ctx.getConfig();
+
+    for (const u of ctx.unl.list()) {
+        const gap = Math.abs(u.activeOn - ctx.timestamp);
+        // If last active timestamp is before the twice of roundtime, This node must be active.
+        if (u.activeOn && gap > (hpconfig.consensus.roundtime * 4)) {
+            console.log("Updating patch config", u);
+            hpconfig.unl = hpconfig.unl.filter(e => e !== u.publicKey);
+            await ctx.updateConfig(hpconfig);
+        }
+    }
+
+    // NPL messages example.
+    // Start listening to incoming NPL messages before we send ours.
+    const promise = new Promise((resolve, reject) => {
+        let timeout = setTimeout(() => {
+            reject('NPL timeout.');
+        }, 4000);
+
+        let list = [];
+        ctx.unl.onMessage((node, msg) => {
+            console.log(`${node.publicKey} said ${msg} to me.`);
+            list.push(msg);
+            if (list.length == ctx.unl.list().length) {
+                clearTimeout(timeout);
+                resolve();
+            }
+        });
+    });
+
+    await ctx.unl.send("Hello");
+    await promise;
+}
+
 const hpc = new HotPocket.Contract();
 hpc.init(echoContract);

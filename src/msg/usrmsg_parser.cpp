@@ -38,6 +38,14 @@ namespace msg::usrmsg
             busrmsg::create_contract_input_status(msg, status, reason, input_hash, ledger_seq_no, ledger_hash);
     }
 
+    void usrmsg_parser::create_hpsh_response_container(std::vector<uint8_t> &msg, std::string_view reply_for, std::string_view content) const
+    {
+        if (protocol == util::PROTOCOL::JSON)
+            jusrmsg::create_hpsh_response_container(msg, reply_for, content);
+        else
+            busrmsg::create_hpsh_response_container(msg, reply_for, content);
+    }
+
     void usrmsg_parser::create_contract_read_response_container(std::vector<uint8_t> &msg, std::string_view reply_for, std::string_view content) const
     {
         if (protocol == util::PROTOCOL::JSON)
@@ -121,12 +129,12 @@ namespace msg::usrmsg
             return busrmsg::extract_read_request(extracted_id, extracted_content, bdoc);
     }
 
-    int usrmsg_parser::extract_shell_input(std::string &extracted_id, std::string &extracted_content) const
+    int usrmsg_parser::extract_hpsh_request(std::string &extracted_id, std::string &extracted_content) const
     {
         if (protocol == util::PROTOCOL::JSON)
-            return jusrmsg::extract_shell_input(extracted_id, extracted_content, jdoc);
+            return jusrmsg::extract_hpsh_request(extracted_id, extracted_content, jdoc);
         else
-            return busrmsg::extract_shell_input(extracted_id, extracted_content, bdoc);
+            return busrmsg::extract_hpsh_request(extracted_id, extracted_content, bdoc);
     }
 
     int usrmsg_parser::extract_signed_input_container(std::string &extracted_input_container, std::string &extracted_sig) const

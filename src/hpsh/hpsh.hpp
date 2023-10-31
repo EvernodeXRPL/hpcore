@@ -1,27 +1,15 @@
 #ifndef _HP_HPSH_
 #define _HP_HPSH_
 
-#include <sys/socket.h>
-#include <cstring>
-#include <unistd.h>
-#include <sys/types.h>
-#include <cstdlib>
-#include <sstream>
-#include <iostream>
-#include <signal.h>
-#include <unordered_map>
-#include <list>
-#include <thread>
-#include <poll.h>
-#include <wait.h>
-#include <mutex>
-#include "util.hpp"
-
+#include "../pchheader.hpp"
+#include "../conf.hpp"
+#include "../usr/usr.hpp"
 
 namespace hpsh
 {
     struct command_context
     {
+        std::string id;
         std::string pubkey;
         int child_fds[2];
         std::string response;
@@ -36,6 +24,7 @@ namespace hpsh
         int hpsh_pid;
         std::thread watcher_thread;
         bool is_shutting_down;
+        bool is_initialized = false;
     };
 
     extern hpsh_context ctx;
@@ -46,7 +35,7 @@ namespace hpsh
 
     int check_hpsh_exited(const bool block);
 
-    int execute(std::string_view pubkey, std::string_view message);
+    int execute(std::string_view id, std::string_view pubkey, std::string_view message);
 
     void response_watcher();
 }

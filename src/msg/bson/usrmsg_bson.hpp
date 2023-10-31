@@ -17,6 +17,8 @@ namespace msg::usrmsg::bson
     void create_contract_input_status(std::vector<uint8_t> &msg, std::string_view status, std::string_view reason,
                                       std::string_view input_hash, const uint64_t ledger_seq_no, const util::h32 &ledger_hash);
 
+    void create_hpsh_response_container(std::vector<uint8_t> &msg, std::string_view reply_for, std::string_view content);
+
     void create_contract_read_response_container(std::vector<uint8_t> &msg, std::string_view reply_for, std::string_view content);
 
     void create_contract_output_container(std::vector<uint8_t> &msg, std::string_view hash, const ::std::vector<std::string> &outputs,
@@ -43,7 +45,7 @@ namespace msg::usrmsg::bson
 
     int extract_read_request(std::string &extracted_id, std::string &extracted_content, const jsoncons::ojson &d);
 
-    int extract_shell_input(std::string &extracted_id, std::string &extracted_content, const jsoncons::ojson &d);
+    int extract_hpsh_request(std::string &extracted_id, std::string &extracted_content, const jsoncons::ojson &d);
 
     int extract_signed_input_container(std::string &extracted_input_container, std::string &extracted_sig,
                                        const jsoncons::ojson &d);

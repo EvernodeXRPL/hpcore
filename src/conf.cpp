@@ -194,6 +194,8 @@ namespace conf
             cfg.log.loggers.emplace("console");
             cfg.log.loggers.emplace("file");
 
+            cfg.hpsh.enabled = false;
+
             // Save the default settings into the config file.
             if (write_config(cfg) != 0)
                 return -1;
@@ -512,6 +514,28 @@ namespace conf
             }
         }
 
+        // hpsh
+        {
+            jpath = "hpsh";
+
+            try
+            {
+                const jsoncons::ojson &hpsh = d["hpsh"];
+                cfg.hpsh.enabled = hpsh["enabled"].as<bool>();
+
+                if (cfg.hpsh.run_as.from_string(hpsh["run_as"].as<std::string>()) == -1)
+                {
+                    std::cerr << "Invalid format for hpsh run as config (\"uid>0:gid>0\" expected).\n";
+                    return -1;
+                }
+            }
+            catch (const std::exception &e)
+            {
+                print_missing_field_error(jpath, e);
+                return -1;
+            }
+        }
+
         return 0;
     }
 
@@ -622,6 +646,14 @@ namespace conf
             }
             log_config.insert_or_assign("loggers", loggers);
             d.insert_or_assign("log", log_config);
+        }
+
+        // hpsh configs
+        {
+            jsoncons::ojson hpsh_config;
+            hpsh_config.insert_or_assign("enabled", cfg.hpsh.enabled);
+            hpsh_config.insert_or_assign("run_as", cfg.hpsh.run_as.to_string());
+            d.insert_or_assign("hpsh", hpsh_config);
         }
 
         return write_json_file(ctx.config_file, d);

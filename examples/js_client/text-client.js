@@ -123,6 +123,9 @@ async function main() {
                 else if (inp === "stat") {
                     hpc.getStatus().then(stat => console.log(stat));
                 }
+                else if (inp.startsWith("hpsh ")) {
+                    hpc.submitHpshRequest(inp.substr(5)).then(reply => console.log(reply));
+                }
                 else {
 
                     if (inp.startsWith("upload ")) {

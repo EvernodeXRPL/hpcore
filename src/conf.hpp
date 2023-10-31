@@ -208,6 +208,12 @@ namespace conf
         std::vector<std::string> runtime_env_args;     // Contract environment variables.
     };
 
+    struct hpsh_config
+    {
+        bool enabled = false; // Whether or not to enable hpsh.
+        ugid run_as;          // The user/groups id to execute the hpsh as.
+    };
+
     struct user_config
     {
         uint16_t port = 0;                        // Listening port for public user connections
@@ -317,6 +323,7 @@ namespace conf
         hpfs_config hpfs;
         log_config log;
         health_config health; // For debugging only. Not included in the config file.
+        hpsh_config hpsh;
     };
 
     // Global contract context struct exposed to the application.
