@@ -10,7 +10,7 @@ namespace hpsh
     struct command_context
     {
         std::string id;
-        std::string pubkey;
+        std::string user_pubkey;
         int child_fds[2];
         std::string response;
         bool read_completed = false;
@@ -37,7 +37,9 @@ namespace hpsh
 
     int send_terminate_message();
 
-    int execute(std::string_view id, std::string_view pubkey, std::string_view message);
+    void remove_user_commands(std::string_view user_pubkey);
+
+    int execute(std::string_view id, std::string_view user_pubkey, std::string_view message);
 
     void response_watcher();
 }

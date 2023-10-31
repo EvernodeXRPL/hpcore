@@ -146,7 +146,14 @@ namespace hpsh
         return (write(ctx.control_fds[1], HPSH_CTR_TERMINATE, 10) < 0) ? -1 : 0;
     }
 
-    int execute(std::string_view id, std::string_view pubkey, std::string_view message)
+    void remove_user_commands(std::string_view user_pubkey)
+    {
+        std::scoped_lock lock(ctx.command_mutex);
+        ctx.commands.remove_if([&](const command_context &command)
+                               { return command.user_pubkey == user_pubkey; });
+    }
+
+    int execute(std::string_view id, std::string_view user_pubkey, std::string_view message)
     {
         if (ctx.is_shutting_down)
             return -1;
@@ -203,9 +210,11 @@ namespace hpsh
             return -1;
         }
 
+        close(child_fds[0]);
+
         {
             std::scoped_lock lock(ctx.command_mutex);
-            ctx.commands.push_back(command_context{std::string(id), std::string(pubkey), {child_fds[0], child_fds[1]}, std::string(), false});
+            ctx.commands.push_back(command_context{std::string(id), std::string(user_pubkey), {child_fds[0], child_fds[1]}, std::string(), false});
         }
 
         return 0;
@@ -219,6 +228,8 @@ namespace hpsh
         {
             if (ctx.commands.size() > 0)
             {
+                std::scoped_lock<std::mutex> lock(ctx.command_mutex);
+
                 auto itr = ctx.commands.begin();
                 while (itr != ctx.commands.end())
                 {
@@ -262,7 +273,7 @@ namespace hpsh
                             std::scoped_lock<std::mutex> lock(usr::ctx.users_mutex);
 
                             // Find the user session by user pubkey.
-                            const auto user_itr = usr::ctx.users.find(itr->pubkey);
+                            const auto user_itr = usr::ctx.users.find(itr->user_pubkey);
                             if (user_itr != usr::ctx.users.end()) // match found
                             {
                                 const usr::connected_user &user = user_itr->second;
@@ -272,10 +283,10 @@ namespace hpsh
                                 user.session.send(msg);
                             }
                         }
-                        {
-                            std::scoped_lock<std::mutex> lock(ctx.command_mutex);
-                            itr = ctx.commands.erase(itr);
-                        }
+
+                        // Close the file descriptor and remove the command from context.
+                        close(itr->child_fds[1]);
+                        itr = ctx.commands.erase(itr);
                     }
                     else
                     {
@@ -283,10 +294,7 @@ namespace hpsh
                     }
                 }
             }
-            else
-            {
-                util::sleep(1000);
-            }
+            util::sleep(1000);
         }
     }
 }

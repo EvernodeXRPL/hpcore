@@ -420,8 +420,14 @@ namespace usr
      */
     int remove_user(const std::string &pubkey)
     {
-        std::scoped_lock<std::mutex> lock(ctx.users_mutex);
-        ctx.users.erase(pubkey);
+        {
+            std::scoped_lock<std::mutex> lock(ctx.users_mutex);
+            ctx.users.erase(pubkey);
+        }
+        // Remove any hpsh commands sent by the user.
+        if (hpsh::ctx.is_initialized)
+            hpsh::remove_user_commands(pubkey);
+
         return 0;
     }
 
