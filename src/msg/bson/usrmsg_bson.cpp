@@ -168,11 +168,13 @@ namespace msg::usrmsg::bson
      *            {
      *              "type": "hpsh_response",
      *              "reply_for": "<corresponding request id>",
-     *              "content": <contract output>
+     *              "status": "<accepted|rejected>",
+     *              "content": "<response>"
+     *              "reason": "<reason>",
      *            }
      * @param content The contract binary output content to be put in the message.
      */
-    void create_hpsh_response_container(std::vector<uint8_t> &msg, std::string_view reply_for, std::string_view content)
+    void create_hpsh_response_container(std::vector<uint8_t> &msg, std::string_view reply_for, std::string_view status, std::string_view content, std::string_view reason)
     {
         jsoncons::bson::bson_bytes_encoder encoder(msg);
         encoder.begin_object();
@@ -180,8 +182,18 @@ namespace msg::usrmsg::bson
         encoder.string_value(msg::usrmsg::MSGTYPE_HPSH_RESPONSE);
         encoder.key(msg::usrmsg::FLD_REPLY_FOR);
         encoder.string_value(reply_for);
+        encoder.key(msg::usrmsg::FLD_STATUS);
+        encoder.string_value(status);
         encoder.key(msg::usrmsg::FLD_CONTENT);
         encoder.byte_string_value(content);
+
+        // Reject reason is only included for rejected inputs.
+        if (!reason.empty())
+        {
+            encoder.key(msg::usrmsg::FLD_REASON);
+            encoder.string_value(reason);
+        }
+
         encoder.end_object();
         encoder.flush();
     }

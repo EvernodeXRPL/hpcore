@@ -38,12 +38,12 @@ namespace msg::usrmsg
             busrmsg::create_contract_input_status(msg, status, reason, input_hash, ledger_seq_no, ledger_hash);
     }
 
-    void usrmsg_parser::create_hpsh_response_container(std::vector<uint8_t> &msg, std::string_view reply_for, std::string_view content) const
+    void usrmsg_parser::create_hpsh_response_container(std::vector<uint8_t> &msg, std::string_view reply_for, std::string_view status, std::string_view content, std::string_view reason) const
     {
         if (protocol == util::PROTOCOL::JSON)
-            jusrmsg::create_hpsh_response_container(msg, reply_for, content);
+            jusrmsg::create_hpsh_response_container(msg, reply_for, status, content, reason);
         else
-            busrmsg::create_hpsh_response_container(msg, reply_for, content);
+            busrmsg::create_hpsh_response_container(msg, reply_for, status, content, reason);
     }
 
     void usrmsg_parser::create_contract_read_response_container(std::vector<uint8_t> &msg, std::string_view reply_for, std::string_view content) const

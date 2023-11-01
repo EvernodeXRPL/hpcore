@@ -210,8 +210,9 @@ namespace conf
 
     struct hpsh_config
     {
-        bool enabled = false; // Whether or not to enable hpsh.
-        ugid run_as;          // The user/groups id to execute the hpsh as.
+        bool enabled = false;        // Whether or not to enable hpsh.
+        ugid run_as;                 // The user/groups id to execute the hpsh as.
+        std::set<std::string> users; // List of users who are allowed to perform hpsh (list of binary public keys).
     };
 
     struct user_config
@@ -327,11 +328,11 @@ namespace conf
     };
 
     // Global contract context struct exposed to the application.
-    // Other modeuls will access context values via this.
+    // Other modules will access context values via this.
     extern contract_ctx ctx;
 
     // Global configuration struct exposed to the application.
-    // Other modeuls will access config values via this.
+    // Other modules will access config values via this.
     extern hp_config cfg;
 
     int init();

@@ -4,6 +4,7 @@
 #include "../pchheader.hpp"
 #include "../conf.hpp"
 #include "../usr/usr.hpp"
+#include "../msg/usrmsg_common.hpp"
 
 namespace hpsh
 {

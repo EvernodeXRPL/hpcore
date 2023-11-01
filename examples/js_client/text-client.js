@@ -126,7 +126,10 @@ async function main() {
                 else if (inp.startsWith("hpsh ")) {
                     hpc.submitHpshRequest(inp.substr(5)).then(id => {
                         hpc.on(id, (reply) => {
-                            console.log(reply);
+                            if (reply.data)
+                                console.log(reply.data);
+                            else
+                                console.error(reply.error);
                         })
                     });
                 }

@@ -108,6 +108,9 @@ namespace msg::usrmsg
     constexpr const char *REASON_NONCE_EXPIRED = "nonce_expired";
     constexpr const char *REASON_ALREADY_SUBMITTED = "already_submitted";
     constexpr const char *REASON_ROUND_INPUTS_OVERFLOW = "round_inputs_overflow";
+    constexpr const char *REASON_USER_NOT_ALLOWED = "user_not_allowed";
+    constexpr const char *REASON_NOT_INITIALIZED = "not_initialized";
+    constexpr const char *REASON_INTERNAL_ERROR = "internal_error";
     constexpr const char *QUERY_FILTER_BY_SEQ_NO = "seq_no";
     constexpr const char *STR_TRUE = "true";
     constexpr const char *STR_FALSE = "false";

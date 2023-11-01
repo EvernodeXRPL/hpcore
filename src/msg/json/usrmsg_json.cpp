@@ -272,7 +272,7 @@ namespace msg::usrmsg::json
      *            {
      *              "type": "contract_input_status",
      *              "status": "<accepted|rejected>",
-     *              "reason": "<reson>",
+     *              "reason": "<reason>",
      *              "input_hash": "<hex hash of original input signature>",
      *              "ledger_seq_no": <sequence no of the ledger that the input got included in>,
      *              "ledger_hash": "<hex hash no of the ledger that the input got included in>"
@@ -332,11 +332,13 @@ namespace msg::usrmsg::json
      *            {
      *              "type": "hpsh_response",
      *              "reply_for": "<corresponding request id>",
-     *              "content": "<response string>"
+     *              "status": "<accepted|rejected>",
+     *              "content": "<response>"
+     *              "reason": "<reason>",
      *            }
      * @param content The contract binary output content to be put in the message.
      */
-    void create_hpsh_response_container(std::vector<uint8_t> &msg, std::string_view reply_for, std::string_view content)
+    void create_hpsh_response_container(std::vector<uint8_t> &msg, std::string_view reply_for, std::string_view status, std::string_view content, std::string_view reason)
     {
         msg.reserve(content.size() + 256);
         msg += "{\"";
@@ -347,6 +349,10 @@ namespace msg::usrmsg::json
         msg += msg::usrmsg::FLD_REPLY_FOR;
         msg += SEP_COLON;
         msg += reply_for;
+        msg += SEP_COMMA;
+        msg += msg::usrmsg::FLD_STATUS;
+        msg += SEP_COLON;
+        msg += status;
         msg += SEP_COMMA;
         msg += msg::usrmsg::FLD_CONTENT;
         msg += SEP_COLON_NOQUOTE;
@@ -366,6 +372,16 @@ namespace msg::usrmsg::json
         else
         {
             msg += content;
+        }
+
+        // Reject reason is only included for rejected inputs.
+        if (!reason.empty())
+        {
+            msg += SEP_COMMA_NOQUOTE;
+            msg += msg::usrmsg::FLD_REASON;
+            msg += SEP_COLON;
+            msg += reason;
+            msg += DOUBLE_QUOTE;
         }
 
         msg += "}";

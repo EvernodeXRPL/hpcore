@@ -528,6 +528,20 @@ namespace conf
                     std::cerr << "Invalid format for hpsh run as config (\"uid>0:gid>0\" expected).\n";
                     return -1;
                 }
+
+                jpath = "hpsh.users";
+                cfg.hpsh.users.clear();
+                for (auto &userpk : hpsh["users"].array_range())
+                {
+                    // Convert the public key hex of each node to binary and store it.
+                    const std::string bin_pubkey = util::to_bin(userpk.as<std::string_view>());
+                    if (bin_pubkey.empty())
+                    {
+                        std::cerr << "Error decoding user pubkey list.\n";
+                        return -1;
+                    }
+                    cfg.hpsh.users.emplace(bin_pubkey);
+                }
             }
             catch (const std::exception &e)
             {
@@ -653,6 +667,12 @@ namespace conf
             jsoncons::ojson hpsh_config;
             hpsh_config.insert_or_assign("enabled", cfg.hpsh.enabled);
             hpsh_config.insert_or_assign("run_as", cfg.hpsh.run_as.to_string());
+            jsoncons::ojson users(jsoncons::json_array_arg);
+            for (const auto &userpk : cfg.hpsh.users)
+            {
+                users.push_back(util::to_hex(userpk));
+            }
+            hpsh_config.insert_or_assign("users", users);
             d.insert_or_assign("hpsh", hpsh_config);
         }
 

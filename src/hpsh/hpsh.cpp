@@ -174,6 +174,12 @@ namespace hpsh
         if (ctx.is_shutting_down)
             return -1;
 
+        if (conf::cfg.hpsh.users.find(std::string(user_pubkey)) == conf::cfg.hpsh.users.end())
+        {
+            LOG_ERROR << "This user is not allowed to perform hpsh operations.";
+            return -2;
+        }
+
         // Send the hpsh request header.
         if (write(ctx.control_fds[1], HPSH_CTR_SH, 3) < 0)
         {
@@ -248,6 +254,7 @@ namespace hpsh
 
         while (!ctx.is_shutting_down)
         {
+            // Iterate through received commands and check for outputs.
             if (ctx.commands.size() > 0)
             {
                 std::scoped_lock<std::mutex> lock(ctx.command_mutex);
@@ -290,9 +297,7 @@ namespace hpsh
                             {
                                 const usr::connected_user &user = user_itr->second;
                                 msg::usrmsg::usrmsg_parser parser(user.protocol);
-                                std::vector<uint8_t> msg;
-                                parser.create_hpsh_response_container(msg, itr->id, response);
-                                user.session.send(msg);
+                                usr::send_hpsh_response(std::move(parser), user.session, itr->id, msg::usrmsg::STATUS_ACCEPTED, response);
                                 response.clear();
                             }
                         }
