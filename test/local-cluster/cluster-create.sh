@@ -119,13 +119,13 @@ do
                     consensus: { \
                         ...require('./tmp.json').contract.consensus, \
                         mode: 'public', \
-                        roundtime: $roundtime \
+                        roundtime: $roundtime,\
+                        fallback: { \
+                            execute: $fallback_enabled \
+                        } \
                     }, \
                     npl: { \
                         mode: 'public' \
-                    },\
-                    fallback: { \
-                        execute: $fallback_enabled \
                     }\
                 }, null, 2)")
 

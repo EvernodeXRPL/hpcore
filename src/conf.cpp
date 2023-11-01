@@ -1099,6 +1099,8 @@ namespace conf
             }
             contract.consensus.mode = jdoc["consensus"]["mode"].as<std::string>() == MODE_PUBLIC ? MODE::PUBLIC : MODE::PRIVATE;
 
+            contract.consensus.fallback.execute = jdoc["consensus"]["fallback"]["execute"].as<bool>();
+
             jpath = "contract.npl";
             if (jdoc["npl"]["mode"].as<std::string>() != MODE_PUBLIC && jdoc["npl"]["mode"].as<std::string>() != MODE_PRIVATE)
             {
@@ -1115,9 +1117,6 @@ namespace conf
             contract.round_limits.proc_mem_bytes = jdoc["round_limits"]["proc_mem_bytes"].as<size_t>();
             contract.round_limits.proc_ofd_count = jdoc["round_limits"]["proc_ofd_count"].as<size_t>();
             contract.round_limits.exec_timeout = jdoc["round_limits"]["exec_timeout"].as<uint64_t>();
-
-            jpath = "contract.fallback";
-            contract.consensus.fallback.execute = jdoc["consensus"]["fallback"]["execute"].as<bool>();
         }
         catch (const std::exception &e)
         {

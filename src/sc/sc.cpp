@@ -129,7 +129,7 @@ namespace sc
             return -1;
         }
 
-        std::string_view mode = ctx.args.get_exec_mode_str();
+        std::string_view mode = ctx.args.get_exec_mode_str(true);
 
         LOG_DEBUG << "Starting contract process..." << mode;
         int ret = 0;
@@ -285,17 +285,17 @@ namespace sc
         else // Child has exited
         {
             ctx.contract_pid = 0;
-            std::string_view mode = ctx.args.get_exec_mode_str();
+            std::string_view mode = ctx.args.get_exec_mode_str(true);
 
             if (WIFEXITED(scstatus))
             {
                 ctx.exit_success = true;
-                LOG_DEBUG << "Contract process (" << mode << ") ended normally.";
+                LOG_DEBUG << "Contract process ended normally." << mode;
                 return 1;
             }
             else
             {
-                LOG_WARNING << "Contract process (" << mode << ") ended prematurely. Exit code " << WEXITSTATUS(scstatus);
+                LOG_WARNING << "Contract process ended prematurely" << mode << "ended prematurely. Exit code " << WEXITSTATUS(scstatus);
                 return -1;
             }
         }
@@ -561,7 +561,7 @@ namespace sc
             util::fork_detach();
 
             const std::string script_args = std::to_string(ctx.args.lcl_id.seq_no) + " " + util::to_hex(ctx.args.lcl_id.hash.to_string_view());
-            std::string_view mode = ctx.args.get_exec_mode_str();
+            std::string_view mode = ctx.args.get_exec_mode_str(true);
 
             // We set current working dir and pass command line arg to the script.
             char *argv[] = {(char *)POST_EXEC_SCRIPT, (char *)script_args.data(), (char *)NULL};

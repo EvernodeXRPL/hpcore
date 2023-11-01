@@ -112,18 +112,18 @@ namespace sc
         }
 
         // Convert execution mode to string.
-        std::string_view get_exec_mode_str()
+        std::string_view get_exec_mode_str(bool showcase = false)
         {
             if (mode == EXECUTION_MODE::CONSENSUS_FALLBACK)
             {
-                return "consensus_fallback";
+                return showcase ? " (consensus-fallback) " : "consensus_fallback";
             }
             else if (mode == EXECUTION_MODE::READ_REQUEST)
             {
-                return "read_request";
+                return showcase ? " (read-request) " : "read_req";
             }
 
-            return "consensus";
+            return showcase ? " " : "consensus";
         }
     };
 
