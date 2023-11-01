@@ -129,9 +129,10 @@ namespace sc
             return -1;
         }
 
-        std::string_view mode = ctx.args.get_exec_mode_str(true);
+        std::string_view mode = ctx.args.get_exec_mode_str();
 
-        LOG_DEBUG << "Starting contract process..." << mode;
+        LOG_DEBUG << "Starting contract process..."
+                  << "(" << mode << ")";
         int ret = 0;
 
         const pid_t pid = fork();
@@ -159,14 +160,18 @@ namespace sc
 
             if (insert_demarkation_line(ctx) == -1)
             {
-                std::cerr << errno << ": Contract process inserting demarkation line failed." << mode << "\n";
+                std::cerr << errno << ": Contract process inserting demarkation line failed."
+                          << "(" << mode << ")"
+                          << "\n";
                 exit(1);
             }
 
             // Set process resource limits.
             if (set_process_rlimits() == -1)
             {
-                std::cerr << errno << ": Failed to set contract process resource limits." << mode << "\n";
+                std::cerr << errno << ": Failed to set contract process resource limits."
+                          << "(" << mode << ")"
+                          << "\n";
                 exit(1);
             }
 
@@ -197,7 +202,9 @@ namespace sc
 
             if (chdir(ctx.working_dir.c_str()) == -1)
             {
-                std::cerr << errno << ": Contract process chdir failed." << mode << "\n";
+                std::cerr << errno << ": Contract process chdir failed."
+                          << "(" << mode << ")"
+                          << "\n";
                 exit(1);
             }
 
@@ -205,7 +212,9 @@ namespace sc
             // (Must set gid before setting uid)
             if (!conf::cfg.contract.run_as.empty() && (setgid(conf::cfg.contract.run_as.gid) == -1 || setuid(conf::cfg.contract.run_as.uid) == -1))
             {
-                std::cerr << errno << ": Contract process setgid/uid failed." << mode << "\n";
+                std::cerr << errno << ": Contract process setgid/uid failed."
+                          << "(" << mode << ")"
+                          << "\n";
                 exit(1);
             }
 
@@ -213,12 +222,15 @@ namespace sc
             (conf::cfg.contract.log.enable && ctx.args.mode == EXECUTION_MODE::CONSENSUS)
                 ? execv_and_redirect_logs(execv_len - 1, (const char **)execv_args, ctx.stdout_file, ctx.stderr_file, (const char **)env_args)
                 : execve(execv_args[0], execv_args, env_args);
-            std::cerr << errno << ": Contract process execve() failed." << mode << "\n";
+            std::cerr << errno << ": Contract process execve() failed."
+                      << "(" << mode << ")"
+                      << "\n";
             exit(1);
         }
         else
         {
-            LOG_ERROR << errno << ": fork() failed when starting contract process." << mode;
+            LOG_ERROR << errno << ": fork() failed when starting contract process."
+                      << "(" << mode << ")";
             ret = -1;
         }
 
@@ -285,17 +297,21 @@ namespace sc
         else // Child has exited
         {
             ctx.contract_pid = 0;
-            std::string_view mode = ctx.args.get_exec_mode_str(true);
+            std::string_view mode = ctx.args.get_exec_mode_str();
 
             if (WIFEXITED(scstatus))
             {
                 ctx.exit_success = true;
-                LOG_DEBUG << "Contract process ended normally." << mode;
+                LOG_DEBUG << "Contract process ended normally."
+                          << "(" << mode << ")";
                 return 1;
             }
             else
             {
-                LOG_WARNING << "Contract process ended prematurely" << mode << "ended prematurely. Exit code " << WEXITSTATUS(scstatus);
+                LOG_WARNING << "Contract process ended prematurely"
+                            << "ended prematurely."
+                            << "(" << mode << ")"
+                            << "Exit code " << WEXITSTATUS(scstatus);
                 return -1;
             }
         }
@@ -561,25 +577,31 @@ namespace sc
             util::fork_detach();
 
             const std::string script_args = std::to_string(ctx.args.lcl_id.seq_no) + " " + util::to_hex(ctx.args.lcl_id.hash.to_string_view());
-            std::string_view mode = ctx.args.get_exec_mode_str(true);
+            std::string_view mode = ctx.args.get_exec_mode_str();
 
             // We set current working dir and pass command line arg to the script.
             char *argv[] = {(char *)POST_EXEC_SCRIPT, (char *)script_args.data(), (char *)NULL};
             if (chdir(ctx.working_dir.c_str()) == -1)
             {
-                std::cerr << errno << ": Post-exec script chdir failed." << mode << "\n";
+                std::cerr << errno << ": Post-exec script chdir failed."
+                          << "(" << mode << ")"
+                          << "\n";
                 exit(1);
             }
             // Set user execution user/group if specified (Must set gid before setting uid).
             if (!conf::cfg.contract.run_as.empty() && (setgid(conf::cfg.contract.run_as.gid) == -1 || setuid(conf::cfg.contract.run_as.uid) == -1))
             {
-                std::cerr << errno << ": Post-exec script setgid/uid failed." << mode << "\n";
+                std::cerr << errno << ": Post-exec script setgid/uid failed."
+                          << "(" << mode << ")"
+                          << "\n";
                 exit(1);
             }
 
             conf::cfg.contract.log.enable ? execv_and_redirect_logs(2, (const char **)argv, ctx.stdout_file, ctx.stderr_file)
                                           : execv(argv[0], argv);
-            std::cerr << errno << ": Post-exec script execv() failed." << mode << "\n";
+            std::cerr << errno << ": Post-exec script execv() failed."
+                      << "(" << mode << ")"
+                      << "\n";
             exit(1);
         }
         else if (pid > 0)

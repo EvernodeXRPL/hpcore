@@ -1099,6 +1099,7 @@ namespace conf
             }
             contract.consensus.mode = jdoc["consensus"]["mode"].as<std::string>() == MODE_PUBLIC ? MODE::PUBLIC : MODE::PRIVATE;
 
+            jpath = "contract.consensus.fallback";
             contract.consensus.fallback.execute = jdoc["consensus"]["fallback"]["execute"].as<bool>();
 
             jpath = "contract.npl";
