@@ -109,7 +109,7 @@ const fallback = async (ctx) => {
 
 const hpc = new HotPocket.Contract();
 hpc.init({
-    consensus: contract,
-    fallback: fallback,
-    readRequest: async (ctx) => { await contract(ctx, true) }
+    "consensus": contract,
+    "consensus_fallback": fallback,
+    "read_req": async (ctx) => { await contract(ctx, true) }
 });
