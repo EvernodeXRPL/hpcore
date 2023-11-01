@@ -126,7 +126,7 @@ namespace consensus
 
         // Attempt to close the ledger after scanning last round stage 3 proposals.
         if (ctx.stage == 0 && was_in_sync)
-            execute_fallback = attempt_ledger_close();
+            execute_fallback = !attempt_ledger_close();
 
         // Get current lcl, state, patch, primary shard and raw shard info.
         util::sequence_hash lcl_id = ledger::ctx.get_lcl_id();
@@ -299,7 +299,8 @@ namespace consensus
     }
 
     /**
-     * Scan the stage 3 proposals from last round and create the ledger if all majority critertia are met.
+     * Scan the stage 3 proposals from last round and create the ledger if all majority criteria are met. 
+     * @return true on successful ledger closure and false on failure.
      */
     bool attempt_ledger_close()
     {
@@ -310,7 +311,7 @@ namespace consensus
 
         evaluate_proposals(stage3_prop_count, winning_votes, winning_prop, 3);
 
-        // Threshold is devided by 100 to convert average to decimal.
+        // Threshold is divided by 100 to convert average to decimal.
         if (stage3_prop_count < min_votes_required)
         {
             // We don't have enough stage 3 proposals to create a ledger.
@@ -330,7 +331,7 @@ namespace consensus
         if (prepare_consensed_users(consensed_users, winning_prop) == -1 ||
             commit_consensus_results(winning_prop, consensed_users) == -1)
         {
-            LOG_ERROR << "Error occured when closing ledger";
+            LOG_ERROR << "Error occurred when closing ledger";
 
             // Cleanup obsolete information before next round starts.
             cleanup_output_collections();
@@ -341,7 +342,7 @@ namespace consensus
     }
 
     /**
-     * Performs the consensus finalalization activities with the provided consensused information.
+     * Performs the consensus finalization activities with the provided consensed information.
      * @param cons_prop The proposal which reached consensus.
      * @param consensed_users Set of consensed users and their consensed inputs and outputs.
      */
@@ -1301,8 +1302,8 @@ namespace consensus
      */
     bool execute_contract_in_fallback(const uint8_t stage, const util::sequence_hash &lcl_id)
     {
-        // Do not execute if fallback is not enabled, contract is shutting down.
-        if (!conf::cfg.contract.fallback.execute || ctx.is_shutting_down)
+        // Do not execute if fallback is not enabled, HotPocket is shutting down.
+        if (!conf::cfg.contract.consensus.fallback.execute || ctx.is_shutting_down)
             return false;
 
         // Pass new user store for inputs, We are not handling inputs in fallback mode right now.
@@ -1313,7 +1314,7 @@ namespace consensus
         }
 
         sc::contract_execution_args &args = ctx.contract_ctx->args;
-        args.mode = sc::EXECUTION_MODE::FALLBACK;
+        args.mode = sc::EXECUTION_MODE::CONSENSUS_FALLBACK;
 
         // lcl to be passed to the contract.
         args.lcl_id = lcl_id;

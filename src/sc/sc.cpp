@@ -290,12 +290,12 @@ namespace sc
             if (WIFEXITED(scstatus))
             {
                 ctx.exit_success = true;
-                LOG_DEBUG << "Contract process" << (mode.empty() ? "" : std::string(" ").append(mode)) << " ended normally.";
+                LOG_DEBUG << "Contract process (" << mode << ") ended normally.";
                 return 1;
             }
             else
             {
-                LOG_WARNING << "Contract process" << (mode.empty() ? "" : std::string(" ").append(mode)) << " ended prematurely. Exit code " << WEXITSTATUS(scstatus);
+                LOG_WARNING << "Contract process (" << mode << ") ended prematurely. Exit code " << WEXITSTATUS(scstatus);
                 return -1;
             }
         }
@@ -360,7 +360,7 @@ namespace sc
      *   "public_key": "<this node's hex public key>",
      *   "private_key": "<this node's hex private key>",
      *   "timestamp": <this node's timestamp (unix milliseconds)>,
-     *   "mode": <0|1|2>,
+     *   "mode": <consensus|consensus_fallback|read_req>,
      *   "lcl_seq_no": "<lcl sequence no>",
      *   "lcl_hex": "<lcl hash hex>",
      *   "control_fd": fd,
@@ -370,7 +370,7 @@ namespace sc
      *   "unl":[ "<pkhex>", ... ]
      * }
      */
-    int write_contract_args(const execution_context &ctx, const int user_inputs_fd)
+    int write_contract_args(execution_context &ctx, const int user_inputs_fd)
     {
         // Populate the json string with contract args.
         // We don't use a JSON parser here because it's lightweight to contrstuct the
@@ -382,7 +382,7 @@ namespace sc
            << "\",\"public_key\":\"" << conf::cfg.node.public_key_hex
            << "\",\"private_key\":\"" << conf::cfg.node.private_key_hex
            << "\",\"timestamp\":" << ctx.args.time
-           << ",\"mode\":" << ctx.args.mode;
+           << ",\"mode\":\"" << ctx.args.get_exec_mode_str() << "\"";
 
         if (ctx.args.mode != EXECUTION_MODE::READ_REQUEST)
         {
@@ -439,10 +439,10 @@ namespace sc
         // We record the start time of the monitoring thread to track the contract execution timeout.
         const uint64_t start_time = util::get_epoch_milliseconds();
         // If this is in fallback mode, we should terminate the contract before the given timeout.
-        const uint64_t exec_timeout = ctx.args.mode == EXECUTION_MODE::FALLBACK ? (ctx.args.end_before - start_time) : conf::cfg.contract.round_limits.exec_timeout;
+        const uint64_t exec_timeout = ctx.args.mode == EXECUTION_MODE::CONSENSUS_FALLBACK ? (ctx.args.end_before - start_time) : conf::cfg.contract.round_limits.exec_timeout;
 
         // If this is in fallback mode, check wether we haven't passed the round end. If not, do not execute.
-        if (ctx.args.mode == EXECUTION_MODE::FALLBACK && start_time >= ctx.args.end_before)
+        if (ctx.args.mode == EXECUTION_MODE::CONSENSUS_FALLBACK && start_time >= ctx.args.end_before)
         {
             LOG_INFO << "Contract process end time has passed.";
             return;

@@ -952,10 +952,14 @@ namespace conf
         jdoc.insert_or_assign("max_input_ledger_offset", contract.max_input_ledger_offset);
 
         jsoncons::ojson consensus;
+        jsoncons::ojson fallback;
+        fallback.insert_or_assign("execute", contract.consensus.fallback.execute);
+
         consensus.insert_or_assign("mode", contract.consensus.mode == MODE::PUBLIC ? MODE_PUBLIC : MODE_PRIVATE);
         consensus.insert_or_assign("roundtime", contract.consensus.roundtime.load());
         consensus.insert_or_assign("stage_slice", contract.consensus.stage_slice.load());
         consensus.insert_or_assign("threshold", contract.consensus.threshold);
+        consensus.insert_or_assign("fallback", fallback);
         jdoc.insert_or_assign("consensus", consensus);
 
         jsoncons::ojson npl;
@@ -971,10 +975,6 @@ namespace conf
         round_limits.insert_or_assign("proc_ofd_count", contract.round_limits.proc_ofd_count);
         round_limits.insert_or_assign("exec_timeout", contract.round_limits.exec_timeout);
         jdoc.insert_or_assign("round_limits", round_limits);
-
-        jsoncons::ojson fallback;
-        fallback.insert_or_assign("execute", contract.fallback.execute);
-        jdoc.insert_or_assign("fallback", fallback);
     }
 
     /**
@@ -1117,7 +1117,7 @@ namespace conf
             contract.round_limits.exec_timeout = jdoc["round_limits"]["exec_timeout"].as<uint64_t>();
 
             jpath = "contract.fallback";
-            contract.fallback.execute = jdoc["fallback"]["execute"].as<bool>();
+            contract.consensus.fallback.execute = jdoc["consensus"]["fallback"]["execute"].as<bool>();
         }
         catch (const std::exception &e)
         {

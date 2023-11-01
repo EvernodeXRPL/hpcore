@@ -23,7 +23,7 @@ namespace sc
     enum EXECUTION_MODE
     {
         CONSENSUS = 0,
-        FALLBACK = 1,
+        CONSENSUS_FALLBACK = 1,
         READ_REQUEST = 2
     };
 
@@ -114,16 +114,16 @@ namespace sc
         // Convert execution mode to string.
         std::string_view get_exec_mode_str()
         {
-            if (mode == EXECUTION_MODE::FALLBACK)
+            if (mode == EXECUTION_MODE::CONSENSUS_FALLBACK)
             {
-                return "(fallback)";
+                return "consensus_fallback";
             }
             else if (mode == EXECUTION_MODE::READ_REQUEST)
             {
-                return "(read-request)";
+                return "read_request";
             }
 
-            return "";
+            return "consensus";
         }
     };
 
@@ -189,7 +189,7 @@ namespace sc
 
     int stop_hpfs_session(execution_context &ctx);
 
-    int write_contract_args(const execution_context &ctx, const int user_inputs_fd);
+    int write_contract_args(execution_context &ctx, const int user_inputs_fd);
 
     void contract_monitor_loop(execution_context &ctx);
 
