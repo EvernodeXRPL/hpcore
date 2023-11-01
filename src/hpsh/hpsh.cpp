@@ -15,12 +15,14 @@ namespace hpsh
         if (!conf::cfg.hpsh.enabled)
             return 0;
 
+        // Create a socket pair for the control channel.
         if (socketpair(AF_UNIX, SOCK_SEQPACKET, 0, ctx.control_fds) == -1)
         {
             LOG_ERROR << errno << ": Error initializing socket pair.";
             return -1;
         }
 
+        // Create a child process for hpsh process
         ctx.hpsh_pid = fork();
         if (ctx.hpsh_pid == -1)
         {
@@ -31,6 +33,7 @@ namespace hpsh
         }
         else if (ctx.hpsh_pid > 0)
         {
+            // Close child end of socket and start the watcher thread.
             close(ctx.control_fds[0]);
 
             ctx.watcher_thread = std::thread(response_watcher);
@@ -149,6 +152,7 @@ namespace hpsh
     void remove_user_commands(std::string_view user_pubkey)
     {
         std::scoped_lock lock(ctx.command_mutex);
+        // Loop for all the child commands and delete the commands belongs to the user.
         auto itr = ctx.commands.begin();
         while (itr != ctx.commands.end())
         {
@@ -170,12 +174,14 @@ namespace hpsh
         if (ctx.is_shutting_down)
             return -1;
 
+        // Send the hpsh request header.
         if (write(ctx.control_fds[1], HPSH_CTR_SH, 3) < 0)
         {
             LOG_ERROR << errno << ": Error writing header message to control fd.";
             return -1;
         }
 
+        // Create a socket pair to communicate for the hpsh request.
         int child_fds[2];
         if (socketpair(AF_UNIX, SOCK_SEQPACKET, 0, child_fds) == -1)
         {
@@ -183,6 +189,7 @@ namespace hpsh
             return -1;
         }
 
+        // Prepare and send the child socket file descriptor with scm rights.
         struct msghdr msg = {0};
         struct cmsghdr *cmsg;
         char iobuf[1];
@@ -214,6 +221,7 @@ namespace hpsh
             return -1;
         }
 
+        // Write the request message to the child socket.
         if (write(child_fds[1], message.data(), message.size()) < 0)
         {
             LOG_ERROR << errno << ": Error writing to child fd.";
@@ -222,8 +230,10 @@ namespace hpsh
             return -1;
         }
 
+        // Close the child end of the socket.
         close(child_fds[0]);
 
+        // Add the command to the context.
         {
             std::scoped_lock lock(ctx.command_mutex);
             ctx.commands.push_back(command_context{std::string(id), std::string(user_pubkey), {child_fds[0], child_fds[1]}});
@@ -252,6 +262,7 @@ namespace hpsh
                     pfd.fd = itr->child_fds[1];
                     pfd.events = POLLIN;
 
+                    // If child fd has data to read handle them.
                     if (poll(&pfd, 1, POLL_TIMEOUT) == -1)
                     {
                         LOG_ERROR << errno << ": Error in poll";
@@ -259,12 +270,18 @@ namespace hpsh
                     }
                     else if (pfd.revents & POLLIN)
                     {
+                        // Read the response and send to the user.
                         std::string response;
                         response.resize(READ_BUFFER_SIZE);
                         const int res = read(pfd.fd, response.data(), READ_BUFFER_SIZE);
                         if (res > 0)
                         {
                             response.resize(res);
+
+                            // If response contains trailing new line, Remove it.
+                            if (response[res - 1] == '\n')
+                                response[res - 1] = '\0';
+
                             std::scoped_lock<std::mutex> lock(usr::ctx.users_mutex);
 
                             // Find the user session by user pubkey.
