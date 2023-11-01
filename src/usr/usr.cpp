@@ -278,7 +278,7 @@ namespace usr
                 std::string id, content;
                 if (hpsh::ctx.is_initialized && parser.extract_hpsh_request(id, content) != -1)
                 {
-                    if (hpsh::execute(id, user.pubkey, content.c_str()) == -1)
+                    if (hpsh::execute(id, user.pubkey, content) == -1)
                         return -1;
 
                     return 0;

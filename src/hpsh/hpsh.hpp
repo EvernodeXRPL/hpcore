@@ -12,8 +12,6 @@ namespace hpsh
         std::string id;
         std::string user_pubkey;
         int child_fds[2];
-        std::string response;
-        bool read_completed = false;
     };
 
     struct hpsh_context
