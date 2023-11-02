@@ -12,7 +12,7 @@ namespace hpsh
     {
         std::string id;
         std::string user_pubkey;
-        int child_fds[2];
+        int out_fd;
     };
 
     struct hpsh_context
