@@ -104,6 +104,9 @@ namespace sc
 
         uint64_t end_before;
 
+        // This is for fallback mode, No of times we failed reach the consensus.
+        uint16_t non_consensus_rounds = 0;
+
         contract_execution_args(util::buffer_store &user_input_store)
             : user_input_store(user_input_store),
               npl_messages(MAX_NPL_MSG_QUEUE_SIZE),
