@@ -122,11 +122,9 @@ namespace consensus
         // arived ones and expired ones.
         revise_candidate_proposals(was_in_sync);
 
-        bool execute_fallback = false;
-
         // Attempt to close the ledger after scanning last round stage 3 proposals.
         if (ctx.stage == 0 && was_in_sync)
-            execute_fallback = !attempt_ledger_close();
+            attempt_ledger_close();
 
         // Get current lcl, state, patch, primary shard and raw shard info.
         util::sequence_hash lcl_id = ledger::ctx.get_lcl_id();
@@ -206,6 +204,7 @@ namespace consensus
             {
                 ctx.stage = 0;
                 ctx.unreliable_votes_attempts++;
+                ctx.non_consensus_rounds++;
 
                 // If we get too many consecutive unreliable vote rounds, then we perform time config sniffing just in case the unreliable votes
                 // are caused because our roundtime config information is different from other nodes.
@@ -215,11 +214,13 @@ namespace consensus
                     ctx.unreliable_votes_attempts = 0;
                 }
 
-                execute_fallback = true;
+                if (execute_contract_in_fallback(cur_stage, lcl_id))
+                    apply_consensed_patch_file_changes();
             }
             else
             {
                 ctx.unreliable_votes_attempts = 0;
+                ctx.non_consensus_rounds = 0;
 
                 if (new_vote_status == status::VOTE_STATUS::SYNCED)
                 {
@@ -236,9 +237,6 @@ namespace consensus
                     }
                 }
             }
-
-            if (execute_fallback && execute_contract_in_fallback(cur_stage, lcl_id))
-                apply_consensed_patch_file_changes();
 
             // We have finished a consensus stage.
             // Transition to next stage. (if at stage 3 go to next round stage 0)
@@ -299,10 +297,10 @@ namespace consensus
     }
 
     /**
-     * Scan the stage 3 proposals from last round and create the ledger if all majority criteria are met. 
+     * Scan the stage 3 proposals from last round and create the ledger if all majority criteria are met.
      * @return true on successful ledger closure and false on failure.
      */
-    bool attempt_ledger_close()
+    void attempt_ledger_close()
     {
         uint32_t stage3_prop_count = 0;
         uint32_t winning_votes = 0;
@@ -316,12 +314,12 @@ namespace consensus
         {
             // We don't have enough stage 3 proposals to create a ledger.
             LOG_DEBUG << "Not enough stage 3 proposals to create a ledger. received:" << stage3_prop_count << " needed:" << min_votes_required;
-            return false;
+            return;
         }
         else if (winning_votes < min_votes_required)
         {
             LOG_INFO << "Cannot close ledger. Possible fork condition. won:" << winning_votes << " needed:" << min_votes_required;
-            return false;
+            return;
         }
 
         LOG_DEBUG << "Closing ledger with proposal:" << winning_prop.root_hash;
@@ -338,7 +336,7 @@ namespace consensus
             cleanup_consensed_user_inputs(consensed_users);
         }
 
-        return true;
+        return;
     }
 
     /**
@@ -1318,6 +1316,7 @@ namespace consensus
 
         // lcl to be passed to the contract.
         args.lcl_id = lcl_id;
+        args.non_consensus_rounds = ctx.non_consensus_rounds;
 
         uint32_t stage3_prop_count = 0;
         uint32_t winning_votes = 0;

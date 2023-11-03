@@ -302,15 +302,14 @@ namespace sc
             if (WIFEXITED(scstatus))
             {
                 ctx.exit_success = true;
-                LOG_DEBUG << "Contract process ended normally."
+                LOG_DEBUG << "Contract process ended normally. "
                           << "(" << mode << ")";
                 return 1;
             }
             else
             {
-                LOG_WARNING << "Contract process ended prematurely"
-                            << "ended prematurely."
-                            << "(" << mode << ")"
+                LOG_WARNING << "Contract process ended prematurely. "
+                            << "(" << mode << ") "
                             << "Exit code " << WEXITSTATUS(scstatus);
                 return -1;
             }
@@ -405,6 +404,11 @@ namespace sc
             os << ",\"lcl_seq_no\":" << ctx.args.lcl_id.seq_no
                << ",\"lcl_hash\":\"" << util::to_hex(ctx.args.lcl_id.hash.to_string_view())
                << "\",\"npl_fd\":" << ctx.npl_fds.scfd;
+        }
+
+        if (ctx.args.mode == EXECUTION_MODE::CONSENSUS_FALLBACK)
+        {
+            os << ",\"non_consensus_rounds\":" << ctx.args.non_consensus_rounds;
         }
 
         os << ",\"control_fd\":" << ctx.control_fds.scfd;
