@@ -67,22 +67,6 @@ async function main() {
         });
     })
 
-    // This will get fired when contract sends a read response.
-    hpc.on(HotPocket.events.contractReadResponse, (response) => {
-        const result = bson.deserialize(response);
-        if (result.type == "downloadResult") {
-            if (result.status == "ok") {
-                fs.writeFileSync(result.fileName, result.content.buffer);
-                console.log("File " + result.fileName + " downloaded to current directory.");
-            }
-            else {
-                console.log("File " + result.fileName + " download failed. reason: " + result.status);
-            }
-        }
-        else {
-            console.log("Unknown read request result.");
-        }
-    })
 
     console.log("Ready to accept inputs.");
 
@@ -122,10 +106,16 @@ async function main() {
             else if (inp.startsWith("download ")) {
 
                 const fileName = inp.substr(9);
-                hpc.sendContractReadRequest(bson.serialize({
+                hpc.submitContractReadRequest(bson.serialize({
                     type: "download",
                     fileName: fileName
-                }));
+                })).then(reply => {
+                    const res = bson.deserialize(reply);
+                    if (res && res.type === 'downloadResult' && res.status === 'ok')
+                        console.log(res.content);
+                    else
+                        console.log(res);
+                });
             }
             else {
                 console.log("Invalid command. [upload <local path> | delete <filename> | download <filename>] expected.")

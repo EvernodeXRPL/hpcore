@@ -6,7 +6,7 @@ const filename = "file.dat";
 const autofilePrefix = "autofile";
 const autofileSize = 1 * 1024 * 1024;
 
-const diagnosticContract = async (ctx) => {
+const diagnosticContract = async (ctx, readOnly = false) => {
 
     // Collection of per-user promises to wait for. Each promise completes when inputs for that user is processed.
     const userHandlers = [];
@@ -134,5 +134,16 @@ const diagnosticContract = async (ctx) => {
 
 }
 
+const fallback = async (ctx) => {
+    console.log(`Fallback mode: Non consensus execution count: ${ctx.nonConsensusRounds}`);
+}
+
+
 const hpc = new HotPocket.Contract();
-hpc.init(diagnosticContract);
+hpc.init({
+    "consensus": async (ctx) => { await diagnosticContract(ctx); },
+    "consensus_fallback": async (ctx) => { await fallback(ctx); },
+    "read_req": async (ctx) => { await diagnosticContract(ctx, true); }
+});
+
+
