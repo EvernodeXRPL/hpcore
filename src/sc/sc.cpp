@@ -91,7 +91,7 @@ namespace sc
         ctx.working_dir = contract_fs.physical_path(ctx.args.hpfs_session_name, STATE_DIR_PATH);
 
         // Setup contract output log file paths (for consensus execution only).
-        if (conf::cfg.contract.log.enable && !ctx.args.readonly)
+        if (conf::cfg.contract.log.enable && ctx.args.mode == EXECUTION_MODE::CONSENSUS)
         {
             // We keep appending logs to the same out/err files (Rollout log files are maintained according to the hp config settings).
             const std::string prefix = ctx.args.hpfs_session_name;
@@ -122,14 +122,17 @@ namespace sc
         // (Note: User socket will only be used for contract output only. For feeding user inputs we are using a memfd.)
         if (create_iosockets_for_fdmap(ctx.user_fds, ctx.args.userbufs) == -1 ||
             create_iosockets(ctx.control_fds, SOCK_SEQPACKET) == -1 ||
-            (!ctx.args.readonly && create_iosockets(ctx.npl_fds, SOCK_SEQPACKET) == -1))
+            (ctx.args.mode != EXECUTION_MODE::READ_REQUEST && create_iosockets(ctx.npl_fds, SOCK_SEQPACKET) == -1))
         {
             cleanup_fds(ctx);
             stop_hpfs_session(ctx);
             return -1;
         }
 
-        LOG_DEBUG << "Starting contract process..." << (ctx.args.readonly ? " (rdonly)" : "");
+        std::string_view mode = ctx.args.get_exec_mode_str();
+
+        LOG_DEBUG << "Starting contract process..."
+                  << "(" << mode << ")";
         int ret = 0;
 
         const pid_t pid = fork();
@@ -157,14 +160,18 @@ namespace sc
 
             if (insert_demarkation_line(ctx) == -1)
             {
-                std::cerr << errno << ": Contract process inserting demarkation line failed." << (ctx.args.readonly ? " (rdonly)" : "") << "\n";
+                std::cerr << errno << ": Contract process inserting demarkation line failed."
+                          << "(" << mode << ")"
+                          << "\n";
                 exit(1);
             }
 
             // Set process resource limits.
             if (set_process_rlimits() == -1)
             {
-                std::cerr << errno << ": Failed to set contract process resource limits." << (ctx.args.readonly ? " (rdonly)" : "") << "\n";
+                std::cerr << errno << ": Failed to set contract process resource limits."
+                          << "(" << mode << ")"
+                          << "\n";
                 exit(1);
             }
 
@@ -195,7 +202,9 @@ namespace sc
 
             if (chdir(ctx.working_dir.c_str()) == -1)
             {
-                std::cerr << errno << ": Contract process chdir failed." << (ctx.args.readonly ? " (rdonly)" : "") << "\n";
+                std::cerr << errno << ": Contract process chdir failed."
+                          << "(" << mode << ")"
+                          << "\n";
                 exit(1);
             }
 
@@ -203,27 +212,32 @@ namespace sc
             // (Must set gid before setting uid)
             if (!conf::cfg.contract.run_as.empty() && (setgid(conf::cfg.contract.run_as.gid) == -1 || setuid(conf::cfg.contract.run_as.uid) == -1))
             {
-                std::cerr << errno << ": Contract process setgid/uid failed." << (ctx.args.readonly ? " (rdonly)" : "") << "\n";
+                std::cerr << errno << ": Contract process setgid/uid failed."
+                          << "(" << mode << ")"
+                          << "\n";
                 exit(1);
             }
 
             // We do not create logs files in readonly execution due to the difficulty in managing the log file limits.
-            (conf::cfg.contract.log.enable && !ctx.args.readonly)
+            (conf::cfg.contract.log.enable && ctx.args.mode == EXECUTION_MODE::CONSENSUS)
                 ? execv_and_redirect_logs(execv_len - 1, (const char **)execv_args, ctx.stdout_file, ctx.stderr_file, (const char **)env_args)
                 : execve(execv_args[0], execv_args, env_args);
-            std::cerr << errno << ": Contract process execve() failed." << (ctx.args.readonly ? " (rdonly)" : "") << "\n";
+            std::cerr << errno << ": Contract process execve() failed."
+                      << "(" << mode << ")"
+                      << "\n";
             exit(1);
         }
         else
         {
-            LOG_ERROR << errno << ": fork() failed when starting contract process." << (ctx.args.readonly ? " (rdonly)" : "");
+            LOG_ERROR << errno << ": fork() failed when starting contract process."
+                      << "(" << mode << ")";
             ret = -1;
         }
 
         cleanup_fds(ctx);
 
         // If the consensus contact finished executing successfully, run the post-exec.sh script if it exists.
-        if (ctx.exit_success && !ctx.args.readonly && run_post_exec_script(ctx) == -1)
+        if (ctx.exit_success && ctx.args.mode == EXECUTION_MODE::CONSENSUS && run_post_exec_script(ctx) == -1)
             ret = -1;
 
         if (stop_hpfs_session(ctx) == -1)
@@ -283,16 +297,20 @@ namespace sc
         else // Child has exited
         {
             ctx.contract_pid = 0;
+            std::string_view mode = ctx.args.get_exec_mode_str();
 
             if (WIFEXITED(scstatus))
             {
                 ctx.exit_success = true;
-                LOG_DEBUG << "Contract process" << (ctx.args.readonly ? " (rdonly)" : "") << " ended normally.";
+                LOG_DEBUG << "Contract process ended normally. "
+                          << "(" << mode << ")";
                 return 1;
             }
             else
             {
-                LOG_WARNING << "Contract process" << (ctx.args.readonly ? " (rdonly)" : "") << " ended prematurely. Exit code " << WEXITSTATUS(scstatus);
+                LOG_WARNING << "Contract process ended prematurely. "
+                            << "(" << mode << ") "
+                            << "Exit code " << WEXITSTATUS(scstatus);
                 return -1;
             }
         }
@@ -303,11 +321,11 @@ namespace sc
      */
     int start_hpfs_session(execution_context &ctx)
     {
-        if (!ctx.args.readonly)
+        if (ctx.args.mode != EXECUTION_MODE::READ_REQUEST)
             ctx.args.hpfs_session_name = hpfs::RW_SESSION_NAME;
 
-        return ctx.args.readonly ? contract_fs.start_ro_session(ctx.args.hpfs_session_name, false)
-                                 : contract_fs.acquire_rw_session();
+        return ctx.args.mode == EXECUTION_MODE::READ_REQUEST ? contract_fs.start_ro_session(ctx.args.hpfs_session_name, false)
+                                                             : contract_fs.acquire_rw_session();
     }
 
     /**
@@ -315,7 +333,7 @@ namespace sc
      */
     int stop_hpfs_session(execution_context &ctx)
     {
-        if (ctx.args.readonly)
+        if (ctx.args.mode == EXECUTION_MODE::READ_REQUEST)
         {
             return contract_fs.stop_ro_session(ctx.args.hpfs_session_name);
         }
@@ -357,7 +375,7 @@ namespace sc
      *   "public_key": "<this node's hex public key>",
      *   "private_key": "<this node's hex private key>",
      *   "timestamp": <this node's timestamp (unix milliseconds)>,
-     *   "readonly": <true|false>,
+     *   "mode": <consensus|consensus_fallback|read_req>,
      *   "lcl_seq_no": "<lcl sequence no>",
      *   "lcl_hex": "<lcl hash hex>",
      *   "control_fd": fd,
@@ -367,7 +385,7 @@ namespace sc
      *   "unl":[ "<pkhex>", ... ]
      * }
      */
-    int write_contract_args(const execution_context &ctx, const int user_inputs_fd)
+    int write_contract_args(execution_context &ctx, const int user_inputs_fd)
     {
         // Populate the json string with contract args.
         // We don't use a JSON parser here because it's lightweight to contrstuct the
@@ -379,13 +397,18 @@ namespace sc
            << "\",\"public_key\":\"" << conf::cfg.node.public_key_hex
            << "\",\"private_key\":\"" << conf::cfg.node.private_key_hex
            << "\",\"timestamp\":" << ctx.args.time
-           << ",\"readonly\":" << (ctx.args.readonly ? "true" : "false");
+           << ",\"mode\":\"" << ctx.args.get_exec_mode_str() << "\"";
 
-        if (!ctx.args.readonly)
+        if (ctx.args.mode != EXECUTION_MODE::READ_REQUEST)
         {
             os << ",\"lcl_seq_no\":" << ctx.args.lcl_id.seq_no
                << ",\"lcl_hash\":\"" << util::to_hex(ctx.args.lcl_id.hash.to_string_view())
                << "\",\"npl_fd\":" << ctx.npl_fds.scfd;
+        }
+
+        if (ctx.args.mode == EXECUTION_MODE::CONSENSUS_FALLBACK)
+        {
+            os << ",\"non_consensus_rounds\":" << ctx.args.non_consensus_rounds;
         }
 
         os << ",\"control_fd\":" << ctx.control_fds.scfd;
@@ -435,11 +458,19 @@ namespace sc
 
         // We record the start time of the monitoring thread to track the contract execution timeout.
         const uint64_t start_time = util::get_epoch_milliseconds();
-        const uint64_t exec_timeout = conf::cfg.contract.round_limits.exec_timeout;
+        // If this is in fallback mode, we should terminate the contract before the given timeout.
+        const uint64_t exec_timeout = ctx.args.mode == EXECUTION_MODE::CONSENSUS_FALLBACK ? (ctx.args.end_before - start_time) : conf::cfg.contract.round_limits.exec_timeout;
+
+        // If this is in fallback mode, check wether we haven't passed the round end. If not, do not execute.
+        if (ctx.args.mode == EXECUTION_MODE::CONSENSUS_FALLBACK && start_time >= ctx.args.end_before)
+        {
+            LOG_INFO << "Contract process end time has passed.";
+            return;
+        }
 
         // Prepare output poll fd list.
-        // User out fds + control fd + NPL fd (NPL fd not available in readonly mode)
-        const size_t out_fd_count = ctx.user_fds.size() + (ctx.args.readonly ? 1 : 2);
+        // User out fds + control fd + NPL fd (NPL fd not available in read request mode)
+        const size_t out_fd_count = ctx.user_fds.size() + (ctx.args.mode == EXECUTION_MODE::READ_REQUEST ? 1 : 2);
         const size_t control_fd_idx = ctx.user_fds.size();
         const size_t npl_fd_idx = control_fd_idx + 1;
         struct pollfd out_fds[out_fd_count];
@@ -480,7 +511,7 @@ namespace sc
 
             // Attempt to read messages from contract (regardless of contract terminated or not).
             const int control_read_res = read_control_outputs(ctx, out_fds[control_fd_idx]);
-            const int npl_read_res = ctx.args.readonly ? 0 : read_npl_outputs(ctx, &out_fds[npl_fd_idx]);
+            const int npl_read_res = ctx.args.mode == EXECUTION_MODE::READ_REQUEST ? 0 : read_npl_outputs(ctx, &out_fds[npl_fd_idx]);
             const int user_read_res = read_contract_fdmap_outputs(ctx.user_fds, out_fds, ctx.args.userbufs);
             messages_read = (control_read_res + npl_read_res + user_read_res) > 0;
 
@@ -495,7 +526,7 @@ namespace sc
             {
                 // Reaching here means the contract is still running. Attempt to write any queued messages to the contract.
 
-                const int npl_write_res = ctx.args.readonly ? 0 : write_npl_messages(ctx);
+                const int npl_write_res = ctx.args.mode == EXECUTION_MODE::READ_REQUEST ? 0 : write_npl_messages(ctx);
                 if (npl_write_res == -1)
                     break;
 
@@ -550,24 +581,31 @@ namespace sc
             util::fork_detach();
 
             const std::string script_args = std::to_string(ctx.args.lcl_id.seq_no) + " " + util::to_hex(ctx.args.lcl_id.hash.to_string_view());
+            std::string_view mode = ctx.args.get_exec_mode_str();
 
             // We set current working dir and pass command line arg to the script.
             char *argv[] = {(char *)POST_EXEC_SCRIPT, (char *)script_args.data(), (char *)NULL};
             if (chdir(ctx.working_dir.c_str()) == -1)
             {
-                std::cerr << errno << ": Post-exec script chdir failed." << (ctx.args.readonly ? " (rdonly)" : "") << "\n";
+                std::cerr << errno << ": Post-exec script chdir failed."
+                          << "(" << mode << ")"
+                          << "\n";
                 exit(1);
             }
             // Set user execution user/group if specified (Must set gid before setting uid).
             if (!conf::cfg.contract.run_as.empty() && (setgid(conf::cfg.contract.run_as.gid) == -1 || setuid(conf::cfg.contract.run_as.uid) == -1))
             {
-                std::cerr << errno << ": Post-exec script setgid/uid failed." << (ctx.args.readonly ? " (rdonly)" : "") << "\n";
+                std::cerr << errno << ": Post-exec script setgid/uid failed."
+                          << "(" << mode << ")"
+                          << "\n";
                 exit(1);
             }
 
             conf::cfg.contract.log.enable ? execv_and_redirect_logs(2, (const char **)argv, ctx.stdout_file, ctx.stderr_file)
                                           : execv(argv[0], argv);
-            std::cerr << errno << ": Post-exec script execv() failed." << (ctx.args.readonly ? " (rdonly)" : "") << "\n";
+            std::cerr << errno << ": Post-exec script execv() failed."
+                      << "(" << mode << ")"
+                      << "\n";
             exit(1);
         }
         else if (pid > 0)
@@ -904,7 +942,7 @@ namespace sc
      */
     int insert_demarkation_line(execution_context &ctx)
     {
-        if (!conf::cfg.contract.log.enable || ctx.args.readonly)
+        if (!conf::cfg.contract.log.enable || ctx.args.mode != EXECUTION_MODE::CONSENSUS)
             return 0;
 
         // The permissions of a created file are restricted by the process's current umask, so group and world write are always disabled by default.
@@ -1066,7 +1104,7 @@ namespace sc
 
     void close_unused_fds(execution_context &ctx, const bool is_hp)
     {
-        if (!ctx.args.readonly)
+        if (ctx.args.mode != EXECUTION_MODE::READ_REQUEST)
         {
             close_unused_socket_fds(is_hp, ctx.npl_fds);
         }

@@ -173,12 +173,18 @@ namespace conf
         size_t max_file_count = 0;      // Max no. of log files to keep.
     };
 
+    struct fallback_config
+    {
+        bool execute = false; // Whether or not to execute the contract on fallback mode.
+    };
+
     struct consensus_config
     {
         MODE mode;                             // If PUBLIC, consensus are broadcasted to non-unl nodes as well.
         std::atomic<uint32_t> roundtime = 0;   // Consensus round time in ms (max: 3,600,000).
         std::atomic<uint32_t> stage_slice = 0; // Percentage slice of round time that stages 0,1,2 get (max: 33).
-        uint16_t threshold = 0;
+        uint16_t threshold = 0;                // The minimum percentage of votes for accepting a stage 3 proposal to create a ledger.
+        fallback_config fallback;              // Consensus fallback related configuration.
     };
 
     struct npl_config

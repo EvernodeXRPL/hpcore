@@ -12,8 +12,9 @@ namespace unl
 {
     struct node_stat
     {
-        uint32_t time_config = 0; // Roundtime config of this node.
-        uint64_t active_on = 0;   // Latest timestamp we received a proposal from this node.
+        uint32_t time_config = 0;   // Roundtime config of this node.
+        uint64_t active_on = 0;     // Latest timestamp we received a proposal from this node.
+        util::sequence_hash lcl_id; // Current HotPocket lcl (seq no. and ledger hash hex)
     };
 
     std::map<std::string, node_stat> list; // List of binary pubkeys of UNL nodes and their statistics.
@@ -61,7 +62,7 @@ namespace unl
      * Check whether the given pubkey is in the unl list.
      * @param bin_pubkey Pubkey to check for existence.
      * @return Return true if the given pubkey is in the unl list.
-    */
+     */
     bool exists(const std::string &bin_pubkey)
     {
         std::shared_lock lock(unl_mutex);
@@ -70,7 +71,7 @@ namespace unl
 
     /**
      * Replace the unl list from the latest unl list from patch file.
-    */
+     */
     void update_unl_changes_from_patch()
     {
         bool is_unl_list_changed = false;
@@ -100,6 +101,7 @@ namespace unl
             if (itr != list.end())
             {
                 changes_made = true;
+                itr->second.lcl_id = p.lcl_id;
                 itr->second.active_on = p.recv_timestamp;
                 itr->second.time_config = p.time_config;
             }
@@ -210,7 +212,9 @@ namespace unl
 
             // Convert binary pubkey into hex.
             os << "\"" << util::to_hex(node->first) << "\":{"
-               << "\"active_on\":" << node->second.active_on
+               << "\"active_on\":" << node->second.active_on << ","
+               << "\"lcl_seq_no\":" << node->second.lcl_id.seq_no << ","
+               << "\"lcl_hash\":\"" << util::to_hex(node->second.lcl_id.hash.to_string_view()) << "\""
                << "}";
         }
         os << "}";
