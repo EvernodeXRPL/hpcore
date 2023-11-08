@@ -80,8 +80,8 @@ namespace msg::usrmsg
     constexpr const char *MSGTYPE_SERVER_CHALLENGE_RESPONSE = "server_challenge_response";
     constexpr const char *MSGTYPE_CONTRACT_READ_REQUEST = "contract_read_request";
     constexpr const char *MSGTYPE_CONTRACT_READ_RESPONSE = "contract_read_response";
-    constexpr const char *MSGTYPE_HPSH_REQUEST = "hpsh_request";
-    constexpr const char *MSGTYPE_HPSH_RESPONSE = "hpsh_response";
+    constexpr const char *MSGTYPE_DEBUG_SHELL_REQUEST = "debug_shell_request";
+    constexpr const char *MSGTYPE_DEBUG_SHELL_RESPONSE = "debug_shell_response";
     constexpr const char *MSGTYPE_CONTRACT_INPUT = "contract_input";
     constexpr const char *MSGTYPE_CONTRACT_INPUT_STATUS = "contract_input_status";
     constexpr const char *MSGTYPE_CONTRACT_OUTPUT = "contract_output";

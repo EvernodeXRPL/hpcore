@@ -208,11 +208,11 @@ namespace conf
         std::vector<std::string> runtime_env_args;     // Contract environment variables.
     };
 
-    struct hpsh_config
+    struct debug_shell_config
     {
-        bool enabled = false;        // Whether or not to enable hpsh.
-        ugid run_as;                 // The user/groups id to execute the hpsh as.
-        std::set<std::string> users; // List of users who are allowed to perform hpsh (list of binary public keys).
+        bool enabled = false;        // Whether or not to enable debug_shell.
+        ugid run_as;                 // The user/groups id to execute the debug_shell as.
+        std::set<std::string> users; // List of users who are allowed to perform debug_shell (list of binary public keys).
     };
 
     struct user_config
@@ -270,7 +270,7 @@ namespace conf
         std::string exe_dir;       // HotPocket executable dir.
         std::string hpws_exe_path; // hpws executable file path.
         std::string hpfs_exe_path; // hpfs executable file path.
-        std::string hpsh_exe_path; // hpsh executable path file
+        std::string debug_shell_exe_path; // debug_shell executable path file
 
         std::string contract_dir;            // Contract base directory full path.
         std::string contract_hpfs_dir;       // Contract hpfs metadata dir (The location of hpfs log file).
@@ -324,7 +324,7 @@ namespace conf
         hpfs_config hpfs;
         log_config log;
         health_config health; // For debugging only. Not included in the config file.
-        hpsh_config hpsh;
+        debug_shell_config debug_shell;
     };
 
     // Global contract context struct exposed to the application.

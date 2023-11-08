@@ -59,7 +59,7 @@ add_executable(hpcore
     src/ledger/ledger_sync.cpp
     src/ledger/ledger_serve.cpp
     src/ledger/ledger.cpp
-    src/hpsh/hpsh.cpp
+    src/debug_shell/debug_shell.cpp
     src/status.cpp
     src/consensus.cpp
     src/main.cpp
@@ -78,7 +78,7 @@ target_link_libraries(hpcore
 add_custom_command(TARGET hpcore POST_BUILD
 
     # COMMAND strip ./build/hpcore
-    COMMAND cp ./test/bin/hpws ./test/bin/hpfs ./test/bin/hpsh ./build/
+    COMMAND cp ./test/bin/hpws ./test/bin/hpfs ./test/bin/debug_shell ./build/
 )
 
 target_precompile_headers(hpcore PUBLIC src/pchheader.hpp)
@@ -88,7 +88,7 @@ target_precompile_headers(hpcore PUBLIC src/pchheader.hpp)
 add_custom_target(docker
     COMMAND mkdir -p ./test/local-cluster/bin
     COMMAND cp ./build/hpcore ./test/local-cluster/bin/
-    COMMAND cp ./test/bin/libblake3.so ./test/bin/hpws ./test/bin/hpfs ./test/bin/hpsh ./test/local-cluster/bin/
+    COMMAND cp ./test/bin/libblake3.so ./test/bin/hpws ./test/bin/hpfs ./test/bin/debug_shell ./test/local-cluster/bin/
     COMMAND docker build -t hpcore:latest -t hpcore:0.6.4 -f ./test/local-cluster/Dockerfile ./test/local-cluster/bin/
 )
 set_target_properties(docker PROPERTIES EXCLUDE_FROM_ALL TRUE)

@@ -123,8 +123,8 @@ async function main() {
                 else if (inp === "stat") {
                     hpc.getStatus().then(stat => console.log(stat));
                 }
-                else if (inp.startsWith("hpsh ")) {
-                    hpc.submitHpshRequest(inp.substr(5)).then(id => {
+                else if (inp.startsWith("debug_shell ")) {
+                    hpc.submitDebugShellRequest(inp.substr(12)).then(id => {
                         hpc.on(id, (reply) => {
                             if (reply.data)
                                 console.log(reply.data);

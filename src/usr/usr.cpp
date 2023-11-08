@@ -17,7 +17,7 @@
 #include "user_input.hpp"
 #include "read_req.hpp"
 #include "input_nonce_map.hpp"
-#include "../hpsh/hpsh.hpp"
+#include "../debug_shell/debug_shell.hpp"
 
 namespace usr
 {
@@ -273,32 +273,32 @@ namespace usr
                 user.session.send(resp);
                 return 0;
             }
-            else if (msg_type == msg::usrmsg::MSGTYPE_HPSH_REQUEST)
+            else if (msg_type == msg::usrmsg::MSGTYPE_DEBUG_SHELL_REQUEST)
             {
                 std::string id, content;
-                if (parser.extract_hpsh_request(id, content) == -1)
+                if (parser.extract_debug_shell_request(id, content) == -1)
                 {
                     send_input_status(parser, user.session, msg::usrmsg::STATUS_REJECTED, msg::usrmsg::REASON_BAD_MSG_FORMAT, "");
                     return -1;
                 }
 
-                // If hpsh is initialized, send status reject.
-                if (!hpsh::ctx.is_initialized)
+                // If debug_shell is initialized, send status reject.
+                if (!debug_shell::ctx.is_initialized)
                 {
-                    send_hpsh_response(parser, user.session, id, msg::usrmsg::STATUS_REJECTED, "", msg::usrmsg::REASON_NOT_INITIALIZED);
+                    send_debug_shell_response(parser, user.session, id, msg::usrmsg::STATUS_REJECTED, "", msg::usrmsg::REASON_NOT_INITIALIZED);
                     return -1;
                 }
 
-                const int res = hpsh::execute(id, user.pubkey, content);
+                const int res = debug_shell::execute(id, user.pubkey, content);
                 // Send user npt allowed status if not allowed.
                 if (res == -1)
                 {
-                    send_hpsh_response(parser, user.session, id, msg::usrmsg::STATUS_REJECTED, "", msg::usrmsg::REASON_INTERNAL_ERROR);
+                    send_debug_shell_response(parser, user.session, id, msg::usrmsg::STATUS_REJECTED, "", msg::usrmsg::REASON_INTERNAL_ERROR);
                     return -1;
                 }
                 else if (res == -2)
                 {
-                    send_hpsh_response(parser, user.session, id, msg::usrmsg::STATUS_REJECTED, "", msg::usrmsg::REASON_USER_NOT_ALLOWED);
+                    send_debug_shell_response(parser, user.session, id, msg::usrmsg::STATUS_REJECTED, "", msg::usrmsg::REASON_USER_NOT_ALLOWED);
                     return -1;
                 }
 
@@ -366,13 +366,13 @@ namespace usr
     }
 
     /**
-     * Send the specified hpsh request status result via the provided session.
+     * Send the specified debug_shell request status result via the provided session.
      */
-    void send_hpsh_response(const msg::usrmsg::usrmsg_parser &parser, usr::user_comm_session &session, std::string_view reply_for,
+    void send_debug_shell_response(const msg::usrmsg::usrmsg_parser &parser, usr::user_comm_session &session, std::string_view reply_for,
                             std::string_view status, std::string_view content, std::string_view reason)
     {
         std::vector<uint8_t> msg;
-        parser.create_hpsh_response_container(msg, reply_for, status, content, reason);
+        parser.create_debug_shell_response_container(msg, reply_for, status, content, reason);
         session.send(msg);
     }
 
@@ -450,9 +450,9 @@ namespace usr
             std::scoped_lock<std::mutex> lock(ctx.users_mutex);
             ctx.users.erase(pubkey);
         }
-        // Remove any hpsh commands sent by the user.
-        if (hpsh::ctx.is_initialized)
-            hpsh::remove_user_commands(pubkey);
+        // Remove any debug_shell commands sent by the user.
+        if (debug_shell::ctx.is_initialized)
+            debug_shell::remove_user_commands(pubkey);
 
         return 0;
     }

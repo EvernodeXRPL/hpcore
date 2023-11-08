@@ -326,11 +326,11 @@ namespace msg::usrmsg::json
     }
 
     /**
-     * Constructs a hpsh response message.
+     * Constructs a debug_shell response message.
      * @param msg Buffer to construct the generated json message string into.
      *            Message format:
      *            {
-     *              "type": "hpsh_response",
+     *              "type": "debug_shell_response",
      *              "reply_for": "<corresponding request id>",
      *              "status": "<accepted|rejected>",
      *              "content": "<response>"
@@ -338,13 +338,13 @@ namespace msg::usrmsg::json
      *            }
      * @param content The contract binary output content to be put in the message.
      */
-    void create_hpsh_response_container(std::vector<uint8_t> &msg, std::string_view reply_for, std::string_view status, std::string_view content, std::string_view reason)
+    void create_debug_shell_response_container(std::vector<uint8_t> &msg, std::string_view reply_for, std::string_view status, std::string_view content, std::string_view reason)
     {
         msg.reserve(content.size() + 256);
         msg += "{\"";
         msg += msg::usrmsg::FLD_TYPE;
         msg += SEP_COLON;
-        msg += msg::usrmsg::MSGTYPE_HPSH_RESPONSE;
+        msg += msg::usrmsg::MSGTYPE_DEBUG_SHELL_RESPONSE;
         msg += SEP_COMMA;
         msg += msg::usrmsg::FLD_REPLY_FOR;
         msg += SEP_COLON;
@@ -935,29 +935,29 @@ namespace msg::usrmsg::json
     }
 
     /**
-     * Extracts a hpsh input message sent by user.
+     * Extracts a debug_shell input message sent by user.
      *
      * @param extracted_content The content to be passed to the, extracted from the message.
-     * @param d The json document holding the hpsh input message.
+     * @param d The json document holding the debug_shell input message.
      *          Accepted signed input container format:
      *          {
-     *            "type": "hpsh_request",
+     *            "type": "debug_shell_request",
      *            "id": "<any string>",
      *            "content": "<any string>"
      *          }
      * @return 0 on successful extraction. -1 for failure.
      */
-    int extract_hpsh_request(std::string &extracted_id, std::string &extracted_content, const jsoncons::json &d)
+    int extract_debug_shell_request(std::string &extracted_id, std::string &extracted_content, const jsoncons::json &d)
     {
         if (!d.contains(msg::usrmsg::FLD_ID) || !d[msg::usrmsg::FLD_ID].is<std::string>())
         {
-            LOG_DEBUG << "Hpsh input 'id' field missing or invalid.";
+            LOG_DEBUG << "DebugShell input 'id' field missing or invalid.";
             return -1;
         }
 
         if (!d.contains(msg::usrmsg::FLD_CONTENT) || !d[msg::usrmsg::FLD_CONTENT].is<std::string>())
         {
-            LOG_DEBUG << "Hpsh input 'content' field missing or invalid.";
+            LOG_DEBUG << "DebugShell input 'content' field missing or invalid.";
             return -1;
         }
 

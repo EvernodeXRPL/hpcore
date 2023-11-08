@@ -95,7 +95,7 @@ namespace usr
     void send_input_status_responses(const std::unordered_map<std::string, std::vector<input_status_response>> &responses,
                                      const uint64_t ledger_seq_no = 0, const util::h32 &ledger_hash = util::h32_empty);
 
-    void send_hpsh_response(const msg::usrmsg::usrmsg_parser &parser, usr::user_comm_session &session, std::string_view reply_for,
+    void send_debug_shell_response(const msg::usrmsg::usrmsg_parser &parser, usr::user_comm_session &session, std::string_view reply_for,
                             std::string_view status, std::string_view content, std::string_view reason = "");
 
     void send_input_status(const msg::usrmsg::usrmsg_parser &parser, usr::user_comm_session &session,

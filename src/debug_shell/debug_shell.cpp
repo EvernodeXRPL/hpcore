@@ -1,18 +1,18 @@
-#include "hpsh.hpp"
+#include "debug_shell.hpp"
 
-namespace hpsh
+namespace debug_shell
 {
-    constexpr uint8_t HPSH_CTRL_TERMINATE = 0;
-    constexpr uint8_t HPSH_CTRL_SH = 1;
+    constexpr uint8_t DEBUG_SHELL_CTRL_TERMINATE = 0;
+    constexpr uint8_t DEBUG_SHELL_CTRL_SH = 1;
     constexpr uint32_t POLL_TIMEOUT = 1000;
     constexpr uint32_t READ_BUFFER_SIZE = 128 * 1024;
 
-    hpsh_context ctx;
+    debug_shell_context ctx;
 
     int init()
     {
         // Do not initialize if disabled in config.
-        if (!conf::cfg.hpsh.enabled)
+        if (!conf::cfg.debug_shell.enabled)
             return 0;
 
         // Create a socket pair for the control channel.
@@ -22,23 +22,23 @@ namespace hpsh
             return -1;
         }
 
-        // Create a child process for hpsh process
-        ctx.hpsh_pid = fork();
-        if (ctx.hpsh_pid == -1)
+        // Create a child process for debug_shell process
+        ctx.debug_shell_pid = fork();
+        if (ctx.debug_shell_pid == -1)
         {
             LOG_ERROR << errno << ": Error forking hpfs process.";
             close(ctx.control_fds[0]);
             close(ctx.control_fds[1]);
             return -1;
         }
-        else if (ctx.hpsh_pid > 0)
+        else if (ctx.debug_shell_pid > 0)
         {
             // Close child end of socket and start the watcher thread.
             close(ctx.control_fds[0]);
 
             ctx.watcher_thread = std::thread(response_watcher);
         }
-        else if (ctx.hpsh_pid == 0)
+        else if (ctx.debug_shell_pid == 0)
         {
             util::fork_detach();
 
@@ -48,20 +48,20 @@ namespace hpsh
             fd_str.resize(10);
             snprintf(fd_str.data(), 10, "%d", ctx.control_fds[0]);
 
-            char *argv[] = {(char *)conf::ctx.hpsh_exe_path.data(), fd_str.data(), NULL};
+            char *argv[] = {(char *)conf::ctx.debug_shell_exe_path.data(), fd_str.data(), NULL};
 
-            // Just before we execv the hpsh binary, we set user execution user/group if specified in hp config.
+            // Just before we execv the debug_shell binary, we set user execution user/group if specified in hp config.
             // (Must set gid before setting uid)
-            if (!conf::cfg.hpsh.run_as.empty() && (setgid(conf::cfg.hpsh.run_as.gid) == -1 || setuid(conf::cfg.hpsh.run_as.uid) == -1))
+            if (!conf::cfg.debug_shell.run_as.empty() && (setgid(conf::cfg.debug_shell.run_as.gid) == -1 || setuid(conf::cfg.debug_shell.run_as.uid) == -1))
             {
-                std::cerr << errno << ": Hpsh process setgid/uid failed."
+                std::cerr << errno << ": DebugShell process setgid/uid failed."
                           << "\n";
                 exit(1);
             }
 
             execv(argv[0], argv);
 
-            std::cerr << errno << ": Error executing hpsh."
+            std::cerr << errno << ": Error executing debug_shell."
                       << "\n";
 
             close(ctx.control_fds[0]);
@@ -70,7 +70,7 @@ namespace hpsh
 
         ctx.is_initialized = true;
 
-        LOG_INFO << "Hpsh handler started.";
+        LOG_INFO << "DebugShell handler started.";
 
         return 0;
     }
@@ -78,12 +78,12 @@ namespace hpsh
     void deinit()
     {
         // This is not initialized if disabled in config.
-        if (!conf::cfg.hpsh.enabled)
+        if (!conf::cfg.debug_shell.enabled)
             return;
 
         ctx.is_shutting_down = true;
 
-        if (ctx.hpsh_pid > 0)
+        if (ctx.debug_shell_pid > 0)
             send_terminate_message();
 
         // Joining consensus processing thread.
@@ -97,24 +97,24 @@ namespace hpsh
             close(command.out_fd);
         }
 
-        if (ctx.hpsh_pid > 0)
+        if (ctx.debug_shell_pid > 0)
         {
-            // Check if the hpsh has exited voluntarily.
-            if (check_hpsh_exited(false) == 0)
+            // Check if the debug_shell has exited voluntarily.
+            if (check_debug_shell_exited(false) == 0)
             {
-                // Issue kill signal to kill the hpsh process.
-                kill(ctx.hpsh_pid, SIGKILL);
-                check_hpsh_exited(true); // Blocking wait until exit.
+                // Issue kill signal to kill the debug_shell process.
+                kill(ctx.debug_shell_pid, SIGKILL);
+                check_debug_shell_exited(true); // Blocking wait until exit.
             }
         }
 
-        LOG_INFO << "Hpsh handler stopped.";
+        LOG_INFO << "DebugShell handler stopped.";
     }
 
-    int check_hpsh_exited(const bool block)
+    int check_debug_shell_exited(const bool block)
     {
         int scstatus = 0;
-        const int wait_res = waitpid(ctx.hpsh_pid, &scstatus, block ? 0 : WNOHANG);
+        const int wait_res = waitpid(ctx.debug_shell_pid, &scstatus, block ? 0 : WNOHANG);
 
         if (wait_res == 0) // Child still running.
         {
@@ -122,22 +122,22 @@ namespace hpsh
         }
         if (wait_res == -1)
         {
-            LOG_ERROR << errno << ": Hpsh process waitpid error. pid:" << ctx.hpsh_pid;
-            ctx.hpsh_pid = 0;
+            LOG_ERROR << errno << ": DebugShell process waitpid error. pid:" << ctx.debug_shell_pid;
+            ctx.debug_shell_pid = 0;
             return -1;
         }
         else // Child has exited
         {
-            ctx.hpsh_pid = 0;
+            ctx.debug_shell_pid = 0;
 
             if (WIFEXITED(scstatus))
             {
-                LOG_DEBUG << "Hpsh process ended normally.";
+                LOG_DEBUG << "DebugShell process ended normally.";
                 return 1;
             }
             else
             {
-                LOG_WARNING << "Hpsh process ended prematurely. Exit code " << WEXITSTATUS(scstatus);
+                LOG_WARNING << "DebugShell process ended prematurely. Exit code " << WEXITSTATUS(scstatus);
                 return -1;
             }
         }
@@ -145,7 +145,7 @@ namespace hpsh
 
     int send_terminate_message()
     {
-        return (write(ctx.control_fds[1], &HPSH_CTRL_TERMINATE, 1) < 0) ? -1 : 0;
+        return (write(ctx.control_fds[1], &DEBUG_SHELL_CTRL_TERMINATE, 1) < 0) ? -1 : 0;
     }
 
     void remove_user_commands(std::string_view user_pubkey)
@@ -173,18 +173,18 @@ namespace hpsh
         if (ctx.is_shutting_down)
             return -1;
 
-        if (conf::cfg.hpsh.users.find(std::string(user_pubkey)) == conf::cfg.hpsh.users.end())
+        if (conf::cfg.debug_shell.users.find(std::string(user_pubkey)) == conf::cfg.debug_shell.users.end())
         {
-            LOG_ERROR << "This user is not allowed to perform hpsh operations.";
+            LOG_ERROR << "This user is not allowed to perform debug_shell operations.";
             return -2;
         }
 
         std::string buffer;
         buffer.resize(message.size() + 1);
-        buffer[0] = HPSH_CTRL_SH;
+        buffer[0] = DEBUG_SHELL_CTRL_SH;
         memcpy(buffer.data() + 1, message.data(), message.size());
 
-        // Send the hpsh request header.
+        // Send the debug_shell request header.
         if (write(ctx.control_fds[1], buffer.data(), message.size() + 1) < 0)
         {
             LOG_ERROR << errno << ": Error writing header message to control fd.";
@@ -205,7 +205,7 @@ namespace hpsh
         // Skip if the message does not has file descriptor scm rights.
         if (cmsg == NULL || cmsg->cmsg_type != SCM_RIGHTS)
         {
-            LOG_ERROR << "Message sent on control line from hpsh has non-scm_rights.";
+            LOG_ERROR << "Message sent on control line from debug_shell has non-scm_rights.";
             return -1;
         }
 
@@ -214,7 +214,7 @@ namespace hpsh
 
         if (out_fd <= 0)
         {
-            LOG_ERROR << "Invalid file descriptor receives on control line from hpsh";
+            LOG_ERROR << "Invalid file descriptor receives on control line from debug_shell";
             return -1;
         }
 
@@ -279,7 +279,7 @@ namespace hpsh
                             {
                                 const usr::connected_user &user = user_itr->second;
                                 msg::usrmsg::usrmsg_parser parser(user.protocol);
-                                usr::send_hpsh_response(std::move(parser), user.session, itr->id, msg::usrmsg::STATUS_ACCEPTED, response);
+                                usr::send_debug_shell_response(std::move(parser), user.session, itr->id, msg::usrmsg::STATUS_ACCEPTED, response);
                                 response.clear();
                             }
                         }
@@ -290,7 +290,7 @@ namespace hpsh
                         }
                         else
                         {
-                            LOG_DEBUG << "Hpsh has closed the connection.";
+                            LOG_DEBUG << "DebugShell has closed the connection.";
                             remove = true;
                         }
                     }

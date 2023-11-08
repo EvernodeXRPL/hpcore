@@ -1,12 +1,12 @@
-#ifndef _HP_HPSH_
-#define _HP_HPSH_
+#ifndef _HP_DEBUG_SHELL_
+#define _HP_DEBUG_SHELL_
 
 #include "../pchheader.hpp"
 #include "../conf.hpp"
 #include "../usr/usr.hpp"
 #include "../msg/usrmsg_common.hpp"
 
-namespace hpsh
+namespace debug_shell
 {
     struct command_context
     {
@@ -15,24 +15,24 @@ namespace hpsh
         int out_fd;
     };
 
-    struct hpsh_context
+    struct debug_shell_context
     {
         std::mutex command_mutex;
         std::list<command_context> commands;
         int control_fds[2];
-        int hpsh_pid;
+        int debug_shell_pid;
         std::thread watcher_thread;
         bool is_shutting_down;
         bool is_initialized = false;
     };
 
-    extern hpsh_context ctx;
+    extern debug_shell_context ctx;
 
     int init();
 
     void deinit();
 
-    int check_hpsh_exited(const bool block);
+    int check_debug_shell_exited(const bool block);
 
     int send_terminate_message();
 

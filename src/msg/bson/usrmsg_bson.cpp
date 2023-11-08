@@ -162,11 +162,11 @@ namespace msg::usrmsg::bson
     }
 
     /**
-     * Constructs a hpsh response message.
+     * Constructs a debug_shell response message.
      * @param msg Buffer to construct the generated bson message into.
      *            Message format:
      *            {
-     *              "type": "hpsh_response",
+     *              "type": "debug_shell_response",
      *              "reply_for": "<corresponding request id>",
      *              "status": "<accepted|rejected>",
      *              "content": "<response>"
@@ -174,12 +174,12 @@ namespace msg::usrmsg::bson
      *            }
      * @param content The contract binary output content to be put in the message.
      */
-    void create_hpsh_response_container(std::vector<uint8_t> &msg, std::string_view reply_for, std::string_view status, std::string_view content, std::string_view reason)
+    void create_debug_shell_response_container(std::vector<uint8_t> &msg, std::string_view reply_for, std::string_view status, std::string_view content, std::string_view reason)
     {
         jsoncons::bson::bson_bytes_encoder encoder(msg);
         encoder.begin_object();
         encoder.key(msg::usrmsg::FLD_TYPE);
-        encoder.string_value(msg::usrmsg::MSGTYPE_HPSH_RESPONSE);
+        encoder.string_value(msg::usrmsg::MSGTYPE_DEBUG_SHELL_RESPONSE);
         encoder.key(msg::usrmsg::FLD_REPLY_FOR);
         encoder.string_value(reply_for);
         encoder.key(msg::usrmsg::FLD_STATUS);
@@ -535,29 +535,29 @@ namespace msg::usrmsg::bson
     }
 
     /**
-     * Extracts a hpsh input message sent by user.
+     * Extracts a debug_shell input message sent by user.
      *
-     * @param extracted_content The content to be passed to the hpsh, extracted from the message.
-     * @param d The bson document holding the hpsh input message.
+     * @param extracted_content The content to be passed to the debug_shell, extracted from the message.
+     * @param d The bson document holding the debug_shell input message.
      *          Accepted signed input container format:
      *          {
-     *            "type": "hpsh_request",
+     *            "type": "debug_shell_request",
      *            "id": "<any string>",
      *            "content": <binary buffer>
      *          }
      * @return 0 on successful extraction. -1 for failure.
      */
-    int extract_hpsh_request(std::string &extracted_id, std::string &extracted_content, const jsoncons::ojson &d)
+    int extract_debug_shell_request(std::string &extracted_id, std::string &extracted_content, const jsoncons::ojson &d)
     {
         if (!d.contains(msg::usrmsg::FLD_ID) || !d[msg::usrmsg::FLD_ID].is<std::string>())
         {
-            LOG_DEBUG << "Hpsh input 'id' field missing or invalid.";
+            LOG_DEBUG << "DebugShell input 'id' field missing or invalid.";
             return -1;
         }
 
         if (!d.contains(msg::usrmsg::FLD_CONTENT) || !d[msg::usrmsg::FLD_CONTENT].is_byte_string_view())
         {
-            LOG_DEBUG << "Hpsh input 'content' field missing or invalid.";
+            LOG_DEBUG << "DebugShell input 'content' field missing or invalid.";
             return -1;
         }
 
