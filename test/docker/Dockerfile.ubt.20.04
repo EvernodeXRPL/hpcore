@@ -13,6 +13,6 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/* \
     && mkdir /usr/local/bin/hotpocket
 
-COPY hpcore hpfs hpws LICENCE /usr/local/bin/hotpocket/
+COPY hpcore hpfs hpws LICENSE.pdf /usr/local/bin/hotpocket/
 
 ENTRYPOINT ["/usr/local/bin/hotpocket/hpcore"]
