@@ -8,7 +8,7 @@ njsfile="Dockerfile.ubt.20.04-njs"
 
 # Prepare build context
 tmp=$(mktemp -d)
-cp $hpcoredir/build/hpcore $hpcoredir/test/bin/{hpfs,hpws,libblake3.so} $hpcoredir/LICENSE.pdf $tmp/
+cp $hpcoredir/build/hpcore $hpcoredir/test/bin/{hpfs,hpws,libblake3.so} $hpcoredir/evernode-license.pdf $tmp/
 strip $tmp/hpcore
 
 # Remove the revision component from hp version to make up the image version.

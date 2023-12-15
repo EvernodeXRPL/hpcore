@@ -77,7 +77,7 @@ target_link_libraries(hpcore
 add_custom_command(TARGET hpcore POST_BUILD
 
     # COMMAND strip ./build/hpcore
-    COMMAND cp ./test/bin/hpws ./test/bin/hpfs ./LICENSE.pdf ./build/
+    COMMAND cp ./test/bin/hpws ./test/bin/hpfs ./evernode-license.pdf ./build/
 )
 
 target_precompile_headers(hpcore PUBLIC src/pchheader.hpp)
@@ -88,7 +88,7 @@ add_custom_target(docker
     COMMAND mkdir -p ./test/local-cluster/bin
     COMMAND cp ./build/hpcore ./test/local-cluster/bin/
     COMMAND cp ./test/bin/libblake3.so ./test/bin/hpws ./test/bin/hpfs ./test/local-cluster/bin/
-    COMMAND cp ./LICENSE.pdf ./test/local-cluster/bin/
+    COMMAND cp ./evernode-license.pdf ./test/local-cluster/bin/
     COMMAND docker build -t hpcore:latest -t hpcore:0.6.4 -f ./test/local-cluster/Dockerfile ./test/local-cluster/bin/
 )
 set_target_properties(docker PROPERTIES EXCLUDE_FROM_ALL TRUE)
