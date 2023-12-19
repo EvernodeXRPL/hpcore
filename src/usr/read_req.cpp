@@ -219,7 +219,7 @@ namespace read_req
     void initialize_execution_context(const user_read_req &read_request, const pthread_t thread_id, sc::execution_context &contract_ctx)
     {
         contract_ctx.args.hpfs_session_name = "ro_" + std::to_string(thread_id);
-        contract_ctx.args.readonly = true;
+        contract_ctx.args.mode = sc::EXECUTION_MODE::READ_REQUEST;
         sc::contract_iobufs user_bufs;
         user_bufs.inputs.push_back(read_request.content);
         contract_ctx.args.userbufs.try_emplace(read_request.pubkey, std::move(user_bufs));

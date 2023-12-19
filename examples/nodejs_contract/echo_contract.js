@@ -5,10 +5,10 @@ const exectsFile = "exects.txt";
 
 // HP smart contract is defined as a function which takes HP ExecutionContext as an argument.
 // HP considers execution as complete, when this function completes and all the NPL message callbacks are complete.
-const echoContract = async (ctx) => {
+const contract = async (ctx, readonly = false) => {
 
     // We just save execution timestamp as an example state file change.
-    if (!ctx.readonly) {
+    if (!readonly) {
         fs.appendFileSync(exectsFile, "ts:" + ctx.timestamp + "\n");
 
         const stats = fs.statSync(exectsFile);
@@ -56,7 +56,7 @@ const echoContract = async (ctx) => {
     // ctx.unl.find("<public key hex>");
 
     // NPL messages example.
-    // if (!ctx.readonly) {
+    // if (!readonly) {
     //     // Start listening to incoming NPL messages before we send ours.
     //     const promise = new Promise((resolve, reject) => {
     //         let timeout = setTimeout(() => {
@@ -85,26 +85,13 @@ const echoContract = async (ctx) => {
 }
 
 const fallback = async (ctx) => {
-    console.log("This is fallback mode");
-
-    const hpconfig = await ctx.getConfig();
-
-    for (const u of ctx.unl.list()) {
-        const gap = Math.abs(u.activeOn - ctx.timestamp);
-        // If last active timestamp is before the twice of roundtime, This node must be active.
-        if (u.activeOn && gap > (hpconfig.consensus.roundtime * 4)) {
-            console.log("Updating patch config", u);
-            hpconfig.unl = hpconfig.unl.filter(e => e !== u.publicKey);
-            await ctx.updateConfig(hpconfig);
-        }
-    }
-
+    console.log(`Fallback mode: Non consensus execution count: ${ctx.nonConsensusRounds}`);
     // NPL messages example.
     // Start listening to incoming NPL messages before we send ours.
     const promise = new Promise((resolve, reject) => {
         let timeout = setTimeout(() => {
             reject('NPL timeout.');
-        }, 4000);
+        }, 2000);
 
         let list = [];
         ctx.unl.onMessage((node, msg) => {
@@ -122,4 +109,8 @@ const fallback = async (ctx) => {
 }
 
 const hpc = new HotPocket.Contract();
-hpc.init(echoContract);
+hpc.init({
+    "consensus": async (ctx) => { await contract(ctx, false); },
+    "consensus_fallback": async (ctx) => { await fallback(ctx); },
+    "read_req": async (ctx) => { await contract(ctx, true); }
+});

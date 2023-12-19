@@ -62,6 +62,7 @@ namespace p2p
         std::set<std::string> input_ordered_hashes;
         std::string output_hash;
         std::string output_sig;
+        util::sequence_hash lcl_id;
     };
 
     struct nonunl_proposal

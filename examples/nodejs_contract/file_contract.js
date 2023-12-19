@@ -2,7 +2,7 @@ const HotPocket = require("hotpocket-nodejs-contract");
 const fs = require('fs');
 const bson = require('bson');
 
-const fileContract = async (ctx) => {
+const fileContract = async (ctx, readonly = false) => {
 
     for (const user of ctx.users.list()) {
 
@@ -54,7 +54,7 @@ const fileContract = async (ctx) => {
                     }));
                 }
             }
-            else if (msg.type == "download") {
+            else if (readonly && msg.type == "download") {
                 if (fs.existsSync(msg.fileName)) {
                     const fileContent = fs.readFileSync(msg.fileName);
                     await user.send(bson.serialize({
@@ -76,5 +76,14 @@ const fileContract = async (ctx) => {
     }
 };
 
+
+const fallback = async (ctx) => {
+    console.log(`Fallback mode: Non consensus execution count: ${ctx.nonConsensusRounds}`);
+}
+
 const hpc = new HotPocket.Contract();
-hpc.init(fileContract, HotPocket.clientProtocols.bson);
+hpc.init({
+    "consensus": async (ctx) => { await fileContract(ctx); },
+    "consensus_fallback": async (ctx) => { await fallback(ctx); },
+    "read_req": async (ctx) => { await fileContract(ctx, true); }
+}, HotPocket.clientProtocols.bson);

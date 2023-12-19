@@ -19,6 +19,14 @@ namespace sc
     constexpr uint16_t MAX_NPL_MSG_QUEUE_SIZE = 255;     // Maximum npl message queue size, The size passed is rounded to next number in binary sequence 1(1),11(3),111(7),1111(15),11111(31)....
     constexpr uint16_t MAX_CONTROL_MSG_QUEUE_SIZE = 255; // Maximum out message queue size, The size passed is rounded to next number in binary sequence 1(1),11(3),111(7),1111(15),11111(31)....
 
+    // Contract execution mode.
+    enum EXECUTION_MODE
+    {
+        CONSENSUS = 0,
+        CONSENSUS_FALLBACK = 1,
+        READ_REQUEST = 2
+    };
+
     struct fd_pair
     {
         int hpfd = -1;
@@ -27,7 +35,7 @@ namespace sc
 
     /**
      * Stores contract output message length along with the message. Length is used to construct the message from the stream buffer.
-    */
+     */
     struct contract_output
     {
         uint32_t message_len = 0;
@@ -67,8 +75,8 @@ namespace sc
      */
     struct contract_execution_args
     {
-        // Whether the contract should execute in read only mode (to serve read requests).
-        bool readonly = false;
+        // Contract execution mode.
+        EXECUTION_MODE mode;
 
         // hpfs session name used for this execution.
         std::string hpfs_session_name;
@@ -94,11 +102,31 @@ namespace sc
         // State hash after execution will be copied to this (not applicable to read only mode).
         util::h32 post_execution_state_hash = util::h32_empty;
 
+        uint64_t end_before;
+
+        // This is for fallback mode, No of times we failed reach the consensus.
+        uint16_t non_consensus_rounds = 0;
+
         contract_execution_args(util::buffer_store &user_input_store)
             : user_input_store(user_input_store),
               npl_messages(MAX_NPL_MSG_QUEUE_SIZE),
               control_messages(MAX_CONTROL_MSG_QUEUE_SIZE)
         {
+        }
+
+        // Convert execution mode to string.
+        std::string_view get_exec_mode_str()
+        {
+            if (mode == EXECUTION_MODE::CONSENSUS_FALLBACK)
+            {
+                return "consensus_fallback";
+            }
+            else if (mode == EXECUTION_MODE::READ_REQUEST)
+            {
+                return "read_req";
+            }
+
+            return "consensus";
         }
     };
 
@@ -164,7 +192,7 @@ namespace sc
 
     int stop_hpfs_session(execution_context &ctx);
 
-    int write_contract_args(const execution_context &ctx, const int user_inputs_fd);
+    int write_contract_args(execution_context &ctx, const int user_inputs_fd);
 
     void contract_monitor_loop(execution_context &ctx);
 

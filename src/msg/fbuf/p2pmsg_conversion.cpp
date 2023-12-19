@@ -157,6 +157,7 @@ namespace msg::fbuf::p2pmsg
         p.stage = msg.stage();
         p.state_hash = flatbuf_bytes_to_sv(msg.state_hash());
         p.patch_hash = flatbuf_bytes_to_sv(msg.patch_hash());
+        p.lcl_id = flatbuf_seqhash_to_seqhash(msg.lcl_id());
         p.last_primary_shard_id = flatbuf_seqhash_to_seqhash(msg.last_primary_shard_id());
         p.last_raw_shard_id = flatbuf_seqhash_to_seqhash(msg.last_raw_shard_id());
 
@@ -432,6 +433,7 @@ namespace msg::fbuf::p2pmsg
             sv_to_flatbuf_bytes(builder, p.output_sig),
             hash_to_flatbuf_bytes(builder, p.state_hash),
             hash_to_flatbuf_bytes(builder, p.patch_hash),
+            seqhash_to_flatbuf_seqhash(builder, p.lcl_id),
             seqhash_to_flatbuf_seqhash(builder, p.last_primary_shard_id),
             seqhash_to_flatbuf_seqhash(builder, p.last_raw_shard_id));
 

@@ -1006,10 +1006,14 @@ namespace conf
         jdoc.insert_or_assign("max_input_ledger_offset", contract.max_input_ledger_offset);
 
         jsoncons::ojson consensus;
+        jsoncons::ojson fallback;
+        fallback.insert_or_assign("execute", contract.consensus.fallback.execute);
+
         consensus.insert_or_assign("mode", contract.consensus.mode == MODE::PUBLIC ? MODE_PUBLIC : MODE_PRIVATE);
         consensus.insert_or_assign("roundtime", contract.consensus.roundtime.load());
         consensus.insert_or_assign("stage_slice", contract.consensus.stage_slice.load());
         consensus.insert_or_assign("threshold", contract.consensus.threshold);
+        consensus.insert_or_assign("fallback", fallback);
         jdoc.insert_or_assign("consensus", consensus);
 
         jsoncons::ojson npl;
@@ -1148,6 +1152,9 @@ namespace conf
                 return -1;
             }
             contract.consensus.mode = jdoc["consensus"]["mode"].as<std::string>() == MODE_PUBLIC ? MODE::PUBLIC : MODE::PRIVATE;
+
+            jpath = "contract.consensus.fallback";
+            contract.consensus.fallback.execute = jdoc["consensus"]["fallback"]["execute"].as<bool>();
 
             jpath = "contract.npl";
             if (jdoc["npl"]["mode"].as<std::string>() != MODE_PUBLIC && jdoc["npl"]["mode"].as<std::string>() != MODE_PRIVATE)
