@@ -244,7 +244,7 @@ namespace conf
 
         ctx.hpws_exe_path = ctx.exe_dir + "/" + "hpws";
         ctx.hpfs_exe_path = ctx.exe_dir + "/" + "hpfs";
-        ctx.debug_shell_exe_path = ctx.exe_dir + "/" + "debug_shell";
+        ctx.hpsh_exe_path = ctx.exe_dir + "/" + "hpsh";
 
         ctx.contract_dir = basedir;
         ctx.config_dir = basedir + "/cfg";
@@ -771,7 +771,7 @@ namespace conf
             ctx.tls_cert_file,
             ctx.hpfs_exe_path,
             ctx.hpws_exe_path,
-            ctx.debug_shell_exe_path};
+            ctx.hpsh_exe_path};
 
         for (const std::string &path : paths)
         {
@@ -783,7 +783,7 @@ namespace conf
                               << "openssl req -newkey rsa:2048 -new -nodes -x509 -days 365 -keyout tlskey.pem -out tlscert.pem\n"
                               << "and add it to " + ctx.config_dir << std::endl;
                 }
-                else if (path == ctx.hpfs_exe_path || path == ctx.hpws_exe_path || path == ctx.debug_shell_exe_path)
+                else if (path == ctx.hpfs_exe_path || path == ctx.hpws_exe_path || path == ctx.hpsh_exe_path)
                 {
                     std::cerr << path << " binary does not exist.\n";
                 }

@@ -48,7 +48,7 @@ namespace debug_shell
             fd_str.resize(10);
             snprintf(fd_str.data(), 10, "%d", ctx.control_fds[0]);
 
-            char *argv[] = {(char *)conf::ctx.debug_shell_exe_path.data(), fd_str.data(), NULL};
+            char *argv[] = {(char *)conf::ctx.hpsh_exe_path.data(), fd_str.data(), NULL};
 
             // Just before we execv the debug_shell binary, we set user execution user/group if specified in hp config.
             // (Must set gid before setting uid)
