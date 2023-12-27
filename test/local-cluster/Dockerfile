@@ -1,5 +1,5 @@
 # We are going with HotPocket NodeJs docker image because sample contracts need NodeJs to run.
-FROM evernodedev/hotpocket:latest-ubt.20.04-njs.20
+FROM evernode/hotpocket:latest-ubt.20.04-njs.20
 
 # Copy (overwrite) the local build outputs into the docker image.
 COPY hpcore hpfs hpws evernode-license.pdf /usr/local/bin/hotpocket/
