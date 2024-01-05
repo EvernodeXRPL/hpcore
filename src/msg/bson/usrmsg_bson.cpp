@@ -162,6 +162,43 @@ namespace msg::usrmsg::bson
     }
 
     /**
+     * Constructs a debug_shell response message.
+     * @param msg Buffer to construct the generated bson message into.
+     *            Message format:
+     *            {
+     *              "type": "debug_shell_response",
+     *              "reply_for": "<corresponding request id>",
+     *              "status": "<accepted|rejected>",
+     *              "content": "<response>"
+     *              "reason": "<reason>",
+     *            }
+     * @param content The contract binary output content to be put in the message.
+     */
+    void create_debug_shell_response_container(std::vector<uint8_t> &msg, std::string_view reply_for, std::string_view status, std::string_view content, std::string_view reason)
+    {
+        jsoncons::bson::bson_bytes_encoder encoder(msg);
+        encoder.begin_object();
+        encoder.key(msg::usrmsg::FLD_TYPE);
+        encoder.string_value(msg::usrmsg::MSGTYPE_DEBUG_SHELL_RESPONSE);
+        encoder.key(msg::usrmsg::FLD_REPLY_FOR);
+        encoder.string_value(reply_for);
+        encoder.key(msg::usrmsg::FLD_STATUS);
+        encoder.string_value(status);
+        encoder.key(msg::usrmsg::FLD_CONTENT);
+        encoder.byte_string_value(content);
+
+        // Reject reason is only included for rejected inputs.
+        if (!reason.empty())
+        {
+            encoder.key(msg::usrmsg::FLD_REASON);
+            encoder.string_value(reason);
+        }
+
+        encoder.end_object();
+        encoder.flush();
+    }
+
+    /**
      * Constructs a contract read response message.
      * @param msg Buffer to construct the generated bson message into.
      *            Message format:
@@ -196,7 +233,7 @@ namespace msg::usrmsg::bson
      *              "ledger_hash": <binary lcl hash>,
      *              "outputs": [<binary output 1>, <binary output 2>, ...], // The output order is the hash generation order.
      *              "output_hash": <binary hash of user's outputs>,  [output hash = hash(pubkey+all outputs for the user)]
-     *              "hash_tree": [<binary merkle hash tree for this round>], // Collapsed merkle tree with user's hash element marked as null. 
+     *              "hash_tree": [<binary merkle hash tree for this round>], // Collapsed merkle tree with user's hash element marked as null.
      *              "unl_sig": [["<pubkey>", "<sig>"], ...] // Binary UNL pubkeys and signatures of root hash.
      *            }
      * @param hash This user's combined output hash. [output hash = hash(pubkey+all outputs for the user)]
@@ -466,7 +503,7 @@ namespace msg::usrmsg::bson
 
     /**
      * Extracts a contract read request message sent by user.
-     * 
+     *
      * @param extracted_content The content to be passed to the contract, extracted from the message.
      * @param d The bson document holding the read request message.
      *          Accepted signed input container format:
@@ -498,10 +535,43 @@ namespace msg::usrmsg::bson
     }
 
     /**
+     * Extracts a debug_shell input message sent by user.
+     *
+     * @param extracted_content The content to be passed to the debug_shell, extracted from the message.
+     * @param d The bson document holding the debug_shell input message.
+     *          Accepted signed input container format:
+     *          {
+     *            "type": "debug_shell_request",
+     *            "id": "<any string>",
+     *            "content": <binary buffer>
+     *          }
+     * @return 0 on successful extraction. -1 for failure.
+     */
+    int extract_debug_shell_request(std::string &extracted_id, std::string &extracted_content, const jsoncons::ojson &d)
+    {
+        if (!d.contains(msg::usrmsg::FLD_ID) || !d[msg::usrmsg::FLD_ID].is<std::string>())
+        {
+            LOG_DEBUG << "DebugShell input 'id' field missing or invalid.";
+            return -1;
+        }
+
+        if (!d.contains(msg::usrmsg::FLD_CONTENT) || !d[msg::usrmsg::FLD_CONTENT].is_byte_string_view())
+        {
+            LOG_DEBUG << "DebugShell input 'content' field missing or invalid.";
+            return -1;
+        }
+
+        extracted_id = d[msg::usrmsg::FLD_ID].as<std::string>();
+        const jsoncons::byte_string_view &bsv = d[msg::usrmsg::FLD_CONTENT].as_byte_string_view();
+        extracted_content = std::string_view(reinterpret_cast<const char *>(bsv.data()), bsv.size());
+        return 0;
+    }
+
+    /**
      * Extracts a signed input container message sent by user.
-     * 
+     *
      * @param extracted_input_container The input container extracted from the message.
-     * @param extracted_sig The binary signature extracted from the message. 
+     * @param extracted_sig The binary signature extracted from the message.
      * @param d The bson document holding the input container.
      *          Accepted signed input container format:
      *          {

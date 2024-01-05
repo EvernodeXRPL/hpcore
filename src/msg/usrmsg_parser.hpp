@@ -26,6 +26,8 @@ namespace msg::usrmsg
         void create_contract_input_status(std::vector<uint8_t> &msg, std::string_view status, std::string_view reason,
                                           std::string_view input_hash, const uint64_t ledger_seq_no, const util::h32 &ledger_hash) const;
 
+        void create_debug_shell_response_container(std::vector<uint8_t> &msg, std::string_view reply_for, std::string_view status, std::string_view content, std::string_view reason) const;
+
         void create_contract_read_response_container(std::vector<uint8_t> &msg, std::string_view reply_for, std::string_view content) const;
 
         void create_contract_output_container(std::vector<uint8_t> &msg, std::string_view hash, const ::std::vector<std::string> &outputs,
@@ -48,6 +50,8 @@ namespace msg::usrmsg
         int extract_type(std::string &extracted_type) const;
 
         int extract_read_request(std::string &extracted_id, std::string &extracted_content) const;
+
+        int extract_debug_shell_request(std::string &extracted_id, std::string &extracted_content) const;
 
         int extract_signed_input_container(std::string &extracted_input_container, std::string &extracted_sig) const;
 

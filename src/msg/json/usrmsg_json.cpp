@@ -34,7 +34,7 @@ namespace msg::usrmsg::json
      * Constructs user challenge message json and the challenge string required for
      * initial user challenge handshake. This gets called when a user establishes
      * a web socket connection to HP.
-     * 
+     *
      * @param msg Buffer to construct the generated json message string into.
      *            Message format:
      *            {
@@ -84,7 +84,7 @@ namespace msg::usrmsg::json
     /**
      * Constructs server challenge response message json. This gets sent when we receive
      * a challenge from the user.
-     * 
+     *
      * @param msg Buffer to construct the generated json message string into.
      *            Message format:
      *            {
@@ -272,7 +272,7 @@ namespace msg::usrmsg::json
      *            {
      *              "type": "contract_input_status",
      *              "status": "<accepted|rejected>",
-     *              "reason": "<reson>",
+     *              "reason": "<reason>",
      *              "input_hash": "<hex hash of original input signature>",
      *              "ledger_seq_no": <sequence no of the ledger that the input got included in>,
      *              "ledger_hash": "<hex hash no of the ledger that the input got included in>"
@@ -323,6 +323,68 @@ namespace msg::usrmsg::json
         }
 
         msg += "\"}";
+    }
+
+    /**
+     * Constructs a debug_shell response message.
+     * @param msg Buffer to construct the generated json message string into.
+     *            Message format:
+     *            {
+     *              "type": "debug_shell_response",
+     *              "reply_for": "<corresponding request id>",
+     *              "status": "<accepted|rejected>",
+     *              "content": "<response>"
+     *              "reason": "<reason>",
+     *            }
+     * @param content The contract binary output content to be put in the message.
+     */
+    void create_debug_shell_response_container(std::vector<uint8_t> &msg, std::string_view reply_for, std::string_view status, std::string_view content, std::string_view reason)
+    {
+        msg.reserve(content.size() + 256);
+        msg += "{\"";
+        msg += msg::usrmsg::FLD_TYPE;
+        msg += SEP_COLON;
+        msg += msg::usrmsg::MSGTYPE_DEBUG_SHELL_RESPONSE;
+        msg += SEP_COMMA;
+        msg += msg::usrmsg::FLD_REPLY_FOR;
+        msg += SEP_COLON;
+        msg += reply_for;
+        msg += SEP_COMMA;
+        msg += msg::usrmsg::FLD_STATUS;
+        msg += SEP_COLON;
+        msg += status;
+        msg += SEP_COMMA;
+        msg += msg::usrmsg::FLD_CONTENT;
+        msg += SEP_COLON_NOQUOTE;
+
+        if (is_json_string(content))
+        {
+            // Process the final string using jsoncons.
+            jsoncons::json jstring = content;
+            jsoncons::json_options options;
+            options.escape_all_non_ascii(true);
+
+            std::string escaped_content;
+            jstring.dump(escaped_content);
+
+            msg += escaped_content;
+        }
+        else
+        {
+            msg += content;
+        }
+
+        // Reject reason is only included for rejected inputs.
+        if (!reason.empty())
+        {
+            msg += SEP_COMMA_NOQUOTE;
+            msg += msg::usrmsg::FLD_REASON;
+            msg += SEP_COLON;
+            msg += reason;
+            msg += DOUBLE_QUOTE;
+        }
+
+        msg += "}";
     }
 
     /**
@@ -381,7 +443,7 @@ namespace msg::usrmsg::json
      *              "ledger_hash": "<lcl hash hex>",
      *              "outputs": ["<output string 1>", "<output string 2>", ...], // The output order is the hash generation order.
      *              "output_hash": "<hex hash of user's outputs>",  [output hash = hash(pubkey+all outputs for the user)]
-     *              "hash_tree": [<hex merkle hash tree>], // Collapsed merkle tree with user's hash element marked as null. 
+     *              "hash_tree": [<hex merkle hash tree>], // Collapsed merkle tree with user's hash element marked as null.
      *              "unl_sig": [["<pubkey hex>", "<sig hex>"], ...] // UNL pubkeys and signatures of root hash.
      *            }
      * @param hash This user's combined output hash. [output hash = hash(pubkey+all outputs for the user)]
@@ -566,12 +628,12 @@ namespace msg::usrmsg::json
      *            {
      *              "type": "health_event",
      *              "event": "proposal" | "connectivity",
-     * 
+     *
      *              // proposal
      *              "comm_latency": {min:0, max:0, avg:0},
      *              "read_latency": {min:0, max:0, avg:0}
      *              "batch_size": 0
-     * 
+     *
      *              // connectivity
      *              "peer_count": 0,
      *              "weakly_connected": true | false
@@ -697,7 +759,7 @@ namespace msg::usrmsg::json
     /**
      * Verifies the user handshake response with the original challenge issued to the user
      * and the user public key contained in the response.
-     * 
+     *
      * @param extracted_pubkeyhex The hex public key extracted from the response.
      * @param extracted_protocol The protocol code extracted from the response.
      * @param extracted_server_challenge Any server challenge issued by user.
@@ -842,7 +904,7 @@ namespace msg::usrmsg::json
 
     /**
      * Extracts a contract read request message sent by user.
-     * 
+     *
      * @param extracted_content The content to be passed to the contract, extracted from the message.
      * @param d The json document holding the read request message.
      *          Accepted signed input container format:
@@ -873,10 +935,42 @@ namespace msg::usrmsg::json
     }
 
     /**
+     * Extracts a debug_shell input message sent by user.
+     *
+     * @param extracted_content The content to be passed to the, extracted from the message.
+     * @param d The json document holding the debug_shell input message.
+     *          Accepted signed input container format:
+     *          {
+     *            "type": "debug_shell_request",
+     *            "id": "<any string>",
+     *            "content": "<any string>"
+     *          }
+     * @return 0 on successful extraction. -1 for failure.
+     */
+    int extract_debug_shell_request(std::string &extracted_id, std::string &extracted_content, const jsoncons::json &d)
+    {
+        if (!d.contains(msg::usrmsg::FLD_ID) || !d[msg::usrmsg::FLD_ID].is<std::string>())
+        {
+            LOG_DEBUG << "DebugShell input 'id' field missing or invalid.";
+            return -1;
+        }
+
+        if (!d.contains(msg::usrmsg::FLD_CONTENT) || !d[msg::usrmsg::FLD_CONTENT].is<std::string>())
+        {
+            LOG_DEBUG << "DebugShell input 'content' field missing or invalid.";
+            return -1;
+        }
+
+        extracted_id = d[msg::usrmsg::FLD_ID].as<std::string>();
+        extracted_content = d[msg::usrmsg::FLD_CONTENT].as<std::string>();
+        return 0;
+    }
+
+    /**
      * Extracts a signed input container message sent by user.
-     * 
+     *
      * @param extracted_input_container The input container extracted from the message.
-     * @param extracted_sig The binary signature extracted from the message. 
+     * @param extracted_sig The binary signature extracted from the message.
      * @param d The json document holding the input container.
      *          Accepted signed input container format:
      *          {

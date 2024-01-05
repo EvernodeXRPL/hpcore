@@ -17,6 +17,7 @@
 #include "user_input.hpp"
 #include "read_req.hpp"
 #include "input_nonce_map.hpp"
+#include "../debug_shell/debug_shell.hpp"
 
 namespace usr
 {
@@ -204,7 +205,7 @@ namespace usr
                         const int nonce_status = nonce_map.check(user.pubkey, nonce, sig, max_ledger_seq_no, true);
                         if (nonce_status == 0)
                         {
-                            //Add to the submitted input list.
+                            // Add to the submitted input list.
                             user.submitted_inputs.push_back(submitted_user_input{
                                 std::move(input_container),
                                 std::move(sig),
@@ -272,6 +273,37 @@ namespace usr
                 user.session.send(resp);
                 return 0;
             }
+            else if (msg_type == msg::usrmsg::MSGTYPE_DEBUG_SHELL_REQUEST)
+            {
+                std::string id, content;
+                if (parser.extract_debug_shell_request(id, content) == -1)
+                {
+                    send_input_status(parser, user.session, msg::usrmsg::STATUS_REJECTED, msg::usrmsg::REASON_BAD_MSG_FORMAT, "");
+                    return -1;
+                }
+
+                // If debug_shell is initialized, send status reject.
+                if (!debug_shell::ctx.is_initialized)
+                {
+                    send_debug_shell_response(parser, user.session, id, msg::usrmsg::STATUS_REJECTED, "", msg::usrmsg::REASON_NOT_INITIALIZED);
+                    return -1;
+                }
+
+                const int res = debug_shell::execute(id, user.pubkey, content);
+                // Send user npt allowed status if not allowed.
+                if (res == -1)
+                {
+                    send_debug_shell_response(parser, user.session, id, msg::usrmsg::STATUS_REJECTED, "", msg::usrmsg::REASON_INTERNAL_ERROR);
+                    return -1;
+                }
+                else if (res == -2)
+                {
+                    send_debug_shell_response(parser, user.session, id, msg::usrmsg::STATUS_REJECTED, "", msg::usrmsg::REASON_USER_NOT_ALLOWED);
+                    return -1;
+                }
+
+                return 0;
+            }
             else
             {
                 LOG_DEBUG << "Invalid user message type: " << msg_type;
@@ -334,6 +366,17 @@ namespace usr
     }
 
     /**
+     * Send the specified debug_shell request status result via the provided session.
+     */
+    void send_debug_shell_response(const msg::usrmsg::usrmsg_parser &parser, usr::user_comm_session &session, std::string_view reply_for,
+                            std::string_view status, std::string_view content, std::string_view reason)
+    {
+        std::vector<uint8_t> msg;
+        parser.create_debug_shell_response_container(msg, reply_for, status, content, reason);
+        session.send(msg);
+    }
+
+    /**
      * Send the specified contract input status result via the provided session.
      */
     void send_input_status(const msg::usrmsg::usrmsg_parser &parser, usr::user_comm_session &session,
@@ -348,7 +391,7 @@ namespace usr
     /**
      * Adds the user denoted by specified session id and public key to the global authed user list.
      * This should get called after the challenge handshake is verified.
-     * 
+     *
      * @param session User socket session.
      * @param user_pubkey_hex User's hex public key.
      * @param protocol_code Messaging protocol used by user.
@@ -397,14 +440,20 @@ namespace usr
     /**
      * Removes the specified public key from the global user list.
      * This must get called when an authenticated user disconnects from HP.
-     * 
+     *
      * @param pubkey User pubkey.
      * @return 0 on successful removals. -1 on failure.
      */
     int remove_user(const std::string &pubkey)
     {
-        std::scoped_lock<std::mutex> lock(ctx.users_mutex);
-        ctx.users.erase(pubkey);
+        {
+            std::scoped_lock<std::mutex> lock(ctx.users_mutex);
+            ctx.users.erase(pubkey);
+        }
+        // Remove any debug_shell commands sent by the user.
+        if (debug_shell::ctx.is_initialized)
+            debug_shell::remove_user_commands(pubkey);
+
         return 0;
     }
 

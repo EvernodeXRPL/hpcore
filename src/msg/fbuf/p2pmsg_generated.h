@@ -1006,8 +1006,9 @@ struct ProposalMsg FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
     VT_OUTPUT_SIG = 24,
     VT_STATE_HASH = 26,
     VT_PATCH_HASH = 28,
-    VT_LAST_PRIMARY_SHARD_ID = 30,
-    VT_LAST_RAW_SHARD_ID = 32
+    VT_LCL_ID = 30,
+    VT_LAST_PRIMARY_SHARD_ID = 32,
+    VT_LAST_RAW_SHARD_ID = 34
   };
   const flatbuffers::Vector<uint8_t> *pubkey() const {
     return GetPointer<const flatbuffers::Vector<uint8_t> *>(VT_PUBKEY);
@@ -1087,6 +1088,12 @@ struct ProposalMsg FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   flatbuffers::Vector<uint8_t> *mutable_patch_hash() {
     return GetPointer<flatbuffers::Vector<uint8_t> *>(VT_PATCH_HASH);
   }
+  const msg::fbuf::p2pmsg::SequenceHash *lcl_id() const {
+    return GetPointer<const msg::fbuf::p2pmsg::SequenceHash *>(VT_LCL_ID);
+  }
+  msg::fbuf::p2pmsg::SequenceHash *mutable_lcl_id() {
+    return GetPointer<msg::fbuf::p2pmsg::SequenceHash *>(VT_LCL_ID);
+  }
   const msg::fbuf::p2pmsg::SequenceHash *last_primary_shard_id() const {
     return GetPointer<const msg::fbuf::p2pmsg::SequenceHash *>(VT_LAST_PRIMARY_SHARD_ID);
   }
@@ -1126,6 +1133,8 @@ struct ProposalMsg FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
            verifier.VerifyVector(state_hash()) &&
            VerifyOffset(verifier, VT_PATCH_HASH) &&
            verifier.VerifyVector(patch_hash()) &&
+           VerifyOffset(verifier, VT_LCL_ID) &&
+           verifier.VerifyTable(lcl_id()) &&
            VerifyOffset(verifier, VT_LAST_PRIMARY_SHARD_ID) &&
            verifier.VerifyTable(last_primary_shard_id()) &&
            VerifyOffset(verifier, VT_LAST_RAW_SHARD_ID) &&
@@ -1177,6 +1186,9 @@ struct ProposalMsgBuilder {
   void add_patch_hash(flatbuffers::Offset<flatbuffers::Vector<uint8_t>> patch_hash) {
     fbb_.AddOffset(ProposalMsg::VT_PATCH_HASH, patch_hash);
   }
+  void add_lcl_id(flatbuffers::Offset<msg::fbuf::p2pmsg::SequenceHash> lcl_id) {
+    fbb_.AddOffset(ProposalMsg::VT_LCL_ID, lcl_id);
+  }
   void add_last_primary_shard_id(flatbuffers::Offset<msg::fbuf::p2pmsg::SequenceHash> last_primary_shard_id) {
     fbb_.AddOffset(ProposalMsg::VT_LAST_PRIMARY_SHARD_ID, last_primary_shard_id);
   }
@@ -1210,12 +1222,14 @@ inline flatbuffers::Offset<ProposalMsg> CreateProposalMsg(
     flatbuffers::Offset<flatbuffers::Vector<uint8_t>> output_sig = 0,
     flatbuffers::Offset<flatbuffers::Vector<uint8_t>> state_hash = 0,
     flatbuffers::Offset<flatbuffers::Vector<uint8_t>> patch_hash = 0,
+    flatbuffers::Offset<msg::fbuf::p2pmsg::SequenceHash> lcl_id = 0,
     flatbuffers::Offset<msg::fbuf::p2pmsg::SequenceHash> last_primary_shard_id = 0,
     flatbuffers::Offset<msg::fbuf::p2pmsg::SequenceHash> last_raw_shard_id = 0) {
   ProposalMsgBuilder builder_(_fbb);
   builder_.add_time(time);
   builder_.add_last_raw_shard_id(last_raw_shard_id);
   builder_.add_last_primary_shard_id(last_primary_shard_id);
+  builder_.add_lcl_id(lcl_id);
   builder_.add_patch_hash(patch_hash);
   builder_.add_state_hash(state_hash);
   builder_.add_output_sig(output_sig);
@@ -1246,6 +1260,7 @@ inline flatbuffers::Offset<ProposalMsg> CreateProposalMsgDirect(
     const std::vector<uint8_t> *output_sig = nullptr,
     const std::vector<uint8_t> *state_hash = nullptr,
     const std::vector<uint8_t> *patch_hash = nullptr,
+    flatbuffers::Offset<msg::fbuf::p2pmsg::SequenceHash> lcl_id = 0,
     flatbuffers::Offset<msg::fbuf::p2pmsg::SequenceHash> last_primary_shard_id = 0,
     flatbuffers::Offset<msg::fbuf::p2pmsg::SequenceHash> last_raw_shard_id = 0) {
   auto pubkey__ = pubkey ? _fbb.CreateVector<uint8_t>(*pubkey) : 0;
@@ -1273,6 +1288,7 @@ inline flatbuffers::Offset<ProposalMsg> CreateProposalMsgDirect(
       output_sig__,
       state_hash__,
       patch_hash__,
+      lcl_id,
       last_primary_shard_id,
       last_raw_shard_id);
 }

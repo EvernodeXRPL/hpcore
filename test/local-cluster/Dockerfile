@@ -2,7 +2,7 @@
 FROM evernode/hotpocket:latest-ubt.20.04-njs.20
 
 # Copy (overwrite) the local build outputs into the docker image.
-COPY hpcore hpfs hpws evernode-license.pdf /usr/local/bin/hotpocket/
+COPY hpcore hpfs hpws hpsh evernode-license.pdf /usr/local/bin/hotpocket/
 
 ENTRYPOINT ["/usr/local/bin/hotpocket/hpcore"]
 

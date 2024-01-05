@@ -194,6 +194,8 @@ namespace conf
             cfg.log.loggers.emplace("console");
             cfg.log.loggers.emplace("file");
 
+            cfg.debug_shell.enabled = false;
+
             // Save the default settings into the config file.
             if (write_config(cfg) != 0)
                 return -1;
@@ -242,6 +244,7 @@ namespace conf
 
         ctx.hpws_exe_path = ctx.exe_dir + "/" + "hpws";
         ctx.hpfs_exe_path = ctx.exe_dir + "/" + "hpfs";
+        ctx.hpsh_exe_path = ctx.exe_dir + "/" + "hpsh";
 
         ctx.contract_dir = basedir;
         ctx.config_dir = basedir + "/cfg";
@@ -511,6 +514,42 @@ namespace conf
             }
         }
 
+        // debug_shell
+        {
+            jpath = "debug_shell";
+
+            try
+            {
+                const jsoncons::ojson &debug_shell = d["debug_shell"];
+                cfg.debug_shell.enabled = debug_shell["enabled"].as<bool>();
+
+                if (cfg.debug_shell.run_as.from_string(debug_shell["run_as"].as<std::string>()) == -1)
+                {
+                    std::cerr << "Invalid format for debug_shell run as config (\"uid>0:gid>0\" expected).\n";
+                    return -1;
+                }
+
+                jpath = "debug_shell.users";
+                cfg.debug_shell.users.clear();
+                for (auto &userpk : debug_shell["users"].array_range())
+                {
+                    // Convert the public key hex of each node to binary and store it.
+                    const std::string bin_pubkey = util::to_bin(userpk.as<std::string_view>());
+                    if (bin_pubkey.empty())
+                    {
+                        std::cerr << "Error decoding user pubkey list.\n";
+                        return -1;
+                    }
+                    cfg.debug_shell.users.emplace(bin_pubkey);
+                }
+            }
+            catch (const std::exception &e)
+            {
+                print_missing_field_error(jpath, e);
+                return -1;
+            }
+        }
+
         return 0;
     }
 
@@ -623,6 +662,20 @@ namespace conf
             d.insert_or_assign("log", log_config);
         }
 
+        // debug_shell configs
+        {
+            jsoncons::ojson debug_shell_config;
+            debug_shell_config.insert_or_assign("enabled", cfg.debug_shell.enabled);
+            debug_shell_config.insert_or_assign("run_as", cfg.debug_shell.run_as.to_string());
+            jsoncons::ojson users(jsoncons::json_array_arg);
+            for (const auto &userpk : cfg.debug_shell.users)
+            {
+                users.push_back(util::to_hex(userpk));
+            }
+            debug_shell_config.insert_or_assign("users", users);
+            d.insert_or_assign("debug_shell", debug_shell_config);
+        }
+
         return write_json_file(ctx.config_file, d);
     }
 
@@ -709,7 +762,7 @@ namespace conf
      */
     int validate_contract_dir_paths()
     {
-        const std::string paths[8] = {
+        const std::string paths[9] = {
             ctx.contract_dir,
             ctx.config_file,
             ctx.contract_hpfs_dir,
@@ -717,7 +770,8 @@ namespace conf
             ctx.tls_key_file,
             ctx.tls_cert_file,
             ctx.hpfs_exe_path,
-            ctx.hpws_exe_path};
+            ctx.hpws_exe_path,
+            ctx.hpsh_exe_path};
 
         for (const std::string &path : paths)
         {
@@ -729,7 +783,7 @@ namespace conf
                               << "openssl req -newkey rsa:2048 -new -nodes -x509 -days 365 -keyout tlskey.pem -out tlscert.pem\n"
                               << "and add it to " + ctx.config_dir << std::endl;
                 }
-                else if (path == ctx.hpfs_exe_path || path == ctx.hpws_exe_path)
+                else if (path == ctx.hpfs_exe_path || path == ctx.hpws_exe_path || path == ctx.hpsh_exe_path)
                 {
                     std::cerr << path << " binary does not exist.\n";
                 }
@@ -952,10 +1006,14 @@ namespace conf
         jdoc.insert_or_assign("max_input_ledger_offset", contract.max_input_ledger_offset);
 
         jsoncons::ojson consensus;
+        jsoncons::ojson fallback;
+        fallback.insert_or_assign("execute", contract.consensus.fallback.execute);
+
         consensus.insert_or_assign("mode", contract.consensus.mode == MODE::PUBLIC ? MODE_PUBLIC : MODE_PRIVATE);
         consensus.insert_or_assign("roundtime", contract.consensus.roundtime.load());
         consensus.insert_or_assign("stage_slice", contract.consensus.stage_slice.load());
         consensus.insert_or_assign("threshold", contract.consensus.threshold);
+        consensus.insert_or_assign("fallback", fallback);
         jdoc.insert_or_assign("consensus", consensus);
 
         jsoncons::ojson npl;
@@ -1094,6 +1152,9 @@ namespace conf
                 return -1;
             }
             contract.consensus.mode = jdoc["consensus"]["mode"].as<std::string>() == MODE_PUBLIC ? MODE::PUBLIC : MODE::PRIVATE;
+
+            jpath = "contract.consensus.fallback";
+            contract.consensus.fallback.execute = jdoc["consensus"]["fallback"]["execute"].as<bool>();
 
             jpath = "contract.npl";
             if (jdoc["npl"]["mode"].as<std::string>() != MODE_PUBLIC && jdoc["npl"]["mode"].as<std::string>() != MODE_PRIVATE)

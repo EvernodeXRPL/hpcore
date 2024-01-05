@@ -123,6 +123,16 @@ async function main() {
                 else if (inp === "stat") {
                     hpc.getStatus().then(stat => console.log(stat));
                 }
+                else if (inp.startsWith("debug_shell ")) {
+                    hpc.submitDebugShellRequest(inp.substr(12)).then(id => {
+                        hpc.on(id, (reply) => {
+                            if (reply.data)
+                                console.log(reply.data);
+                            else
+                                console.error(reply.error);
+                        })
+                    });
+                }
                 else {
 
                     if (inp.startsWith("upload ")) {

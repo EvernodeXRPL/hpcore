@@ -173,12 +173,18 @@ namespace conf
         size_t max_file_count = 0;      // Max no. of log files to keep.
     };
 
+    struct fallback_config
+    {
+        bool execute = false; // Whether or not to execute the contract on fallback mode.
+    };
+
     struct consensus_config
     {
         MODE mode;                             // If PUBLIC, consensus are broadcasted to non-unl nodes as well.
         std::atomic<uint32_t> roundtime = 0;   // Consensus round time in ms (max: 3,600,000).
         std::atomic<uint32_t> stage_slice = 0; // Percentage slice of round time that stages 0,1,2 get (max: 33).
-        uint16_t threshold = 0;
+        uint16_t threshold = 0;                // The minimum percentage of votes for accepting a stage 3 proposal to create a ledger.
+        fallback_config fallback;              // Consensus fallback related configuration.
     };
 
     struct npl_config
@@ -206,6 +212,13 @@ namespace conf
         // Config element which are initialized in memory (This is not directly loaded from the config file)
         std::vector<std::string> runtime_binexec_args; // Contract binary execution args used during runtime.
         std::vector<std::string> runtime_env_args;     // Contract environment variables.
+    };
+
+    struct debug_shell_config
+    {
+        bool enabled = false;        // Whether or not to enable debug_shell.
+        ugid run_as;                 // The user/groups id to execute the debug_shell as.
+        std::set<std::string> users; // List of users who are allowed to perform debug_shell (list of binary public keys).
     };
 
     struct user_config
@@ -263,6 +276,7 @@ namespace conf
         std::string exe_dir;       // HotPocket executable dir.
         std::string hpws_exe_path; // hpws executable file path.
         std::string hpfs_exe_path; // hpfs executable file path.
+        std::string hpsh_exe_path; // debug_shell executable path file
 
         std::string contract_dir;            // Contract base directory full path.
         std::string contract_hpfs_dir;       // Contract hpfs metadata dir (The location of hpfs log file).
@@ -316,14 +330,15 @@ namespace conf
         hpfs_config hpfs;
         log_config log;
         health_config health; // For debugging only. Not included in the config file.
+        debug_shell_config debug_shell;
     };
 
     // Global contract context struct exposed to the application.
-    // Other modeuls will access context values via this.
+    // Other modules will access context values via this.
     extern contract_ctx ctx;
 
     // Global configuration struct exposed to the application.
-    // Other modeuls will access config values via this.
+    // Other modules will access config values via this.
     extern hp_config cfg;
 
     int init();
