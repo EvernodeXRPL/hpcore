@@ -179,7 +179,7 @@ namespace sc
             close_unused_fds(ctx, false);
 
             // Clone the user inputs fd to be passed on to the contract.
-            const int user_inputs_fd = dup(ctx.args.user_input_store.fd);
+            const int user_inputs_fd = (ctx.args.mode == EXECUTION_MODE::CONSENSUS_FALLBACK) ? STDIN_FILENO : dup(ctx.args.user_input_store.fd);
             lseek(user_inputs_fd, 0, SEEK_SET); // Reset seek position.
 
             // Write the contract execution args from HotPocket to the stdin (0) of the contract process.
