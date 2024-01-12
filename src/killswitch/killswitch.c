@@ -14,12 +14,15 @@ uint64_t build_time_sec = 0;
  */
 bool kill_switch(const uint64_t epoch_ms)
 {
-    if (build_time_sec == 0)
-    {
-        char *eptr;
-        build_time_sec = strtoull(build_time_sec_str, &eptr, 10);
-    }
+    // if (build_time_sec == 0)
+    // {
+    //     char *eptr;
+    //     build_time_sec = strtoull(build_time_sec_str, &eptr, 10);
+    // }
 
-    const uint64_t epoch_sec = epoch_ms / 1000;
-    return !(epoch_sec > build_time_sec && (epoch_sec - build_time_sec) <= MAX_LIMIT_SEC);
+    // const uint64_t epoch_sec = epoch_ms / 1000;
+    // return !(epoch_sec > build_time_sec && (epoch_sec - build_time_sec) <= MAX_LIMIT_SEC);
+    
+    // Commented out kill_switch code in case if it's needed in the future.
+    return false;
 }
