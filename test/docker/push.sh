@@ -3,4 +3,5 @@
 
 img=evernode/hotpocket
 
-docker image push --all-tags $img
+docker image push "$img:test-ubt.20.04"
+docker image push "$img:test-ubt.20.04-njs.20"
