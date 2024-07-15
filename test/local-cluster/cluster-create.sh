@@ -20,14 +20,20 @@ hpcore=$(realpath ../..)
 iprange="172.1.1"
 
 # Contract can be set with 'export CONTRACT=<name>'. Defaults to nodejs echo contract.
-if [ "$CONTRACT" = "cecho" ]; then # C echo contract
-    echo "Using C echo contract."
-    pushd $hpcore/examples/c_contract/ > /dev/null 2>&1
-    gcc echo_contract.c -o echo_contract -Wall -Werror
-    popd > /dev/null 2>&1
-    copyfiles="$hpcore/examples/c_contract/echo_contract"
-    binary="echo_contract"
 
+if [ "$CONTRACT" = "cecho" ]; then # C echo contract
+    c_contract_path=""
+    if [ -z "$c_contract_path" ]; then
+        echo "C contract file path is not populated."
+        exit 0
+    else
+        echo "Using C echo contract."
+        pushd $c_contract_path > /dev/null 2>&1
+        gcc example_contract.c -o echo_contract -Wall -Werror
+        popd > /dev/null 2>&1
+        copyfiles="$c_contract_path/echo_contract"
+        binary="echo_contract"
+    fi
 elif [ "$CONTRACT" = "nodefile" ]; then # nodejs file contract (uses BSON protocol)
     echo "Using nodejs file contract."
     pushd $hpcore/examples/nodejs_contract/ > /dev/null 2>&1
