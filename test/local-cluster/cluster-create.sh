@@ -23,10 +23,10 @@ iprange="172.1.1"
 
 if [ "$CONTRACT" = "cexample" ]; then # C example contract
     echo "Using C example contract."
-    pushd $hpcore/examples/c_contract/ > /dev/null 2>&1
-    gcc example_contract.c -o example_contract -Wall -Werror
+    pushd $hpcore/examples/hp-c-contract/ > /dev/null 2>&1
+    gcc example_contract.c -o ../example_contract -Wall -Werror
     popd > /dev/null 2>&1
-    copyfiles="$hpcore/examples/c_contract/example_contract"
+    copyfiles="$hpcore/examples/example_contract"
     binary="example_contract"
 elif [ "$CONTRACT" = "nodefile" ]; then # nodejs file contract (uses BSON protocol)
     echo "Using nodejs file contract."
