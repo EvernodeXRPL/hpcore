@@ -60,28 +60,20 @@ async function main() {
                 else
                     console.log("File " + result.fileName + " delete failed. reason: " + result.status);
             }
+            if (result.type == "downloadResult") {
+                if (result.status == "ok") {
+                    fs.writeFileSync(result.fileName, result.content.buffer);
+                    console.log("File " + result.fileName + " downloaded to current directory.");
+                }
+                else {
+                    console.log("File " + result.fileName + " download failed. reason: " + result.status);
+                }
+            }
             else {
                 console.log("Unknown contract output.");
+                console.log(JSON.stringify(result));
             }
-
         });
-    })
-
-    // This will get fired when contract sends a read response.
-    hpc.on(HotPocket.events.contractReadResponse, (response) => {
-        const result = bson.deserialize(response);
-        if (result.type == "downloadResult") {
-            if (result.status == "ok") {
-                fs.writeFileSync(result.fileName, result.content.buffer);
-                console.log("File " + result.fileName + " downloaded to current directory.");
-            }
-            else {
-                console.log("File " + result.fileName + " download failed. reason: " + result.status);
-            }
-        }
-        else {
-            console.log("Unknown read request result.");
-        }
     })
 
     console.log("Ready to accept inputs.");
@@ -122,10 +114,14 @@ async function main() {
             else if (inp.startsWith("download ")) {
 
                 const fileName = inp.substr(9);
-                hpc.sendContractReadRequest(bson.serialize({
+                const input = await hpc.submitContractInput(bson.serialize({
                     type: "download",
                     fileName: fileName
                 }));
+
+                const submission = await input.submissionStatus;
+                if (submission.status != "accepted")
+                    console.log("Download failed. reason: " + submission.reason);
             }
             else {
                 console.log("Invalid command. [upload <local path> | delete <filename> | download <filename>] expected.")
