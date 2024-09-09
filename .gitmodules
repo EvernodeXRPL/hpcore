@@ -1,0 +1,3 @@
+[submodule "examples/hp-c-contract"]
+	path = examples/hp-c-contract
+	url = https://github.com/EvernodeXRPL/hp-c-contract.git
