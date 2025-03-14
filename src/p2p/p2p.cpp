@@ -237,6 +237,14 @@ namespace p2p
                 (unl_only && !session->is_unl))
                 continue;
 
+            // Messages larger than the duplicate message threshold are ignored from the duplicate message check
+            // due to the overhead in hash generation for larger messages.
+            if (message.size() <= conf::MAX_SIZE_FOR_DUP_CHECK && !session->recent_sent_peermsg_hashes.try_emplace(crypto::get_hash(message)))
+            {
+                LOG_DEBUG << "Trying to send duplicate peer message. to:" << session->display_name();
+                continue;
+            }
+
             session->send(message, priority);
         }
     }

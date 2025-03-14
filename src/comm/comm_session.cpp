@@ -91,7 +91,7 @@ namespace comm
                     else
                         should_disconnect = true; // Disconnect if we receive a bad message before challenge verification.
                 }
-                else if (priority == 1 || priority == 2)
+                else if ((priority == 1 || priority == 2) && accept_msg(data))
                 {
                     std::vector<char> msg(data.size());
                     memcpy(msg.data(), data.data(), data.size());
@@ -407,6 +407,11 @@ namespace comm
 
     void comm_session::handle_on_verified()
     {
+    }
+
+    bool comm_session::accept_msg(std::string_view msg)
+    {
+        return true;
     }
 
 } // namespace comm

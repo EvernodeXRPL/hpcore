@@ -17,6 +17,7 @@ namespace usr
         int handle_connect();
         int handle_message(std::string_view msg);
         void handle_close();
+        bool accept_msg(std::string_view msg);
     };
 
 } // namespace usr

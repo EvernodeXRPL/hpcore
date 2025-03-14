@@ -75,7 +75,7 @@ namespace p2p
         if (!mi.p2p_msg) // Message buffer will be null if peer message was too old.
             return 0;
 
-        // Messages larger than the duplicate message threshold is ignored from the duplicate message check
+        // Messages larger than the duplicate message threshold are ignored from the duplicate message check
         // due to the overhead in hash generation for larger messages.
         if (message_size <= conf::MAX_SIZE_FOR_DUP_CHECK && !recent_peermsg_hashes.try_emplace(crypto::get_hash(msg)))
         {
@@ -332,6 +332,19 @@ namespace p2p
         // Sending newly verified node the requirement of consensus msg fowarding if this node is weakly connected.
         if (status::get_weakly_connected())
             p2p::send_peer_requirement_announcement(true, this);
+    }
+
+    bool peer_comm_session::accept_msg(std::string_view msg)
+    {
+        // Messages larger than the duplicate message threshold are ignored from the duplicate message check
+        // due to the overhead in hash generation for larger messages.
+        if (msg.size() <= conf::MAX_SIZE_FOR_DUP_CHECK && !recent_recvd_peermsg_hashes.try_emplace(crypto::get_hash(msg)))
+        {
+            LOG_DEBUG << "Duplicate peer message received. from:" << display_name();
+            return false;
+        }
+
+        return true;
     }
 
 } // namespace p2p

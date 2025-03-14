@@ -95,4 +95,9 @@ namespace usr
             remove_user(pubkey);
     }
 
+    bool user_comm_session::accept_msg(std::string_view msg)
+    {
+        return true;
+    }
+
 } // namespace usr

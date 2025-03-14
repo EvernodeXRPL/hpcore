@@ -18,6 +18,7 @@ hpversion=0.6.4
 
 let pubport=8080+$n
 let peerport=22860+$n
+let gpport=22880+$n
 
 # Mount the node<id> contract directory into hpcore docker container and run.
 # We specify --network=hpnet so all nodes will communicate via 'hpnet' docker virtual network.
@@ -25,6 +26,7 @@ let peerport=22860+$n
 docker run --rm -t -i --network=hpnet --ip=172.1.1.${n} --name=node${n} \
     -p ${pubport}:${pubport} \
     -p ${peerport}:${peerport} \
+    -p ${gpport}:${gpport} \
     --device /dev/fuse --cap-add SYS_ADMIN --security-opt apparmor:unconfined \
     --mount type=bind,source=${clusterloc}/node${n},target=/contract \
     hpcore:${hpversion} run /contract

@@ -60,6 +60,7 @@ namespace comm
         virtual int handle_message(std::string_view msg);
         virtual void handle_close();
         virtual void handle_on_verified();
+        virtual bool accept_msg(std::string_view msg);
 
     public:
         std::string uniqueid; // Verified session: Pubkey in hex format, Unverified session: IP address.
