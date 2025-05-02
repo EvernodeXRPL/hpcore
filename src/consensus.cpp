@@ -1077,7 +1077,8 @@ namespace consensus
 
         // Check whether we have received enough votes in total.
         // Threshold is devided by 100 to convert average to decimal.
-        const uint32_t min_votes_required = ceil((conf::cfg.contract.consensus.threshold / 100.0) * unl_count);
+        const float stage_threshold = ((STAGE_THRESHOLD_RATIO[ctx.stage - 1] * conf::cfg.contract.consensus.threshold) / (STAGE_THRESHOLD_RATIO[2] * 100.0));
+        const uint32_t min_votes_required = ceil(stage_threshold * unl_count);
         if (total_ledger_primary_hash_votes < min_votes_required)
         {
             LOG_INFO << "Not enough peers proposing to perform consensus. votes:" << total_ledger_primary_hash_votes << " needed:" << min_votes_required;
