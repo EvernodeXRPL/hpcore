@@ -1475,7 +1475,7 @@ namespace consensus
         // We allocate configured stage slice for stages 1, 2, 3. Stage 0 gets the entire remaining time from the round window.
         ctx.stage123_duration = conf::cfg.contract.consensus.roundtime * conf::cfg.contract.consensus.stage_slice / 100;
         ctx.stage0_duration = conf::cfg.contract.consensus.roundtime - (ctx.stage123_duration * 3);
-        ctx.stage_reset_wait_threshold = conf::cfg.contract.consensus.roundtime / 10;
+        ctx.stage_reset_wait_threshold = conf::cfg.contract.consensus.roundtime / 15;
 
         // We use a time window boundry offset based on contract id to vary the window boundries between
         // different contracts with same round time.
