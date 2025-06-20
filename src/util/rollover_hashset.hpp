@@ -1,4 +1,4 @@
-#**DEPRECATED:** This file is no longer required as deduplication is handled by bloom filteringand will be removed soon. Please do not use.
+#DEPRECATED: This file is no longer required as deduplication is handled by bloom filteringand will be removed soon. Please do not use.
 
 #ifndef _HP_UTIL_ROLLOVER_HASHSET_
 #define _HP_UTIL_ROLLOVER_HASHSET_
