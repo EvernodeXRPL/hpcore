@@ -1,3 +1,5 @@
+#**DEPRECATED:** This file is no longer required as deduplication is handled by bloom filteringand will be removed soon. Please do not use.
+
 #include "rollover_hashset.hpp"
 
 namespace util
