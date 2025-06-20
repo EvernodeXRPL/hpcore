@@ -4,7 +4,6 @@
 #include "../pchheader.hpp"
 #include "../util/util.hpp"
 #include "../util/h32.hpp"
-#include "../util/rollover_hashset.hpp"
 #include "../util/buffer_store.hpp"
 #include "../msg/usrmsg_parser.hpp"
 #include "user_comm_session.hpp"
