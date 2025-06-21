@@ -18,7 +18,6 @@ add_subdirectory(src/killswitch)
 add_executable(hpcore
     src/util/version.cpp
     src/util/util.cpp
-    src/util/rollover_hashset.cpp
     src/util/ttl_set.cpp
     src/util/buffer_store.cpp
     src/util/merkle_hash_tree.cpp
