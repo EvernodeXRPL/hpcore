@@ -1,7 +1,7 @@
 {
     "dependencies": {
         "hotpocket-js-client": "0.5.1",
-        "azure-storage": "2.10.4",
+        "azure-storage": "2.10.7",
         "node-fetch": "2.6.1"
     }
 }
