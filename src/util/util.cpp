@@ -64,7 +64,6 @@ namespace util
         if (!::realpath(path.c_str(), buffer.data()))
             return {};
 
-        buffer[PATH_MAX] = '\0';
         return buffer.data();
     }
 
