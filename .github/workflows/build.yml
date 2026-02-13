@@ -1,0 +1,147 @@
+name: Build HpCore
+
+on:
+  push:
+    branches: [ main, master, develop, build-github ]
+  pull_request:
+    branches: [ main, master, develop ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Install system dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y build-essential libssl-dev libsodium-dev \
+          sqlite3 libsqlite3-dev libboost-stacktrace-dev fuse3 jq
+    
+    - name: Cache CMake
+      id: cache-cmake
+      uses: actions/cache@v4
+      with:
+        path: /usr/local/bin/cmake
+        key: cmake-3.16.0-rc3
+    
+    - name: Install CMake
+      if: steps.cache-cmake.outputs.cache-hit != 'true'
+      run: |
+        cd /tmp
+        CMAKE_VERSION=cmake-3.16.0-rc3-Linux-x86_64
+        wget https://github.com/Kitware/CMake/releases/download/v3.16.0-rc3/$CMAKE_VERSION.tar.gz
+        tar -zxf $CMAKE_VERSION.tar.gz
+        sudo cp -r $CMAKE_VERSION/bin/* /usr/local/bin/
+        sudo cp -r $CMAKE_VERSION/share/* /usr/local/share/
+    
+    - name: Cache libraries
+      id: cache-libs
+      uses: actions/cache@v4
+      with:
+        path: |
+          /usr/local/lib/libblake3.so
+          /usr/local/include/blake3.h
+          /usr/local/include/jsoncons
+          /usr/local/include/jsoncons_ext
+          /usr/local/include/flatbuffers
+          /usr/local/bin/flatc
+          /usr/local/include/readerwriterqueue
+          /usr/local/include/concurrentqueue.h
+          /usr/local/include/plog
+        key: hpcore-libs-v1
+    
+    - name: Install Blake3
+      if: steps.cache-libs.outputs.cache-hit != 'true'
+      run: |
+        cd /tmp
+        git clone https://github.com/BLAKE3-team/BLAKE3.git
+        cd BLAKE3/c
+        gcc -shared -fPIC -O3 -o libblake3.so blake3.c blake3_dispatch.c blake3_portable.c \
+          blake3_sse2_x86-64_unix.S blake3_sse41_x86-64_unix.S blake3_avx2_x86-64_unix.S \
+          blake3_avx512_x86-64_unix.S
+        sudo cp blake3.h /usr/local/include/
+        sudo cp libblake3.so /usr/local/lib/
+    
+    - name: Install jsoncons
+      if: steps.cache-libs.outputs.cache-hit != 'true'
+      run: |
+        cd /tmp
+        wget https://github.com/danielaparker/jsoncons/archive/v0.153.3.tar.gz
+        tar -zxf v0.153.3.tar.gz
+        cd jsoncons-0.153.3
+        sudo cp -r include/jsoncons /usr/local/include/
+        sudo mkdir -p /usr/local/include/jsoncons_ext/
+        sudo cp -r include/jsoncons_ext/bson /usr/local/include/jsoncons_ext/
+    
+    - name: Install Flatbuffers
+      if: steps.cache-libs.outputs.cache-hit != 'true'
+      run: |
+        cd /tmp
+        wget https://github.com/google/flatbuffers/archive/v1.12.0.tar.gz
+        tar -zxf v1.12.0.tar.gz
+        cd flatbuffers-1.12.0
+        cmake -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=Release
+        make
+        sudo cp -r include/flatbuffers /usr/local/include/
+        sudo cp flatc /usr/local/bin/flatc
+        sudo chmod +x /usr/local/bin/flatc
+    
+    - name: Install Reader-Writer queue
+      if: steps.cache-libs.outputs.cache-hit != 'true'
+      run: |
+        cd /tmp
+        wget https://github.com/cameron314/readerwriterqueue/archive/v1.0.3.tar.gz
+        tar -zxf v1.0.3.tar.gz
+        cd readerwriterqueue-1.0.3
+        mkdir build
+        cd build
+        cmake ..
+        sudo make install
+    
+    - name: Install Concurrent queue
+      if: steps.cache-libs.outputs.cache-hit != 'true'
+      run: |
+        cd /tmp
+        wget https://github.com/cameron314/concurrentqueue/archive/1.0.2.tar.gz
+        tar -zxf 1.0.2.tar.gz
+        cd concurrentqueue-1.0.2
+        sudo cp concurrentqueue.h /usr/local/include/
+    
+    - name: Install Plog
+      if: steps.cache-libs.outputs.cache-hit != 'true'
+      run: |
+        cd /tmp
+        wget https://github.com/SergiusTheBest/plog/archive/1.1.5.tar.gz
+        tar -zxf 1.1.5.tar.gz
+        cd plog-1.1.5
+        sudo cp -r include/plog /usr/local/include/
+    
+    - name: Update library cache
+      run: sudo ldconfig
+    
+    - name: Build hpcore
+      run: |
+        mkdir -p build
+        cmake .
+        make -j$(nproc)
+    
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: hpcore-build
+        path: |
+          build/hpcore
+          build/hpws
+          build/hpfs
+          build/evernode-license.pdf
+        retention-days: 30
+    
+    - name: Build info
+      run: |
+        echo "Build completed successfully!"
+        ls -lh build/
+        file build/hpcore
