@@ -77,7 +77,9 @@ target_link_libraries(hpcore
 add_custom_command(TARGET hpcore POST_BUILD
 
     # COMMAND strip ./build/hpcore
-    COMMAND cp ./test/bin/hpws ./test/bin/hpfs ./evernode-license.pdf ./build/
+    COMMAND bash -c "test -f ./test/bin/hpws && cp ./test/bin/hpws ./build/ || true"
+    COMMAND bash -c "test -f ./test/bin/hpfs && cp ./test/bin/hpfs ./build/ || true"
+    COMMAND bash -c "test -f ./evernode-license.pdf && cp ./evernode-license.pdf ./build/ || true"
 )
 
 target_precompile_headers(hpcore PUBLIC src/pchheader.hpp)
