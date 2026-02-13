@@ -20,6 +20,8 @@ This project is configured to build automatically on GitHub using GitHub Actions
 
 **Build artifacts** are available for download from the GitHub Actions run page for 30 days.
 
+**Note:** Build artifacts include hpcore and helper binaries (hpws, hpfs) but not the Evernode license PDF, which should be added to the repository root if needed.
+
 ### Docker Workflow (`.github/workflows/docker.yml`)
 
 **Triggers:**
@@ -59,6 +61,21 @@ The workflows use GitHub Actions caching to speed up builds by caching:
 
 This significantly reduces build times after the first successful build.
 
+## Build Compatibility Fixes
+
+Several fixes were applied to ensure the project builds successfully with modern GCC compilers (GCC 11+) on Ubuntu 22.04:
+
+### Code Fixes
+1. **Array bounds fix** in `src/util/util.cpp` - Removed out-of-bounds array access in `realpath()` function
+2. **Range-loop optimizations** in `src/unl.cpp` and `src/consensus.cpp` - Added references to prevent unnecessary copies in range-based for loops
+3. **Flatbuffers compilation** - Disabled Flatbuffers tests to avoid compilation errors with strict warning flags
+
+### Build System Changes
+1. **CMakeLists.txt** - Modified post-build copy commands to use CMake's portable copy functions
+2. **Optional file copying** - Made license file copying optional to prevent build failures when file is missing
+
+These changes ensure `-Werror` (treat warnings as errors) doesn't cause build failures while maintaining code quality.
+
 ## Using Docker Images
 
 Docker images are pushed to GitHub Container Registry (ghcr.io). To pull and use them:
@@ -81,5 +98,18 @@ docker run ghcr.io/YOUR_USERNAME/hpcore:latest
 If builds fail:
 1. Check the Actions tab for error logs
 2. Verify all dependencies are correctly installed
-3. Clear cache by updating the cache key in the workflow file
+3. Clear cache by updating the cache key in the workflow file (change `hpcore-libs-v1` to `hpcore-libs-v2`, etc.)
 4. Ensure the repository has sufficient permissions to upload packages (for Docker workflow)
+
+### Common Issues
+
+**Missing files:** If `hpws` or `hpfs` binaries are missing from `test/bin/`, the build will skip copying them but continue successfully. Ensure these files are committed to the repository if needed.
+
+**Compilation warnings as errors:** The project uses `-Werror` flag. If you encounter new warnings with newer compiler versions:
+- Update the code to fix the warnings
+- Or modify `CMakeLists.txt` to selectively disable specific warnings
+
+**Cache issues:** If builds fail after dependency updates, clear the cache:
+1. Go to repository Settings → Actions → Caches
+2. Delete old caches
+3. Re-run the workflow
