@@ -267,7 +267,7 @@ namespace consensus
         // Find the winning hash and no. of votes for it.
         uint32_t winning_votes = 0;
         util::h32 winning_hash = util::h32_empty;
-        for (const auto [hash, proposals] : proposal_groups)
+        for (const auto& [hash, proposals] : proposal_groups)
         {
             if (proposals.size() > winning_votes)
             {
