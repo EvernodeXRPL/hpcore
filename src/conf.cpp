@@ -853,6 +853,29 @@ namespace conf
             return -1;
         }
 
+        // Apply log level change dynamically if present in patch config.
+        // Uses plog::get()->setMaxSeverity() to update the live logger without restart.
+        try {
+            if (jdoc.contains("log") && jdoc["log"].contains("log_level")) {
+                const std::string new_log_level = jdoc["log"]["log_level"].as<std::string>();
+                const std::unordered_set<std::string> valid_loglevels({"dbg", "inf", "wrn", "err"});
+                if (valid_loglevels.count(new_log_level) == 1) {
+                    cfg.log.log_level = new_log_level;
+                    cfg.log.log_level_type = get_loglevel_type(new_log_level);
+                    temp_cfg.log.log_level = new_log_level;
+                    temp_cfg.log.log_level_type = get_loglevel_type(new_log_level);
+                    plog::Severity new_plog_level;
+                    if (cfg.log.log_level_type == LOG_SEVERITY::DEBUG) new_plog_level = plog::Severity::debug;
+                    else if (cfg.log.log_level_type == LOG_SEVERITY::INFO) new_plog_level = plog::Severity::info;
+                    else if (cfg.log.log_level_type == LOG_SEVERITY::WARN) new_plog_level = plog::Severity::warning;
+                    else new_plog_level = plog::Severity::error;
+                    plog::get()->setMaxSeverity(new_plog_level);
+                    LOG_INFO << "Log level updated dynamically to: " << new_log_level;
+                }
+            }
+        } catch (const std::exception &e) {
+            LOG_ERROR << "Error applying log level from patch config: " << e.what();
+        }
         LOG_INFO << "Contract config updated from patch file.";
         return 0;
     }
