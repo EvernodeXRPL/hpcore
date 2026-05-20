@@ -7,6 +7,9 @@
 #include "ledger/ledger_mount.hpp"
 #include "sc/contract_mount.hpp"
 
+// Forward declaration to avoid circular dependency with p2p/p2p.hpp
+namespace p2p { void update_idle_timeout(const uint32_t timeout_ms); }
+
 namespace conf
 {
 
@@ -875,6 +878,21 @@ namespace conf
             }
         } catch (const std::exception &e) {
             LOG_ERROR << "Error applying log level from patch config: " << e.what();
+        }
+        // Apply mesh idle timeout change dynamically if present in patch config.
+        // Updates all active peer sessions and future connections without restart.
+        try {
+            if (jdoc.contains("mesh") && jdoc["mesh"].contains("idle_timeout")) {
+                const uint32_t new_idle_timeout = jdoc["mesh"]["idle_timeout"].as<uint32_t>();
+                if (new_idle_timeout != cfg.mesh.idle_timeout) {
+                    cfg.mesh.idle_timeout = new_idle_timeout;
+                    temp_cfg.mesh.idle_timeout = new_idle_timeout;
+                    p2p::update_idle_timeout(new_idle_timeout);
+                    LOG_INFO << "Mesh idle timeout updated dynamically to: " << new_idle_timeout << "ms";
+                }
+            }
+        } catch (const std::exception &e) {
+            LOG_ERROR << "Error applying mesh idle timeout from patch config: " << e.what();
         }
         LOG_INFO << "Contract config updated from patch file.";
         return 0;
