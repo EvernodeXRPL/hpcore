@@ -1,5 +1,5 @@
 #include "../pchheader.hpp"
-#include "../util/rollover_hashset.hpp"
+#include "../util/bloom_filter.hpp"
 #include "../msg/fbuf/p2pmsg_generated.h"
 #include "../msg/fbuf/p2pmsg_conversion.hpp"
 #include "../msg/fbuf/common_helpers.hpp"
@@ -13,10 +13,7 @@ namespace p2pmsg = msg::fbuf::p2pmsg;
 
 namespace p2p
 {
-    // The set of recent peer message hashes used for duplicate detection.
-    util::rollover_hashset recent_peermsg_hashes(200);
-
-    /**
+     /**
      * This gets hit every time a peer connects to HP via the peer port (configured in config).
      * @param session connected session.
      * @return returns 0 if connection is successful and peer challenge is sent otherwise, -1.

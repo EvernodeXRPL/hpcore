@@ -1,6 +1,6 @@
 #include "pchheader.hpp"
 #include "conf.hpp"
-#include "util/rollover_hashset.hpp"
+#include "util/bloom_filter.hpp"
 #include "usr/usr.hpp"
 #include "usr/user_input.hpp"
 #include "p2p/p2p.hpp"

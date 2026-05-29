@@ -4,7 +4,7 @@
 #include "../msg/fbuf/p2pmsg_generated.h"
 #include "../msg/fbuf/p2pmsg_conversion.hpp"
 #include "../msg/fbuf/common_helpers.hpp"
-#include "../util/rollover_hashset.hpp"
+#include "../util/bloom_filter.hpp"
 #include "../crypto.hpp"
 
 namespace p2pmsg = msg::fbuf::p2pmsg;
@@ -15,9 +15,6 @@ namespace p2p::self
     moodycamel::ConcurrentQueue<std::string> msg_queue;
 
     std::optional<conf::peer_ip_port> ip_port;
-
-    // The set of recent self message hashes used for duplicate detection.
-    util::rollover_hashset recent_selfmsg_hashes(200);
 
     /**
      * Processes the next queued message (if any).
