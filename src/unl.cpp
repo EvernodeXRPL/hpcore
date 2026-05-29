@@ -178,7 +178,7 @@ namespace unl
         }
 
         // Add any pubkeys that are not in current unl list.
-        for (const std::string pubkey : conf::cfg.contract.unl)
+        for (const std::string& pubkey : conf::cfg.contract.unl)
         {
             if (list.count(pubkey) == 0)
             {

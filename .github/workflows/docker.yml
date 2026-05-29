@@ -1,0 +1,154 @@
+name: Build Docker Image
+
+on:
+  push:
+    branches: [ main, master ]
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: read
+      packages: write
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+      
+    - name: Log in to Container Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ${{ env.REGISTRY }}
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    
+    - name: Extract metadata
+      id: meta
+      uses: docker/metadata-action@v5
+      with:
+        images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+        tags: |
+          type=ref,event=branch
+          type=ref,event=pr
+          type=semver,pattern={{version}}
+          type=semver,pattern={{major}}.{{minor}}
+          type=sha
+    
+    - name: Install system dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y build-essential libssl-dev libsodium-dev \
+          sqlite3 libsqlite3-dev libboost-stacktrace-dev fuse3
+    
+    - name: Cache libraries
+      id: cache-libs
+      uses: actions/cache@v4
+      with:
+        path: |
+          /usr/local/lib/libblake3.so
+          /usr/local/include/blake3.h
+          /usr/local/include/jsoncons
+          /usr/local/include/jsoncons_ext
+          /usr/local/include/flatbuffers
+          /usr/local/bin/flatc
+          /usr/local/include/readerwriterqueue
+          /usr/local/include/concurrentqueue.h
+          /usr/local/include/plog
+        key: hpcore-libs-v1
+    
+    - name: Install Blake3
+      if: steps.cache-libs.outputs.cache-hit != 'true'
+      run: |
+        cd /tmp
+        git clone https://github.com/BLAKE3-team/BLAKE3.git
+        cd BLAKE3/c
+        gcc -shared -fPIC -O3 -o libblake3.so blake3.c blake3_dispatch.c blake3_portable.c \
+          blake3_sse2_x86-64_unix.S blake3_sse41_x86-64_unix.S blake3_avx2_x86-64_unix.S \
+          blake3_avx512_x86-64_unix.S
+        sudo cp blake3.h /usr/local/include/
+        sudo cp libblake3.so /usr/local/lib/
+    
+    - name: Install jsoncons
+      if: steps.cache-libs.outputs.cache-hit != 'true'
+      run: |
+        cd /tmp
+        wget https://github.com/danielaparker/jsoncons/archive/v0.153.3.tar.gz
+        tar -zxf v0.153.3.tar.gz
+        cd jsoncons-0.153.3
+        sudo cp -r include/jsoncons /usr/local/include/
+        sudo mkdir -p /usr/local/include/jsoncons_ext/
+        sudo cp -r include/jsoncons_ext/bson /usr/local/include/jsoncons_ext/
+    
+    - name: Install Flatbuffers
+      if: steps.cache-libs.outputs.cache-hit != 'true'
+      run: |
+        cd /tmp
+        wget https://github.com/google/flatbuffers/archive/v1.12.0.tar.gz
+        tar -zxf v1.12.0.tar.gz
+        cd flatbuffers-1.12.0
+        cmake -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=Release -DFLATBUFFERS_BUILD_TESTS=OFF
+        make
+        sudo cp -r include/flatbuffers /usr/local/include/
+        sudo cp flatc /usr/local/bin/flatc
+        sudo chmod +x /usr/local/bin/flatc
+    
+    - name: Install Reader-Writer queue
+      if: steps.cache-libs.outputs.cache-hit != 'true'
+      run: |
+        cd /tmp
+        wget https://github.com/cameron314/readerwriterqueue/archive/v1.0.3.tar.gz
+        tar -zxf v1.0.3.tar.gz
+        cd readerwriterqueue-1.0.3
+        mkdir build
+        cd build
+        cmake ..
+        sudo make install
+    
+    - name: Install Concurrent queue
+      if: steps.cache-libs.outputs.cache-hit != 'true'
+      run: |
+        cd /tmp
+        wget https://github.com/cameron314/concurrentqueue/archive/1.0.2.tar.gz
+        tar -zxf 1.0.2.tar.gz
+        cd concurrentqueue-1.0.2
+        sudo cp concurrentqueue.h /usr/local/include/
+    
+    - name: Install Plog
+      if: steps.cache-libs.outputs.cache-hit != 'true'
+      run: |
+        cd /tmp
+        wget https://github.com/SergiusTheBest/plog/archive/1.1.5.tar.gz
+        tar -zxf 1.1.5.tar.gz
+        cd plog-1.1.5
+        sudo cp -r include/plog /usr/local/include/
+    
+    - name: Update library cache
+      run: sudo ldconfig
+    
+    - name: Build hpcore
+      run: |
+        mkdir -p build
+        cmake .
+        make -j$(nproc)
+        make docker
+    
+    - name: Push Docker image
+      run: |
+        docker tag hpcore:latest ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+        docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+        
+        # Push version tag if available
+        if [ "${{ github.ref_type }}" == "tag" ]; then
+          docker tag hpcore:latest ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.ref_name }}
+          docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.ref_name }}
+        fi
