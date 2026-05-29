@@ -70,6 +70,24 @@ namespace p2p
         }
     }
 
+    /**
+     * Update mesh idle timeout on all active peer sessions and for future connections.
+     * Called from conf::apply_patch_config() when mesh.idle_timeout changes in patch.cfg.
+     * Updates both the cached metric_thresholds array (for new sessions) and all
+     * existing live sessions via set_threshold() so no restart is required.
+     */
+    void update_idle_timeout(const uint32_t timeout_ms)
+    {
+        metric_thresholds[4] = timeout_ms;
+        if (ctx.server.has_value())
+        {
+            ctx.server->for_each_session([timeout_ms](peer_comm_session &session) {
+                session.set_threshold(comm::SESSION_THRESHOLDS::IDLE_CONNECTION_TIMEOUT, timeout_ms, 60000);
+            });
+            LOG_INFO << "Mesh idle timeout updated dynamically to: " << timeout_ms << "ms";
+        }
+    }
+
     int start_peer_connections()
     {
         const uint16_t listen_port = conf::cfg.mesh.listen ? conf::cfg.mesh.port : 0;

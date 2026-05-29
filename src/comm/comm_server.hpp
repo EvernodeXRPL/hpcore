@@ -322,6 +322,17 @@ namespace comm
 
             message_processor_thread.join();
         }
+        /**
+         * Iterate over all active sessions and apply a function to each.
+         * Used to update live session thresholds (e.g. idle_timeout) without restart.
+         */
+        template<typename F>
+        void for_each_session(F&& func)
+        {
+            std::scoped_lock<std::mutex> lock(sessions_mutex);
+            for (T &session : sessions)
+                func(session);
+        }
     };
 
 } // namespace comm
