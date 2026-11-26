@@ -11,6 +11,7 @@ namespace comm
     constexpr uint32_t INTERVALMS = 60000;
     constexpr uint32_t UNVERIFIED_INACTIVE_TIMEOUT = 5000; // Time threshold ms for unverified inactive connections.
     constexpr uint16_t MAX_IN_MSG_QUEUE_SIZE = 4095;        // Maximum in message queue size, The size passed is rounded to next number in binary sequence 1(1),11(3),111(7),1111(15),11111(31)....
+    constexpr uint32_t DROP_REPORT_INTERVALMS = 10000;      // Minimum interval between "inbound queue full" warnings per session.
 
     comm_session::comm_session(corebill::tracker &violation_tracker,
                                std::string_view host_address, hpws::client &&hpws_client, const bool is_ipv4, const bool is_inbound, const uint64_t (&metric_thresholds)[5], const bool corebill_enabled)
@@ -105,7 +106,15 @@ namespace comm
 
                     if (!enqueued)
                     {
-                        LOG_WARNING << "Failed to enqueue comm msg.";
+                        dropped_in_msg_count++;
+                        const uint64_t now = util::get_epoch_milliseconds();
+                        if (now - last_drop_report_timestamp >= DROP_REPORT_INTERVALMS)
+                        {
+                            LOG_WARNING << "Inbound msg queue full for " << host_address
+                                        << ". Dropped " << dropped_in_msg_count << " msg(s) since last report.";
+                            dropped_in_msg_count = 0;
+                            last_drop_report_timestamp = now;
+                        }
                     }
                 }
 

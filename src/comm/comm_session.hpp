@@ -51,6 +51,8 @@ namespace comm
         moodycamel::ReaderWriterQueue<std::vector<char>> in_msg_queue2; // Holds low priority incoming messages waiting to be processed.
         moodycamel::ConcurrentQueue<std::string> out_msg_queue1;        // Holds high priority outgoing messages waiting to be processed.
         moodycamel::ConcurrentQueue<std::string> out_msg_queue2;        // Holds low priority outgoing messages waiting to be processed.
+        uint64_t dropped_in_msg_count = 0;                              // No. of inbound messages dropped (queue full) since the last report. Reader thread only.
+        uint64_t last_drop_report_timestamp = 0;                        // Epoch ms of the last "dropped messages" warning. Reader thread only.
 
         void reader_loop();
 
